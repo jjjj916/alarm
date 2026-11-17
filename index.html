@@ -2,16 +2,33 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>스마트 시계 - 알람 · 스톱워치 · 타이머</title>
+  
+  <!-- 안드로이드 & 공통 PWA 매니페스트 -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f6f7f9">
+  
+  <!-- 아이폰(iOS) 홈 화면 앱 설치 전용 설정 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="스마트 시계">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
       background-color: #f6f7f9;
       color: #111827;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", sans-serif;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    input, select {
+      user-select: auto;
     }
     .clean-card {
       background-color: #ffffff;
@@ -57,10 +74,24 @@
     }
   </style>
 </head>
-<body class="min-h-screen flex flex-col items-center p-4 pb-24">
+<body class="min-h-screen flex flex-col items-center p-4">
 
   <div class="max-w-lg w-full space-y-4 my-1">
     
+    <!-- 📲 스마트폰 앱 다운로드/설치 안내 배너 (미설치 브라우저 접속 시 자동 표시) -->
+    <div id="installAppBanner" class="clean-card p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200/80 flex items-center justify-between gap-3 hidden">
+      <div class="flex items-center gap-3 text-left">
+        <img src="icon-192.png" alt="앱 아이콘" class="w-10 h-10 rounded-2xl shadow-sm">
+        <div>
+          <div class="text-xs font-extrabold text-gray-900">스마트 시계 앱 설치</div>
+          <div id="installGuideText" class="text-[11px] text-gray-600 mt-0.5">홈 화면에 앱으로 다운로드하여 바로 실행하세요</div>
+        </div>
+      </div>
+      <button id="installAppBtn" class="px-3.5 py-2 bg-[#0381fe] hover:bg-[#026de0] text-white text-xs font-bold rounded-full shadow-sm whitespace-nowrap transition">
+        앱 설치
+      </button>
+    </div>
+
     <!-- 상단 유틸리티 바 -->
     <div class="flex justify-between items-center px-2 pt-1">
       <div class="flex items-center gap-1.5">
@@ -332,8 +363,8 @@
 
   </div>
 
-  <!-- 하단 고정 탭 바 -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/80 z-40">
+  <!-- 하단 고정 탭 바 (iOS 하단 안전 영역 반영) -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/80 z-40" style="padding-bottom: env(safe-area-inset-bottom);">
     <div class="max-w-lg mx-auto flex justify-around items-center h-16 px-4">
       <button onclick="switchTab('alarm')" id="nav-alarm" class="flex-1 flex flex-col items-center justify-center py-1 text-[#0381fe] font-bold transition">
         <span class="text-lg leading-none mb-1">🔔</span>
@@ -387,6 +418,51 @@
     let syncedDomain = null;
     let lastFetchTimestamp = 0;
 
+    // ==========================================
+    // 📲 안드로이드 & 아이폰 앱 설치(다운로드) 감지
+    // ==========================================
+    let deferredPrompt = null;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    if (!isStandalone) {
+      const banner = document.getElementById('installAppBanner');
+      const guideText = document.getElementById('installGuideText');
+      const installBtn = document.getElementById('installAppBtn');
+
+      if (isIOS) {
+        banner.classList.remove('hidden');
+        guideText.innerText = '하단 공유(⍐) 버튼을 누른 뒤 [홈 화면에 추가]를 선택하세요';
+        installBtn.innerText = '설치 방법';
+        installBtn.addEventListener('click', () => {
+          alert('📱 아이폰(iOS) 앱 설치 방법:\n\n1. Safari 하단 중앙의 [공유(⍐)] 아이콘을 누릅니다.\n2. 메뉴를 아래로 내려 [홈 화면에 추가]를 누릅니다.\n3. 오른쪽 상단 [추가]를 누르면 홈 화면에 앱이 다운로드됩니다.');
+        });
+      }
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        banner.classList.remove('hidden');
+        guideText.innerText = '안드로이드 스마트폰 홈 화면에 앱으로 다운로드합니다';
+        installBtn.innerText = '앱 다운로드';
+      });
+
+      installBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            banner.classList.add('hidden');
+          }
+          deferredPrompt = null;
+        }
+      });
+    }
+
+    // iOS 오디오 엔진 첫 터치 시 자동 잠금 해제
+    document.body.addEventListener('touchstart', () => { getAudioContext(); }, { once: true });
+    document.body.addEventListener('click', () => { getAudioContext(); }, { once: true });
+
     const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
     const soundNames = [
       '✨ 1. 스파클 라이징 팝', '🌅 2. 선라이즈 오케스트라', '👾 3. 네온 아케이드 8비트',
@@ -416,7 +492,7 @@
       });
     };
 
-    // 🌐 서버 시간 동기화 (연속 클릭 2초 쿨타임 포함)
+    // 🌐 서버 시간 동기화
     document.getElementById('fetchServerTimeBtn').addEventListener('click', async () => {
       const nowMs = Date.now();
       if (nowMs - lastFetchTimestamp < 2000) {
@@ -485,7 +561,7 @@
     const wakeLockBtn = document.getElementById('wakeLockBtn');
     wakeLockBtn.addEventListener('click', async () => {
       if (!('wakeLock' in navigator)) {
-        return alert('이 브라우저는 화면 켜짐 유지 기능을 지원하지 않습니다.');
+        return alert('이 기기의 브라우저에서는 화면 켜짐 유지 기능을 지원하지 않습니다.');
       }
       try {
         if (!wakeLock) {

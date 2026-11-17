@@ -3,13 +3,21 @@
   "name": "스마트 시계 - 알람 · 스톱워치 · 타이머",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='120' fill='%230381fe'/%3E%3Ccircle cx='256' cy='256' r='160' fill='none' stroke='%23ffffff' stroke-width='28'/%3E%3Cpath d='M256 156v108l72 44' fill='none' stroke='%23ffffff' stroke-width='28' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E",
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
   "start_url": "./index.html",
   "background_color": "#f6f7f9",
   "theme_color": "#f6f7f9",
-  "display": "standalone"
+  "display": "standalone",
+  "orientation": "portrait"
 }
