@@ -1,6 +1,6 @@
 {
-  "short_name": "SmartAlarm",
-  "name": "Smart Escalating Sound & Quick Timer Alarm",
+  "short_name": "시계",
+  "name": "스마트 커스텀 시계 & 알람",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/3103/3103284.png",
@@ -9,7 +9,7 @@
     }
   ],
   "start_url": "./index.html",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#f6f7f9",
+  "theme_color": "#f6f7f9",
   "display": "standalone"
 }

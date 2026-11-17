@@ -3,86 +3,132 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>스마트 커스텀 알람 대시보드</title>
+  <title>시계 - 스마트 커스텀 알람</title>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#f6f7f9">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #f6f7f9;
+      color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "SamsungOne", "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    }
+    .oneui-card {
+      background-color: #ffffff;
+      border-radius: 26px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    }
+    /* 삼성 One UI 스타일 토글 스위치 */
+    .oneui-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+    .oneui-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .oneui-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #d1d5db;
+      transition: .25s;
+      border-radius: 34px;
+    }
+    .oneui-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .25s;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    input:checked + .oneui-slider {
+      background-color: #0381fe;
+    }
+    input:checked + .oneui-slider:before {
+      transform: translateX(20px);
+    }
+  </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-4">
+<body class="min-h-screen flex flex-col items-center p-4 pb-12">
 
-  <div class="bg-slate-800 p-6 rounded-2xl shadow-2xl max-w-lg w-full text-center border border-slate-700 relative overflow-hidden my-4">
+  <div class="max-w-lg w-full space-y-4 my-2">
     
-    <!-- 상단 요일 및 화면 꺼짐 방지 상태 -->
-    <div class="flex justify-between items-center mb-3 bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/60">
+    <!-- 상단 유틸리티 바 (요일 감지 & 화면 꺼짐 방지) -->
+    <div class="flex justify-between items-center px-2 pt-1">
       <div class="flex items-center gap-1.5">
-        <span class="text-xs text-slate-400 font-semibold">📍 요일:</span>
-        <select id="currentDaySelect" class="bg-slate-800 text-indigo-400 text-xs font-bold py-1 px-2 rounded-lg border border-indigo-500/40 focus:outline-none">
-          <option value="auto">⚡ 자동 감지</option>
-          <option value="0">일요일</option>
-          <option value="1">월요일</option>
-          <option value="2">화요일</option>
-          <option value="3">수요일</option>
-          <option value="4">목요일</option>
-          <option value="5">금요일</option>
-          <option value="6">토요일</option>
+        <select id="currentDaySelect" class="bg-white text-gray-700 text-xs font-bold py-1.5 px-3 rounded-full shadow-sm border border-gray-200/80 focus:outline-none">
+          <option value="auto">⚡ 요일 자동 감지</option>
+          <option value="0">일요일 기준</option>
+          <option value="1">월요일 기준</option>
+          <option value="2">화요일 기준</option>
+          <option value="3">수요일 기준</option>
+          <option value="4">목요일 기준</option>
+          <option value="5">금요일 기준</option>
+          <option value="6">토요일 기준</option>
         </select>
+        <span id="activeDayDisplay" class="px-2.5 py-1 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">계산 중...</span>
       </div>
-      <div class="flex items-center gap-1.5">
-        <button id="wakeLockBtn" class="px-2.5 py-1 bg-slate-700 text-slate-300 rounded-full text-[10px] font-bold hover:bg-slate-600 transition">
-          🌙 화면 꺼짐 방지: OFF
-        </button>
-        <span id="activeDayDisplay" class="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-bold">계산 중...</span>
-      </div>
-    </div>
-
-    <h1 class="text-2xl font-bold mb-1 text-white">🔔 Smart Daily Sound Alarm</h1>
-    <p class="text-slate-400 text-xs mb-4">스누즈 강도 상향 · 5분 단위 퀵 타이머 · 그룹 일괄 제어</p>
-    
-    <div id="clock" class="text-4xl font-extrabold mb-4 font-mono text-emerald-400 tracking-wider">00:00:00</div>
-
-    <!-- ⚡ 원터치 5분 단위 퀵 타이머 (5분 ~ 1시간) -->
-    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/80 mb-5">
-      <div class="text-[11px] font-bold text-amber-400 text-left mb-2">⚡ 원터치 퀵 타이머 (현재 시각 기준 5분 단위 즉시 등록)</div>
-      <div class="grid grid-cols-4 gap-1.5">
-        <button onclick="addQuickTimer(5, '5분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+5분</button>
-        <button onclick="addQuickTimer(10, '10분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+10분</button>
-        <button onclick="addQuickTimer(15, '15분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+15분</button>
-        <button onclick="addQuickTimer(20, '20분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+20분</button>
-        <button onclick="addQuickTimer(25, '25분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+25분</button>
-        <button onclick="addQuickTimer(30, '30분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+30분</button>
-        <button onclick="addQuickTimer(35, '35분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+35분</button>
-        <button onclick="addQuickTimer(40, '40분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+40분</button>
-        <button onclick="addQuickTimer(45, '45분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+45분</button>
-        <button onclick="addQuickTimer(50, '50분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+50분</button>
-        <button onclick="addQuickTimer(55, '55분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+55분</button>
-        <button onclick="addQuickTimer(60, '1시간 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-amber-300 transition">+1시간</button>
-      </div>
-    </div>
-    
-    <!-- 새 알람 만들기 폼 -->
-    <div class="bg-slate-900/90 p-4 rounded-xl text-left border border-slate-700 space-y-3 mb-5">
-      <h2 class="text-xs font-bold text-indigo-400 uppercase tracking-wider">➕ 새 알람 만들기</h2>
       
-      <div class="grid grid-cols-2 gap-2">
-        <div>
-          <label class="block text-[11px] text-slate-400 mb-1">알람 이름</label>
-          <input type="text" id="alarmName" placeholder="예: 아침 기상" class="w-full bg-slate-800 text-xs p-2.5 rounded-lg border border-slate-600 text-white focus:outline-none focus:border-indigo-500">
-        </div>
-        <div>
-          <label class="block text-[11px] text-slate-400 mb-1">그룹 이름 (직접 입력)</label>
-          <input type="text" id="alarmGroup" placeholder="예: 출근, 운동, 공부" class="w-full bg-slate-800 text-xs p-2.5 rounded-lg border border-slate-600 text-white focus:outline-none focus:border-indigo-500">
-        </div>
-      </div>
+      <button id="wakeLockBtn" class="px-3 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
+        🌙 화면 켜짐 유지: OFF
+      </button>
+    </div>
 
-      <div class="grid grid-cols-2 gap-2">
+    <!-- 삼성 One UI 시그니처 히어로 시계 헤더 -->
+    <div class="text-center py-6 px-4">
+      <p id="nextAlarmCountdown" class="text-lg font-bold text-gray-800 tracking-tight mb-1">모든 알람이 꺼져 있습니다</p>
+      <div id="clock" class="text-5xl font-light text-gray-900 tracking-tight font-mono my-1">00:00:00</div>
+      <p id="todayDateLabel" class="text-xs text-gray-500 font-medium mt-1">오늘 날짜 불러오는 중...</p>
+    </div>
+
+    <!-- ⚡ 원터치 5분 단위 퀵 타이머 카드 (5분 ~ 1시간) -->
+    <div class="oneui-card p-5">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-sm font-bold text-gray-800">⚡ 빠른 타이머 알람</h2>
+        <span class="text-[11px] text-gray-400 font-medium">터치 즉시 등록</span>
+      </div>
+      <div class="grid grid-cols-4 gap-2">
+        <button onclick="addQuickTimer(5, '5분 타이머')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+5분</button>
+        <button onclick="addQuickTimer(10, '10분 타이머')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+10분</button>
+        <button onclick="addQuickTimer(15, '15분 타이머')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+15분</button>
+        <button onclick="addQuickTimer(20, '20분 타이머')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+20분</button>
+        <button onclick="addQuickTimer(25, '25분 타이머')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+25분</button>
+        <button onclick="addQuickTimer(30, '30분 타이머')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+30분</button>
+        <button onclick="addQuickTimer(35, '35분 타이머')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+35분</button>
+        <button onclick="addQuickTimer(40, '40분 타이머')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+40분</button>
+        <button onclick="addQuickTimer(45, '45분 타이머')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+45분</button>
+        <button onclick="addQuickTimer(50, '50분 타이머')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+50분</button>
+        <button onclick="addQuickTimer(55, '55분 타이머')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+55분</button>
+        <button onclick="addQuickTimer(60, '1시간 타이머')" class="py-2.5 bg-blue-50 hover:bg-blue-100 rounded-2xl text-xs font-bold text-[#0381fe] transition">+1시간</button>
+      </div>
+    </div>
+    
+    <!-- ➕ 새 알람 추가 카드 -->
+    <div class="oneui-card p-5 text-left space-y-4">
+      <div class="flex justify-between items-center">
+        <h2 class="text-sm font-bold text-gray-800">➕ 새 알람 추가</h2>
+        <button id="previewSelectedSoundBtn" class="text-xs font-bold text-[#0381fe] hover:underline">🔊 알람음 미리듣기</button>
+      </div>
+      
+      <!-- 시간 및 알람음 -->
+      <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-[11px] text-slate-400 mb-1">시간 설정</label>
-          <input type="time" id="alarmTime" class="w-full bg-slate-800 text-xs p-2 rounded-lg border border-slate-600 text-white font-mono text-base focus:outline-none focus:border-indigo-500">
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">시간</label>
+          <input type="time" id="alarmTime" class="w-full bg-[#f2f4f7] text-gray-900 font-bold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-base">
         </div>
         <div>
-          <label class="block text-[11px] text-slate-400 mb-1">시작 사운드 (스누즈 시 강도 상승)</label>
-          <select id="alarmSound" class="w-full bg-slate-800 text-xs p-2.5 rounded-lg border border-slate-600 text-white focus:outline-none focus:border-indigo-500">
-            <option value="random">🎲 무작위 사운드 자동 선택</option>
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람음 (스누즈 시 강도 상승)</label>
+          <select id="alarmSound" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-3 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+            <option value="random">🎲 매일 무작위 사운드</option>
             <option value="0">✨ 1. 스파클 라이징 팝</option>
             <option value="1">🌅 2. 선라이즈 오케스트라</option>
             <option value="2">👾 3. 네온 아케이드 8비트</option>
@@ -99,84 +145,96 @@
         </div>
       </div>
 
+      <!-- 원형 요일 선택 버튼 (삼성 시계 스타일) -->
       <div>
-        <label class="block text-[11px] text-slate-400 mb-1">반복 요일 선택 <span class="text-[10px] text-indigo-400">(선택 시 지정 요일에 자동 ON 유지)</span></label>
-        <div class="flex justify-between gap-1" id="dayPicker">
-          <button type="button" data-day="1" class="day-btn flex-1 py-1.5 bg-slate-800 text-slate-400 text-xs font-bold rounded border border-slate-700">월</button>
-          <button type="button" data-day="2" class="day-btn flex-1 py-1.5 bg-slate-800 text-slate-400 text-xs font-bold rounded border border-slate-700">화</button>
-          <button type="button" data-day="3" class="day-btn flex-1 py-1.5 bg-slate-800 text-slate-400 text-xs font-bold rounded border border-slate-700">수</button>
-          <button type="button" data-day="4" class="day-btn flex-1 py-1.5 bg-slate-800 text-slate-400 text-xs font-bold rounded border border-slate-700">목</button>
-          <button type="button" data-day="5" class="day-btn flex-1 py-1.5 bg-slate-800 text-slate-400 text-xs font-bold rounded border border-slate-700">금</button>
-          <button type="button" data-day="6" class="day-btn flex-1 py-1.5 bg-slate-800 text-slate-400 text-xs font-bold rounded border border-slate-700">토</button>
-          <button type="button" data-day="0" class="day-btn flex-1 py-1.5 bg-slate-800 text-slate-400 text-xs font-bold rounded border border-slate-700">일</button>
+        <label class="block text-[11px] font-semibold text-gray-500 mb-2">반복 요일 <span class="text-[#0381fe] font-normal">(미선택 시 1회성)</span></label>
+        <div class="flex justify-between items-center px-1" id="dayPicker">
+          <button type="button" data-day="0" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-rose-500 text-xs font-bold transition flex items-center justify-center">일</button>
+          <button type="button" data-day="1" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">월</button>
+          <button type="button" data-day="2" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">화</button>
+          <button type="button" data-day="3" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">수</button>
+          <button type="button" data-day="4" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">목</button>
+          <button type="button" data-day="5" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">금</button>
+          <button type="button" data-day="6" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-blue-500 text-xs font-bold transition flex items-center justify-center">토</button>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-2 pt-1">
+      <!-- 알람 이름 및 그룹 -->
+      <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-[11px] text-slate-400 mb-1">다시 울림 간격</label>
-          <select id="snoozeIntervalSelect" class="w-full bg-slate-800 text-xs p-2 rounded-lg border border-slate-600 text-white mb-1">
-            <option value="3">3분 간격</option>
-            <option value="5" selected>5분 간격</option>
-            <option value="10">10분 간격</option>
-            <option value="custom">✏️ 사용자 직접 입력</option>
-          </select>
-          <input type="number" id="customSnoozeInterval" placeholder="간격(분 입력)" class="w-full bg-slate-800 text-xs p-2 rounded-lg border border-indigo-500 text-white hidden" min="1" max="60">
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람 이름</label>
+          <input type="text" id="alarmName" placeholder="예: 기상 알람" class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-medium p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
         </div>
         <div>
-          <label class="block text-[11px] text-slate-400 mb-1">반복 횟수</label>
-          <select id="snoozeCountSelect" class="w-full bg-slate-800 text-xs p-2 rounded-lg border border-slate-600 text-white mb-1">
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">그룹 이름</label>
+          <input type="text" id="alarmGroup" placeholder="예: 출근, 운동" class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-medium p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+        </div>
+      </div>
+
+      <!-- 다시 울림 (스누즈) 설정 -->
+      <div class="grid grid-cols-2 gap-3 pt-1">
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">다시 울림 간격</label>
+          <select id="snoozeIntervalSelect" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none mb-1">
+            <option value="3">3분</option>
+            <option value="5" selected>5분</option>
+            <option value="10">10분</option>
+            <option value="custom">✏️ 직접 입력</option>
+          </select>
+          <input type="number" id="customSnoozeInterval" placeholder="간격(분)" class="w-full bg-white text-xs p-2 rounded-xl border border-[#0381fe] text-gray-900 hidden" min="1" max="60">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">반복 횟수</label>
+          <select id="snoozeCountSelect" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none mb-1">
             <option value="1">1회</option>
             <option value="3" selected>3회</option>
             <option value="5">5회</option>
-            <option value="custom">✏️ 사용자 직접 입력</option>
+            <option value="custom">✏️ 직접 입력</option>
           </select>
-          <input type="number" id="customSnoozeCount" placeholder="횟수(회 입력)" class="w-full bg-slate-800 text-xs p-2 rounded-lg border border-indigo-500 text-white hidden" min="1" max="20">
+          <input type="number" id="customSnoozeCount" placeholder="횟수(회)" class="w-full bg-white text-xs p-2 rounded-xl border border-[#0381fe] text-gray-900 hidden" min="1" max="20">
         </div>
       </div>
 
-      <button id="addAlarmBtn" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-bold rounded-lg text-xs transition shadow-lg shadow-indigo-600/30">
-        알람 저장하기
+      <button id="addAlarmBtn" class="w-full py-3 bg-[#0381fe] hover:bg-[#026de0] text-white font-bold rounded-full text-sm transition shadow-md shadow-blue-500/20">
+        저장
       </button>
     </div>
 
-    <!-- 🗂️ 그룹별 일괄 ON/OFF 제어 바 -->
-    <div id="groupControlWrapper" class="bg-slate-900/70 p-3 rounded-xl border border-slate-700/70 mb-4 text-left hidden">
-      <div class="text-[11px] font-bold text-slate-400 mb-2">🗂️ 그룹별 일괄 켜기/끄기 (클릭 시 전체 전환)</div>
-      <div id="groupToggleList" class="flex flex-wrap gap-1.5"></div>
+    <!-- 🗂️ 그룹별 일괄 ON/OFF 제어 카드 -->
+    <div id="groupControlWrapper" class="oneui-card p-4 text-left hidden">
+      <div class="text-xs font-bold text-gray-700 mb-2.5">🗂️ 그룹 일괄 제어</div>
+      <div id="groupToggleList" class="flex flex-wrap gap-2"></div>
     </div>
 
-    <!-- 등록된 알람 목록 -->
-    <div class="text-left space-y-2">
-      <div class="flex justify-between items-center px-1">
-        <h2 class="text-xs font-bold text-slate-400">등록된 알람 목록</h2>
-        <button id="previewSelectedSoundBtn" class="text-[11px] text-indigo-400 hover:underline">🔊 선택 사운드 미리듣기</button>
+    <!-- 📋 등록된 알람 목록 -->
+    <div class="space-y-2.5 pt-1">
+      <div class="flex justify-between items-center px-2">
+        <h2 class="text-xs font-bold text-gray-500">내 알람 목록</h2>
       </div>
-      <div id="alarmList" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
+      <div id="alarmList" class="space-y-2.5"></div>
     </div>
   </div>
 
-  <!-- 알람 울림 모달 -->
-  <div id="alarmModal" class="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden z-50">
-    <div class="bg-slate-800 p-6 rounded-2xl border border-indigo-500/50 text-center max-w-xs w-full animate-pulse">
-      <div class="text-5xl mb-2 animate-bounce">⏰</div>
-      <div id="modalIntensityBadge" class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 mb-1">
+  <!-- 알람 울림 풀스크린 라이트 모달 (삼성 시계 기상 화면 스타일) -->
+  <div id="alarmModal" class="fixed inset-0 bg-[#f6f7f9]/95 backdrop-blur-lg flex flex-col items-center justify-between p-8 hidden z-50">
+    <div class="mt-12 text-center">
+      <div id="modalIntensityBadge" class="inline-block px-3 py-1 rounded-full text-xs font-extrabold bg-blue-100 text-[#0381fe] mb-3">
         🔊 강도 Lv.1 (기본)
       </div>
-      <h2 id="modalAlarmName" class="text-lg font-bold text-white">기상 알람</h2>
-      <p id="modalAlarmTime" class="text-2xl font-mono text-emerald-400 font-extrabold my-1">00:00</p>
-      <p id="modalSoundTitle" class="text-xs text-indigo-300 mb-1">알람 소리가 울리는 중...</p>
-      <p id="modalRepeatInfo" class="text-[10px] text-emerald-400 font-semibold mb-2">🔄 반복 정보</p>
-      <p id="modalSnoozeInfo" class="text-[11px] text-slate-400 mb-6">스누즈 정보</p>
-      
-      <div class="space-y-2">
-        <button id="snoozeAlarmBtn" class="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs transition shadow-md shadow-amber-600/30">
-          😴 나중에 다시 울림 (다음 울림 강도 상승)
-        </button>
-        <button id="stopAlarmBtn" class="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-extrabold rounded-xl text-sm transition shadow-lg shadow-rose-600/40">
-          🔔 완전히 끄기
-        </button>
-      </div>
+      <p id="modalAlarmTime" class="text-6xl font-light text-gray-900 font-mono tracking-tight my-2">00:00</p>
+      <h2 id="modalAlarmName" class="text-xl font-bold text-gray-800 mt-2">기상 알람</h2>
+      <p id="modalSoundTitle" class="text-xs text-gray-500 mt-1">알람음 재생 중...</p>
+      <p id="modalRepeatInfo" class="text-xs text-[#0381fe] font-semibold mt-2">🔄 반복 정보</p>
+      <p id="modalSnoozeInfo" class="text-xs text-gray-400 mt-1">스누즈 정보</p>
+    </div>
+    
+    <div class="w-full max-w-xs space-y-3 mb-10">
+      <button id="snoozeAlarmBtn" class="w-full py-4 bg-white hover:bg-gray-50 text-gray-800 font-bold rounded-full text-sm transition shadow-md border border-gray-200">
+        😴 다시 울림 (다음 울림 강도 상승)
+      </button>
+      <button id="stopAlarmBtn" class="w-full py-4 bg-[#0381fe] hover:bg-[#026de0] text-white font-extrabold rounded-full text-base transition shadow-lg shadow-blue-500/30">
+        ✕ 알람 끄기
+      </button>
     </div>
   </div>
 
@@ -205,27 +263,28 @@
 
     const intenseSounds = [2, 6, 9, 11];
 
+    // 화면 켜짐 유지 (Wake Lock)
     const wakeLockBtn = document.getElementById('wakeLockBtn');
     wakeLockBtn.addEventListener('click', async () => {
       if (!('wakeLock' in navigator)) {
-        return alert('이 브라우저는 화면 꺼짐 방지 기능을 지원하지 않습니다.');
+        return alert('이 브라우저는 화면 켜짐 유지 기능을 지원하지 않습니다.');
       }
       try {
         if (!wakeLock) {
           wakeLock = await navigator.wakeLock.request('screen');
-          wakeLockBtn.innerText = '☀️ 화면 꺼짐 방지: ON';
-          wakeLockBtn.className = 'px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-[10px] font-bold transition';
+          wakeLockBtn.innerText = '☀️ 화면 켜짐 유지: ON';
+          wakeLockBtn.className = 'px-3 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
           wakeLock.addEventListener('release', () => {
             wakeLock = null;
-            wakeLockBtn.innerText = '🌙 화면 꺼짐 방지: OFF';
-            wakeLockBtn.className = 'px-2.5 py-1 bg-slate-700 text-slate-300 rounded-full text-[10px] font-bold transition';
+            wakeLockBtn.innerText = '🌙 화면 켜짐 유지: OFF';
+            wakeLockBtn.className = 'px-3 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition';
           });
         } else {
           await wakeLock.release();
           wakeLock = null;
         }
       } catch (err) {
-        alert('화면 꺼짐 방지 활성화 실패: ' + err.message);
+        alert('화면 켜짐 유지 활성화 실패: ' + err.message);
       }
     });
 
@@ -241,12 +300,21 @@
       document.getElementById('customSnoozeCount').classList.toggle('hidden', e.target.value !== 'custom');
     });
 
+    // 삼성 시계 원형 요일 버튼 토글
     document.querySelectorAll('.day-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        btn.classList.toggle('bg-indigo-600');
-        btn.classList.toggle('text-white');
-        btn.classList.toggle('bg-slate-800');
-        btn.classList.toggle('text-slate-400');
+        const isSelected = btn.classList.contains('selected-day');
+        if (isSelected) {
+          btn.classList.remove('selected-day', 'bg-[#0381fe]', 'text-white', 'shadow-sm');
+          btn.classList.add('bg-[#f2f4f7]');
+          const d = btn.getAttribute('data-day');
+          if (d === '0') btn.classList.add('text-rose-500');
+          else if (d === '6') btn.classList.add('text-blue-500');
+          else btn.classList.add('text-gray-600');
+        } else {
+          btn.classList.remove('bg-[#f2f4f7]', 'text-rose-500', 'text-blue-500', 'text-gray-600');
+          btn.classList.add('selected-day', 'bg-[#0381fe]', 'text-white', 'shadow-sm');
+        }
       });
     });
 
@@ -261,6 +329,52 @@
       return val === 'auto' ? new Date().getDay() : parseInt(val, 10);
     }
 
+    // 가장 가까운 다음 알람까지 남은 시간 계산 (삼성 시계 스타일 상단 요약)
+    function updateNextAlarmCountdown(now, activeDay) {
+      const countdownEl = document.getElementById('nextAlarmCountdown');
+      const enabledAlarms = alarms.filter(a => a.enabled);
+      if (enabledAlarms.length === 0) {
+        countdownEl.innerText = '모든 알람이 꺼져 있습니다';
+        return;
+      }
+
+      let minDiffMs = Infinity;
+      enabledAlarms.forEach(alarm => {
+        const targetTimeStr = alarm.nextSnoozeTime || alarm.time;
+        const [th, tm] = targetTimeStr.split(':').map(Number);
+
+        for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+          const checkDay = (activeDay + dayOffset) % 7;
+          if (alarm.days.includes(checkDay)) {
+            const candidate = new Date(now);
+            candidate.setDate(now.getDate() + dayOffset);
+            candidate.setHours(th, tm, 0, 0);
+            const diff = candidate.getTime() - now.getTime();
+            if (diff > 0 && diff < minDiffMs) {
+              minDiffMs = diff;
+            }
+          }
+        }
+      });
+
+      if (minDiffMs === Infinity) {
+        countdownEl.innerText = '예정된 알람이 없습니다';
+        return;
+      }
+
+      const totalMins = Math.ceil(minDiffMs / 60000);
+      const days = Math.floor(totalMins / (60 * 24));
+      const hours = Math.floor((totalMins % (60 * 24)) / 60);
+      const mins = totalMins % 60;
+
+      let parts = [];
+      if (days > 0) parts.push(`${days}일`);
+      if (hours > 0) parts.push(`${hours}시간`);
+      if (mins > 0 || parts.length === 0) parts.push(`${mins}분`);
+
+      countdownEl.innerText = `다음 알람까지 ${parts.join(' ')} 남음`;
+    }
+
     function updateClock() {
       const now = new Date();
       const hours = String(now.getHours()).padStart(2, '0');
@@ -271,6 +385,9 @@
 
       document.getElementById('clock').innerText = `${hours}:${minutes}:${seconds}`;
       document.getElementById('activeDayDisplay').innerText = `${daysMap[activeDay]}요일`;
+      document.getElementById('todayDateLabel').innerText = `${now.getMonth() + 1}월 ${now.getDate()}일 (${daysMap[now.getDay()]})`;
+
+      updateNextAlarmCountdown(now, activeDay);
 
       if (seconds === '00' && !isRinging) {
         alarms.forEach(alarm => {
@@ -294,7 +411,7 @@
       alarms.push({
         id: Date.now(),
         name: label,
-        group: '퀵 타이머',
+        group: '빠른 타이머',
         time: timeStr,
         sound: sound,
         days: [getActiveDayIndex()],
@@ -310,6 +427,7 @@
       alarms.sort((a, b) => a.time.localeCompare(b.time));
       saveAlarms();
       renderAlarmList();
+      updateClock();
     };
 
     function renderGroupControls() {
@@ -330,13 +448,13 @@
 
         return `
           <button onclick="toggleGroup('${groupName.replace(/'/g, "\'")}')" 
-            class="px-2.5 py-1 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 ${
+            class="px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
               isAllOrAnyOn 
-                ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/60 hover:bg-indigo-600/50' 
-                : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                ? 'bg-[#0381fe] text-white shadow-sm' 
+                : 'bg-[#f2f4f7] text-gray-500 hover:bg-gray-200'
             }">
-            <span>${isAllOrAnyOn ? '🟢' : '⚪'} ${groupName}</span>
-            <span class="text-[10px] opacity-80">(${activeCount}/${groupAlarms.length})</span>
+            <span>${groupName}</span>
+            <span class="text-[10px] opacity-85">(${activeCount}/${groupAlarms.length})</span>
           </button>
         `;
       }).join('');
@@ -360,45 +478,57 @@
 
       saveAlarms();
       renderAlarmList();
+      updateClock();
     };
+
+    function formatAmPmTime(time24) {
+      const [hStr, mStr] = time24.split(':');
+      let h = parseInt(hStr, 10);
+      const ampm = h >= 12 ? '오후' : '오전';
+      const h12 = h % 12 === 0 ? 12 : h % 12;
+      return { ampm, time12: `${String(h12).padStart(2, '0')}:${mStr}` };
+    }
 
     function renderAlarmList() {
       renderGroupControls();
       const listEl = document.getElementById('alarmList');
       if (alarms.length === 0) {
-        listEl.innerHTML = '<div class="text-xs text-slate-500 py-4 text-center bg-slate-900/40 rounded-lg">등록된 알람이 없습니다.</div>';
+        listEl.innerHTML = '<div class="oneui-card p-8 text-xs text-gray-400 text-center">알람이 없습니다. 위에서 새 알람을 추가해보세요.</div>';
         return;
       }
 
       listEl.innerHTML = alarms.map((alarm, idx) => {
-        const selectedDaysText = alarm.days.map(d => daysMap[d]).join(', ');
-        const displayTime = alarm.nextSnoozeTime ? `${alarm.time} ➔ 😴${alarm.nextSnoozeTime}` : alarm.time;
-        const repeatTag = alarm.isRepeating 
-          ? '<span class="text-[9px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded">반복</span>' 
-          : '<span class="text-[9px] px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded">1회성</span>';
+        const selectedDaysText = alarm.isRepeating ? alarm.days.map(d => daysMap[d]).join(' ') : '한 번만 울림';
+        const { ampm, time12 } = formatAmPmTime(alarm.nextSnoozeTime || alarm.time);
+        const snoozeTag = alarm.nextSnoozeTime ? `<span class="text-[11px] font-bold text-amber-600 ml-1">😴 다시 울림</span>` : '';
         const levelTag = (alarm.snoozeLevel && alarm.snoozeLevel > 0)
-          ? `<span class="text-[9px] px-1.5 py-0.5 bg-rose-500/20 text-rose-400 rounded font-bold">🔥 강도 Lv.${alarm.snoozeLevel + 1}</span>`
+          ? `<span class="text-[10px] px-2 py-0.5 bg-rose-50 text-rose-600 rounded-full font-bold">🔥 강도 Lv.${alarm.snoozeLevel + 1}</span>`
           : '';
 
         return `
-          <div class="bg-slate-900/90 p-3 rounded-lg border border-slate-700/80 flex justify-between items-center">
-            <div>
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="text-xs px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded-md font-bold">${alarm.group}</span>
-                <span class="text-xs text-white font-bold">${alarm.name}</span>
-                ${repeatTag}
+          <div class="oneui-card p-5 flex justify-between items-center transition ${alarm.enabled ? 'opacity-100' : 'opacity-65'}">
+            <div class="text-left">
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="text-[11px] px-2 py-0.5 bg-blue-50 text-[#0381fe] rounded-full font-bold">${alarm.group}</span>
+                <span class="text-xs text-gray-600 font-semibold">${alarm.name}</span>
                 ${levelTag}
               </div>
-              <div class="text-lg font-mono font-extrabold ${alarm.enabled ? 'text-emerald-400' : 'text-slate-500 line-through'} mt-0.5">${displayTime}</div>
-              <div class="text-[10px] text-slate-400">요일: ${selectedDaysText} | 소리: <span class="text-indigo-300 font-semibold">${soundNames[alarm.sound]}</span></div>
-              <div class="text-[10px] text-slate-500">스누즈: ${alarm.snoozeInterval}분 (${alarm.remainingSnooze}/${alarm.snoozeCount}회 남음)</div>
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-sm font-bold ${alarm.enabled ? 'text-gray-700' : 'text-gray-400'}">${ampm}</span>
+                <span class="text-3xl font-light tracking-tight font-mono ${alarm.enabled ? 'text-gray-900' : 'text-gray-400'}">${time12}</span>
+                ${snoozeTag}
+              </div>
+              <div class="text-[11px] text-gray-400 mt-1 font-medium">
+                <span class="${alarm.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${selectedDaysText}</span> · ${soundNames[alarm.sound]}
+              </div>
             </div>
-            <div class="flex items-center gap-1.5">
-              <button onclick="toggleAlarm(${idx})" class="px-2.5 py-1 rounded text-xs font-semibold ${alarm.enabled ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'}">
-                ${alarm.enabled ? '켜짐' : '꺼짐'}
-              </button>
-              <button onclick="deleteAlarm(${idx})" class="px-2 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-xs font-semibold transition">
-                삭제
+            <div class="flex items-center gap-3">
+              <label class="oneui-switch">
+                <input type="checkbox" ${alarm.enabled ? 'checked' : ''} onchange="toggleAlarm(${idx})">
+                <span class="oneui-slider"></span>
+              </label>
+              <button onclick="deleteAlarm(${idx})" title="삭제" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-rose-50 text-gray-400 hover:text-rose-500 flex items-center justify-center text-xs font-bold transition">
+                ✕
               </button>
             </div>
           </div>
@@ -417,7 +547,7 @@
       const intervalVal = document.getElementById('snoozeIntervalSelect').value;
       if (intervalVal === 'custom') {
         snoozeInterval = parseInt(document.getElementById('customSnoozeInterval').value, 10);
-        if (!snoozeInterval || snoozeInterval <= 0) return alert('올바른 스누즈 간격(분)을 입력해주세요.');
+        if (!snoozeInterval || snoozeInterval <= 0) return alert('올바른 다시 울림 간격(분)을 입력해주세요.');
       } else {
         snoozeInterval = parseInt(intervalVal, 10);
       }
@@ -426,7 +556,7 @@
       const countVal = document.getElementById('snoozeCountSelect').value;
       if (countVal === 'custom') {
         snoozeCount = parseInt(document.getElementById('customSnoozeCount').value, 10);
-        if (!snoozeCount || snoozeCount <= 0) return alert('올바른 스누즈 반복 횟수를 입력해주세요.');
+        if (!snoozeCount || snoozeCount <= 0) return alert('올바른 반복 횟수를 입력해주세요.');
       } else {
         snoozeCount = parseInt(countVal, 10);
       }
@@ -434,7 +564,7 @@
       let sound = soundVal === 'random' ? Math.floor(Math.random() * 12) : parseInt(soundVal, 10);
       let selectedDays = [];
       document.querySelectorAll('.day-btn').forEach(btn => {
-        if (btn.classList.contains('bg-indigo-600')) selectedDays.push(parseInt(btn.getAttribute('data-day'), 10));
+        if (btn.classList.contains('selected-day')) selectedDays.push(parseInt(btn.getAttribute('data-day'), 10));
       });
 
       if (!time) return alert('알람 시간을 설정해주세요.');
@@ -454,6 +584,7 @@
       alarms.sort((a, b) => a.time.localeCompare(b.time));
       saveAlarms();
       renderAlarmList();
+      updateClock();
 
       document.getElementById('alarmName').value = '';
       document.getElementById('alarmTime').value = '';
@@ -468,12 +599,14 @@
       }
       saveAlarms();
       renderAlarmList();
+      updateClock();
     };
 
     window.deleteAlarm = function(idx) {
       alarms.splice(idx, 1);
       saveAlarms();
       renderAlarmList();
+      updateClock();
     };
 
     function playCustomSound(soundIdx, level = 0) {
@@ -524,23 +657,23 @@
       const vibePattern = escalatedVibePresets[Math.min(level, escalatedVibePresets.length - 1)];
 
       const levelLabels = [
-        { text: '🔊 강도 Lv.1 (기본)', cls: 'bg-emerald-500/20 text-emerald-300' },
-        { text: '⚡ 강도 Lv.2 (상향됨)', cls: 'bg-amber-500/20 text-amber-300' },
-        { text: '🔥 강도 Lv.3 (강력 경고)', cls: 'bg-orange-500/20 text-orange-300' },
-        { text: '🚨 강도 Lv.4 (최대 출력)', cls: 'bg-rose-500/30 text-rose-300' }
+        { text: '🔊 강도 Lv.1 (기본)', cls: 'bg-blue-100 text-[#0381fe]' },
+        { text: '⚡ 강도 Lv.2 (상향됨)', cls: 'bg-amber-100 text-amber-700' },
+        { text: '🔥 강도 Lv.3 (강력 경고)', cls: 'bg-orange-100 text-orange-700' },
+        { text: '🚨 강도 Lv.4 (최대 출력)', cls: 'bg-rose-100 text-rose-700' }
       ];
       const badgeInfo = levelLabels[Math.min(level, levelLabels.length - 1)];
       const badgeEl = document.getElementById('modalIntensityBadge');
       badgeEl.innerText = badgeInfo.text;
-      badgeEl.className = `inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold mb-1 ${badgeInfo.cls}`;
+      badgeEl.className = `inline-block px-3 py-1 rounded-full text-xs font-extrabold mb-3 ${badgeInfo.cls}`;
 
       document.getElementById('modalAlarmName').innerText = `[${alarm.group}] ${alarm.name}`;
       document.getElementById('modalAlarmTime').innerText = alarm.nextSnoozeTime || alarm.time;
-      document.getElementById('modalSoundTitle').innerText = `소리: ${soundNames[alarm.sound]}`;
+      document.getElementById('modalSoundTitle').innerText = `알람음: ${soundNames[alarm.sound]}`;
       document.getElementById('modalRepeatInfo').innerText = alarm.isRepeating 
         ? "🔄 반복 요일 지정됨: 다음 반복 요일에도 자동 ON 유지" 
         : "💡 단발성 알람: 완료 후 자동으로 OFF";
-      document.getElementById('modalSnoozeInfo').innerText = `스누즈: ${alarm.snoozeInterval}분 간격 (${alarm.remainingSnooze}/${alarm.snoozeCount}회 남음)`;
+      document.getElementById('modalSnoozeInfo').innerText = `다시 울림: ${alarm.snoozeInterval}분 간격 (${alarm.remainingSnooze}/${alarm.snoozeCount}회 남음)`;
       document.getElementById('alarmModal').classList.remove('hidden');
 
       const repeatMs = Math.max(1000 - level * 130, 600);
@@ -581,6 +714,7 @@
         escalateAlarmSound(currentRingingAlarm);
         saveAlarms();
         renderAlarmList();
+        updateClock();
       }
       document.getElementById('alarmModal').classList.add('hidden');
     });
@@ -599,7 +733,7 @@
         currentRingingAlarm.nextSnoozeTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         escalateAlarmSound(currentRingingAlarm);
       } else if (currentRingingAlarm) {
-        alert('남은 스누즈 횟수가 소진되었습니다.');
+        alert('남은 다시 울림 횟수가 소진되었습니다.');
         currentRingingAlarm.enabled = currentRingingAlarm.isRepeating;
         currentRingingAlarm.remainingSnooze = currentRingingAlarm.snoozeCount;
         currentRingingAlarm.snoozeLevel = 0;
@@ -608,6 +742,7 @@
       }
       saveAlarms();
       renderAlarmList();
+      updateClock();
     });
 
     renderAlarmList();
