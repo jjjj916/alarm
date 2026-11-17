@@ -36,18 +36,26 @@
     </div>
 
     <h1 class="text-2xl font-bold mb-1 text-white">🔔 Smart Daily Sound Alarm</h1>
-    <p class="text-slate-400 text-xs mb-4">스누즈 강도 상향 · 원터치 퀵 타이머 · 그룹 일괄 제어</p>
+    <p class="text-slate-400 text-xs mb-4">스누즈 강도 상향 · 5분 단위 퀵 타이머 · 그룹 일괄 제어</p>
     
     <div id="clock" class="text-4xl font-extrabold mb-4 font-mono text-emerald-400 tracking-wider">00:00:00</div>
 
-    <!-- ⚡ 원터치 뽀모도로 / 카운트다운 퀵 버튼 -->
+    <!-- ⚡ 원터치 5분 단위 퀵 타이머 (5분 ~ 1시간) -->
     <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/80 mb-5">
-      <div class="text-[11px] font-bold text-amber-400 text-left mb-2">⚡ 원터치 퀵 타이머 (현재 시각 기준 즉시 등록)</div>
+      <div class="text-[11px] font-bold text-amber-400 text-left mb-2">⚡ 원터치 퀵 타이머 (현재 시각 기준 5분 단위 즉시 등록)</div>
       <div class="grid grid-cols-4 gap-1.5">
-        <button onclick="addQuickTimer(5, '5분 퀵 알람')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+5분</button>
-        <button onclick="addQuickTimer(15, '15분 낮잠')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+15분</button>
-        <button onclick="addQuickTimer(25, '🍅 뽀모도로 집중')" class="py-2 bg-slate-800 hover:bg-rose-600/30 border border-slate-600 hover:border-rose-500/50 rounded-lg text-xs font-bold text-rose-300 transition">+25분 집중</button>
-        <button onclick="addQuickTimer(60, '1시간 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+1시간</button>
+        <button onclick="addQuickTimer(5, '5분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+5분</button>
+        <button onclick="addQuickTimer(10, '10분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+10분</button>
+        <button onclick="addQuickTimer(15, '15분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+15분</button>
+        <button onclick="addQuickTimer(20, '20분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+20분</button>
+        <button onclick="addQuickTimer(25, '25분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+25분</button>
+        <button onclick="addQuickTimer(30, '30분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+30분</button>
+        <button onclick="addQuickTimer(35, '35분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+35분</button>
+        <button onclick="addQuickTimer(40, '40분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+40분</button>
+        <button onclick="addQuickTimer(45, '45분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+45분</button>
+        <button onclick="addQuickTimer(50, '50분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+50분</button>
+        <button onclick="addQuickTimer(55, '55분 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-slate-200 transition">+55분</button>
+        <button onclick="addQuickTimer(60, '1시간 타이머')" class="py-2 bg-slate-800 hover:bg-amber-600/30 border border-slate-600 hover:border-amber-500/50 rounded-lg text-xs font-bold text-amber-300 transition">+1시간</button>
       </div>
     </div>
     
