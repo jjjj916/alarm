@@ -21,7 +21,6 @@
       color: #111827;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", sans-serif;
       padding-top: calc(1rem + env(safe-area-inset-top));
-      /* 하단 고정 내비게이션 바에 마지막 알람이 가려지지 않도록 충분한 하단 여백 확보 */
       padding-bottom: calc(8.5rem + env(safe-area-inset-bottom));
       -webkit-tap-highlight-color: transparent;
       user-select: none;
@@ -91,7 +90,7 @@
       </button>
     </div>
 
-    <!-- 상단 유틸리티 바 (불필요한 요일 변경 드롭다운 제거 후 깔끔하게 정리) -->
+    <!-- 상단 유틸리티 바 -->
     <div class="flex justify-between items-center px-2 pt-1">
       <div class="flex items-center gap-1.5">
         <span id="activeDayDisplay" class="px-3 py-1.5 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">오늘 요일</span>
@@ -167,7 +166,7 @@
             <input type="time" id="alarmTime" class="w-full bg-[#f2f4f7] text-gray-900 font-bold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-base">
           </div>
           <div>
-            <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람음 (다시 울림 시 강도 상승)</label>
+            <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람음</label>
             <select id="alarmSound" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-3 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
               <option value="random">🎲 매일 무작위 사운드</option>
               <option value="0">✨ 1. 스파클 라이징 팝</option>
@@ -244,10 +243,10 @@
         <div id="groupToggleList" class="flex flex-wrap gap-2"></div>
       </div>
 
-      <!-- 등록된 알람 목록 (하단 내비게이션 바에 가려지지 않도록 여유 마진 확보) -->
+      <!-- 등록된 알람 목록 (카드를 누르면 편집 모달 오픈) -->
       <div class="space-y-2.5 pt-1 pb-8">
         <div class="flex justify-between items-center px-2">
-          <h2 class="text-xs font-bold text-gray-500">내 알람 목록</h2>
+          <h2 class="text-xs font-bold text-gray-500">내 알람 목록 <span class="text-[10px] text-blue-500 font-normal">(카드를 누르면 수정됩니다)</span></h2>
         </div>
         <div id="alarmList" class="space-y-2.5"></div>
       </div>
@@ -363,6 +362,71 @@
       </button>
     </div>
   </nav>
+
+  <!-- 알람 편집 모달 -->
+  <div id="editModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+    <div class="clean-card w-full max-w-md p-6 bg-white space-y-4 shadow-xl">
+      <div class="flex justify-between items-center pb-2 border-b border-gray-100">
+        <h3 class="text-sm font-bold text-gray-900">✏️ 알람 수정하기</h3>
+        <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 text-sm font-bold">✕ 닫기</button>
+      </div>
+
+      <input type="hidden" id="editAlarmId">
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">시간</label>
+          <input type="time" id="editAlarmTime" class="w-full bg-[#f2f4f7] text-gray-900 font-bold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-base">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람음</label>
+          <select id="editAlarmSound" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-3 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+            <option value="0">✨ 1. 스파클 라이징 팝</option>
+            <option value="1">🌅 2. 선라이즈 오케스트라</option>
+            <option value="2">👾 3. 네온 아케이드 8비트</option>
+            <option value="3">🍃 4. 브라이트 윈드 차임</option>
+            <option value="4">🔔 5. 크리스탈 하모닉 벨</option>
+            <option value="5">☕ 6. 릴랙싱 피아노 스케일</option>
+            <option value="6">⚡ 7. 일렉트로 피치 하모니</option>
+            <option value="7">🎷 8. 재지 모닝 브라스</option>
+            <option value="8">🎸 9. 어쿠스틱 스트럼</option>
+            <option value="9">🔮 10. 사이버 펄스 리버브</option>
+            <option value="10">🌿 11. 트로피컬 우쿨렐레</option>
+            <option value="11">🎉 12. 세레모니 베이스</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-semibold text-gray-500 mb-2">반복 요일</label>
+        <div class="flex justify-between items-center px-1" id="editDayPicker">
+          <button type="button" data-day="0" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-rose-500 text-xs font-bold transition flex items-center justify-center">일</button>
+          <button type="button" data-day="1" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">월</button>
+          <button type="button" data-day="2" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">화</button>
+          <button type="button" data-day="3" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">수</button>
+          <button type="button" data-day="4" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">목</button>
+          <button type="button" data-day="5" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">금</button>
+          <button type="button" data-day="6" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-blue-500 text-xs font-bold transition flex items-center justify-center">토</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람 이름</label>
+          <input type="text" id="editAlarmName" maxlength="30" class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-medium p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">그룹 이름</label>
+          <input type="text" id="editAlarmGroup" maxlength="20" class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-medium p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+        </div>
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeEditModal()" class="flex-1 py-3 bg-[#f2f4f7] hover:bg-gray-200 text-gray-700 font-bold rounded-full text-xs transition">취소</button>
+        <button id="saveEditedAlarmBtn" class="flex-1 py-3 bg-[#0381fe] hover:bg-[#026de0] text-white font-bold rounded-full text-xs transition shadow-md shadow-blue-500/20">수정 완료</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 알람 & 타이머 공용 풀스크린 울림 모달 -->
   <div id="alarmModal" class="fixed inset-0 bg-[#f6f7f9]/95 backdrop-blur-lg flex flex-col items-center justify-between p-8 hidden z-50">
@@ -605,6 +669,23 @@
       });
     });
 
+    document.querySelectorAll('.edit-day-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const isSelected = btn.classList.contains('selected-day');
+        if (isSelected) {
+          btn.classList.remove('selected-day', 'bg-[#0381fe]', 'text-white', 'shadow-sm');
+          btn.classList.add('bg-[#f2f4f7]');
+          const d = btn.getAttribute('data-day');
+          if (d === '0') btn.classList.add('text-rose-500');
+          else if (d === '6') btn.classList.add('text-blue-500');
+          else btn.classList.add('text-gray-600');
+        } else {
+          btn.classList.remove('bg-[#f2f4f7]', 'text-rose-500', 'text-blue-500', 'text-gray-600');
+          btn.classList.add('selected-day', 'bg-[#0381fe]', 'text-white', 'shadow-sm');
+        }
+      });
+    });
+
     function getAudioContext() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -808,8 +889,8 @@
         const safeName = escapeHTML(alarm.name);
 
         return `
-          <div class="clean-card p-5 flex justify-between items-center transition ${alarm.enabled ? 'opacity-100' : 'opacity-65'}">
-            <div class="text-left">
+          <div class="clean-card p-5 flex justify-between items-center transition cursor-pointer hover:bg-blue-50/30 ${alarm.enabled ? 'opacity-100' : 'opacity-65'}" onclick="openEditModal(${idx}, event)">
+            <div class="text-left flex-1">
               <div class="flex items-center gap-1.5 mb-1">
                 <span class="text-[11px] px-2 py-0.5 bg-blue-50 text-[#0381fe] rounded-full font-bold">${safeGroup}</span>
                 <span class="text-xs text-gray-600 font-semibold">${safeName}</span>
@@ -824,7 +905,7 @@
                 <span class="${alarm.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${selectedDaysText}</span> · ${soundNames[alarm.sound % 12]}
               </div>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3" onclick="event.stopPropagation();">
               <label class="pill-switch">
                 <input type="checkbox" ${alarm.enabled ? 'checked' : ''} onchange="toggleAlarm(${idx})">
                 <span class="pill-slider"></span>
@@ -837,6 +918,78 @@
         `;
       }).join('');
     }
+
+    // 알람 편집 모달 열기
+    window.openEditModal = function(idx, event) {
+      if (event) event.stopPropagation();
+      const alarm = alarms[idx];
+      if (!alarm) return;
+
+      document.getElementById('editAlarmId').value = idx;
+      document.getElementById('editAlarmTime').value = alarm.time;
+      document.getElementById('editAlarmSound').value = alarm.sound;
+      document.getElementById('editAlarmName').value = alarm.name;
+      document.getElementById('editAlarmGroup').value = alarm.group;
+
+      document.querySelectorAll('.edit-day-btn').forEach(btn => {
+        const day = parseInt(btn.getAttribute('data-day'), 10);
+        if (alarm.days.includes(day)) {
+          btn.className = 'edit-day-btn w-9 h-9 rounded-full bg-[#0381fe] text-white text-xs font-bold transition flex items-center justify-center selected-day shadow-sm';
+        } else {
+          btn.className = 'edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-xs font-bold transition flex items-center justify-center';
+          if (day === 0) btn.classList.add('text-rose-500');
+          else if (day === 6) btn.classList.add('text-blue-500');
+          else btn.classList.add('text-gray-600');
+        }
+      });
+
+      document.getElementById('editModal').classList.remove('hidden');
+    };
+
+    window.closeEditModal = function() {
+      document.getElementById('editModal').classList.add('hidden');
+    };
+
+    document.getElementById('saveEditedAlarmBtn').addEventListener('click', () => {
+      const idx = parseInt(document.getElementById('editAlarmId').value, 10);
+      const alarm = alarms[idx];
+      if (!alarm) return;
+
+      const newTime = document.getElementById('editAlarmTime').value;
+      if (!newTime) return alert('알람 시간을 설정해주세요.');
+
+      const newName = document.getElementById('editAlarmName').value.trim().slice(0, 30) || '알람';
+      const newGroup = document.getElementById('editAlarmGroup').value.trim().slice(0, 20) || '기본 그룹';
+      const newSound = parseInt(document.getElementById('editAlarmSound').value, 10);
+
+      let selectedDays = [];
+      document.querySelectorAll('.edit-day-btn').forEach(btn => {
+        if (btn.classList.contains('selected-day')) {
+          selectedDays.push(parseInt(btn.getAttribute('data-day'), 10));
+        }
+      });
+
+      let isRepeating = true;
+      if (selectedDays.length === 0) {
+        selectedDays.push(getActiveDayIndex());
+        isRepeating = false;
+      }
+
+      alarm.time = newTime;
+      alarm.name = newName;
+      alarm.group = newGroup;
+      alarm.sound = newSound;
+      alarm.days = selectedDays;
+      alarm.isRepeating = isRepeating;
+      alarm.nextSnoozeTime = null;
+      alarm.snoozeLevel = 0;
+
+      alarms.sort((a, b) => a.time.localeCompare(b.time));
+      saveAlarms();
+      renderAlarmList();
+      updateClock();
+      closeEditModal();
+    });
 
     document.getElementById('addAlarmBtn').addEventListener('click', () => {
       getAudioContext();
