@@ -5,11 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>스마트 시계 - 알람 · 스톱워치 · 타이머</title>
   
-  <!-- 안드로이드 & 공통 PWA 매니페스트 -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f6f7f9">
   
-  <!-- 아이폰(iOS) 홈 화면 앱 설치 전용 설정 -->
+  <!-- iOS 홈 화면 앱 설치 전용 설정 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="스마트 시계">
@@ -78,7 +77,7 @@
 
   <div class="max-w-lg w-full space-y-4 my-1">
     
-    <!-- 📲 스마트폰 앱 다운로드/설치 안내 배너 (미설치 브라우저 접속 시 자동 표시) -->
+    <!-- 스마트폰 앱 다운로드/설치 안내 배너 -->
     <div id="installAppBanner" class="clean-card p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200/80 flex items-center justify-between gap-3 hidden">
       <div class="flex items-center gap-3 text-left">
         <img src="icon-192.png" alt="앱 아이콘" class="w-10 h-10 rounded-2xl shadow-sm">
@@ -113,9 +112,7 @@
       </button>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 탭 1: 알람 & 서버 시간 동기화               -->
-    <!-- ========================================== -->
+    <!-- 탭 1: 알람 & 서버 시간 동기화 -->
     <div id="tab-alarm" class="space-y-4">
       <div class="text-center py-5 px-4">
         <p id="nextAlarmCountdown" class="text-lg font-bold text-gray-800 tracking-tight mb-1">모든 알람이 꺼져 있습니다</p>
@@ -123,7 +120,7 @@
         <p id="todayDateLabel" class="text-xs text-gray-500 font-medium mt-1">오늘 날짜 불러오는 중...</p>
       </div>
 
-      <!-- 🌐 웹사이트 서버 시간 동기화 카드 -->
+      <!-- 웹사이트 서버 시간 동기화 카드 -->
       <div class="clean-card p-5 text-left border border-transparent focus-within:border-cyan-300 transition-all">
         <div class="flex justify-between items-center mb-2.5">
           <h2 class="text-sm font-bold text-cyan-600 flex items-center gap-1">
@@ -133,7 +130,7 @@
         </div>
         
         <div class="flex gap-2">
-          <input type="text" id="targetUrlInput" placeholder="예: example.com 또는 수강신청·예매 사이트 주소" class="flex-1 bg-[#f2f4f7] text-gray-900 text-xs font-medium p-3 rounded-2xl border border-transparent focus:border-cyan-500 focus:bg-white focus:outline-none">
+          <input type="text" id="targetUrlInput" maxlength="150" placeholder="예: example.com 또는 수강신청·예매 사이트 주소" class="flex-1 bg-[#f2f4f7] text-gray-900 text-xs font-medium p-3 rounded-2xl border border-transparent focus:border-cyan-500 focus:bg-white focus:outline-none">
           <button id="fetchServerTimeBtn" class="px-4 py-3 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-300 text-white font-bold rounded-2xl text-xs transition whitespace-nowrap shadow-md shadow-cyan-600/10">
             시간 맞추기
           </button>
@@ -145,7 +142,7 @@
         </div>
       </div>
 
-      <!-- ⚡ 원터치 5분 단위 퀵 알람 카드 -->
+      <!-- 원터치 5분 단위 퀵 알람 카드 -->
       <div class="clean-card p-5">
         <div class="flex justify-between items-center mb-3">
           <h2 class="text-sm font-bold text-gray-800">⚡ 빠른 알람 (5분 단위)</h2>
@@ -167,7 +164,7 @@
         </div>
       </div>
       
-      <!-- ➕ 새 알람 추가 카드 -->
+      <!-- 새 알람 추가 카드 -->
       <div class="clean-card p-5 text-left space-y-4">
         <div class="flex justify-between items-center">
           <h2 class="text-sm font-bold text-gray-800">➕ 새 알람 추가</h2>
@@ -215,11 +212,11 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람 이름</label>
-            <input type="text" id="alarmName" placeholder="예: 기상 알람" class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-medium p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+            <input type="text" id="alarmName" maxlength="30" placeholder="예: 기상 알람" class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-medium p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
           </div>
           <div>
             <label class="block text-[11px] font-semibold text-gray-500 mb-1">그룹 이름</label>
-            <input type="text" id="alarmGroup" placeholder="예: 출근, 일정" class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-medium p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+            <input type="text" id="alarmGroup" maxlength="20" placeholder="예: 출근, 일정" class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-medium p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
           </div>
         </div>
 
@@ -251,13 +248,13 @@
         </button>
       </div>
 
-      <!-- 🗂️ 그룹별 일괄 ON/OFF 제어 카드 -->
+      <!-- 그룹별 일괄 ON/OFF 제어 카드 -->
       <div id="groupControlWrapper" class="clean-card p-4 text-left hidden">
         <div class="text-xs font-bold text-gray-700 mb-2.5">🗂️ 그룹 일괄 제어</div>
         <div id="groupToggleList" class="flex flex-wrap gap-2"></div>
       </div>
 
-      <!-- 📋 등록된 알람 목록 -->
+      <!-- 등록된 알람 목록 -->
       <div class="space-y-2.5 pt-1">
         <div class="flex justify-between items-center px-2">
           <h2 class="text-xs font-bold text-gray-500">내 알람 목록</h2>
@@ -266,9 +263,7 @@
       </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 탭 2: 정밀 스톱워치 영역                     -->
-    <!-- ========================================== -->
+    <!-- 탭 2: 정밀 스톱워치 영역 -->
     <div id="tab-stopwatch" class="hidden space-y-4">
       <div class="clean-card p-8 text-center">
         <span class="px-3 py-1 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">⏱️ 스톱워치</span>
@@ -299,9 +294,7 @@
       </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 탭 3: 카운트다운 타이머 영역                  -->
-    <!-- ========================================== -->
+    <!-- 탭 3: 카운트다운 타이머 영역 -->
     <div id="tab-timer" class="hidden space-y-4">
       <div class="clean-card p-6 text-center">
         <span class="px-3 py-1 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">⏳ 타이머</span>
@@ -363,7 +356,7 @@
 
   </div>
 
-  <!-- 하단 고정 탭 바 (iOS 하단 안전 영역 반영) -->
+  <!-- 하단 고정 탭 바 -->
   <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/80 z-40" style="padding-bottom: env(safe-area-inset-bottom);">
     <div class="max-w-lg mx-auto flex justify-around items-center h-16 px-4">
       <button onclick="switchTab('alarm')" id="nav-alarm" class="flex-1 flex flex-col items-center justify-center py-1 text-[#0381fe] font-bold transition">
@@ -405,7 +398,24 @@
   </div>
 
   <script>
-    let alarms = JSON.parse(localStorage.getItem('saved_alarms') || '[]');
+    // XSS 스크립트 삽입 방지용 HTML 이스케이프 함수
+    function escapeHTML(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    let alarms = [];
+    try {
+      const parsed = JSON.parse(localStorage.getItem('saved_alarms') || '[]');
+      if (Array.isArray(parsed)) alarms = parsed;
+    } catch {
+      alarms = [];
+    }
+
     let alarmInterval = null;
     let isRinging = false;
     let isTimerRinging = false;
@@ -418,9 +428,7 @@
     let syncedDomain = null;
     let lastFetchTimestamp = 0;
 
-    // ==========================================
-    // 📲 안드로이드 & 아이폰 앱 설치(다운로드) 감지
-    // ==========================================
+    // 안드로이드 & 아이폰 앱 설치 감지
     let deferredPrompt = null;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -459,7 +467,6 @@
       });
     }
 
-    // iOS 오디오 엔진 첫 터치 시 자동 잠금 해제
     document.body.addEventListener('touchstart', () => { getAudioContext(); }, { once: true });
     document.body.addEventListener('click', () => { getAudioContext(); }, { once: true });
 
@@ -492,7 +499,7 @@
       });
     };
 
-    // 🌐 서버 시간 동기화
+    // 서버 시간 동기화
     document.getElementById('fetchServerTimeBtn').addEventListener('click', async () => {
       const nowMs = Date.now();
       if (nowMs - lastFetchTimestamp < 2000) {
@@ -518,7 +525,7 @@
         const data = await res.json();
 
         if (!res.ok) {
-          statusMsg.innerText = `❌ 연결 실패: ${data.error}`;
+          statusMsg.innerText = `❌ 연결 실패: ${data.error || '요청 거부'}`;
           statusMsg.className = 'text-[11px] text-rose-500 font-medium';
           return;
         }
@@ -729,6 +736,7 @@
       updateClock();
     };
 
+    // 안전한 그룹 제어 렌더링 (XSS 이스케이프 + 이벤트 위임)
     function renderGroupControls() {
       const wrapper = document.getElementById('groupControlWrapper');
       const listEl = document.getElementById('groupToggleList');
@@ -744,20 +752,28 @@
         const groupAlarms = alarms.filter(a => a.group === groupName);
         const activeCount = groupAlarms.filter(a => a.enabled).length;
         const isAllOrAnyOn = activeCount > 0;
+        const safeGroup = escapeHTML(groupName);
 
         return `
-          <button onclick="toggleGroup('${groupName.replace(/'/g, "\'")}')" 
-            class="px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
+          <button type="button" data-group-name="${safeGroup}" 
+            class="group-toggle-btn px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
               isAllOrAnyOn 
                 ? 'bg-[#0381fe] text-white shadow-sm' 
                 : 'bg-[#f2f4f7] text-gray-500 hover:bg-gray-200'
             }">
-            <span>${groupName}</span>
+            <span>${safeGroup}</span>
             <span class="text-[10px] opacity-85">(${activeCount}/${groupAlarms.length})</span>
           </button>
         `;
       }).join('');
     }
+
+    document.getElementById('groupToggleList').addEventListener('click', (e) => {
+      const btn = e.target.closest('.group-toggle-btn');
+      if (!btn) return;
+      const groupName = btn.getAttribute('data-group-name');
+      toggleGroup(groupName);
+    });
 
     window.toggleGroup = function(groupName) {
       getAudioContext();
@@ -803,22 +819,24 @@
         const levelTag = (alarm.snoozeLevel && alarm.snoozeLevel > 0)
           ? `<span class="text-[10px] px-2 py-0.5 bg-rose-50 text-rose-600 rounded-full font-bold">🔥 강도 Lv.${alarm.snoozeLevel + 1}</span>`
           : '';
+        const safeGroup = escapeHTML(alarm.group);
+        const safeName = escapeHTML(alarm.name);
 
         return `
           <div class="clean-card p-5 flex justify-between items-center transition ${alarm.enabled ? 'opacity-100' : 'opacity-65'}">
             <div class="text-left">
               <div class="flex items-center gap-1.5 mb-1">
-                <span class="text-[11px] px-2 py-0.5 bg-blue-50 text-[#0381fe] rounded-full font-bold">${alarm.group}</span>
-                <span class="text-xs text-gray-600 font-semibold">${alarm.name}</span>
+                <span class="text-[11px] px-2 py-0.5 bg-blue-50 text-[#0381fe] rounded-full font-bold">${safeGroup}</span>
+                <span class="text-xs text-gray-600 font-semibold">${safeName}</span>
                 ${levelTag}
               </div>
               <div class="flex items-baseline gap-1.5">
                 <span class="text-sm font-bold ${alarm.enabled ? 'text-gray-700' : 'text-gray-400'}">${ampm}</span>
-                <span class="text-3xl font-light tracking-tight font-mono ${alarm.enabled ? 'text-gray-900' : 'text-gray-400'}">${time12}</span>
+                <span class="text-3xl font-light tracking-tight font-mono ${alarm.enabled ? 'text-gray-900' : 'text-gray-400'}">${escapeHTML(time12)}</span>
                 ${snoozeTag}
               </div>
               <div class="text-[11px] text-gray-400 mt-1 font-medium">
-                <span class="${alarm.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${selectedDaysText}</span> · ${soundNames[alarm.sound]}
+                <span class="${alarm.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${selectedDaysText}</span> · ${soundNames[alarm.sound % 12]}
               </div>
             </div>
             <div class="flex items-center gap-3">
@@ -837,8 +855,8 @@
 
     document.getElementById('addAlarmBtn').addEventListener('click', () => {
       getAudioContext();
-      const name = document.getElementById('alarmName').value.trim() || '알람';
-      const group = document.getElementById('alarmGroup').value.trim() || '기본 그룹';
+      const name = document.getElementById('alarmName').value.trim().slice(0, 30) || '알람';
+      const group = document.getElementById('alarmGroup').value.trim().slice(0, 20) || '기본 그룹';
       const time = document.getElementById('alarmTime').value;
       const soundVal = document.getElementById('alarmSound').value;
 
@@ -846,7 +864,7 @@
       const intervalVal = document.getElementById('snoozeIntervalSelect').value;
       if (intervalVal === 'custom') {
         snoozeInterval = parseInt(document.getElementById('customSnoozeInterval').value, 10);
-        if (!snoozeInterval || snoozeInterval <= 0) return alert('올바른 다시 울림 간격(분)을 입력해주세요.');
+        if (!snoozeInterval || snoozeInterval <= 0 || snoozeInterval > 60) return alert('1~60분 사이의 올바른 간격을 입력해주세요.');
       } else {
         snoozeInterval = parseInt(intervalVal, 10);
       }
@@ -855,7 +873,7 @@
       const countVal = document.getElementById('snoozeCountSelect').value;
       if (countVal === 'custom') {
         snoozeCount = parseInt(document.getElementById('customSnoozeCount').value, 10);
-        if (!snoozeCount || snoozeCount <= 0) return alert('올바른 반복 횟수를 입력해주세요.');
+        if (!snoozeCount || snoozeCount <= 0 || snoozeCount > 20) return alert('1~20회 사이의 올바른 횟수를 입력해주세요.');
       } else {
         snoozeCount = parseInt(countVal, 10);
       }
@@ -969,7 +987,7 @@
 
       document.getElementById('modalAlarmName').innerText = `[${alarm.group}] ${alarm.name}`;
       document.getElementById('modalAlarmTime').innerText = alarm.nextSnoozeTime || alarm.time;
-      document.getElementById('modalSoundTitle').innerText = `알람음: ${soundNames[alarm.sound]}`;
+      document.getElementById('modalSoundTitle').innerText = `알람음: ${soundNames[alarm.sound % 12]}`;
       document.getElementById('modalRepeatInfo').innerText = alarm.isRepeating 
         ? "🔄 반복 요일 지정됨: 다음 반복 요일에도 자동 ON 유지" 
         : "💡 단발성 알람: 완료 후 자동으로 OFF";
@@ -1048,9 +1066,7 @@
       updateClock();
     });
 
-    // ==========================================
-    // ⏱️ 스톱워치 로직
-    // ==========================================
+    // 스톱워치 로직
     let swRunning = false;
     let swStartTime = 0;
     let swElapsedMs = 0;
@@ -1157,9 +1173,7 @@
       }
     });
 
-    // ==========================================
-    // ⏳ 카운트다운 타이머 로직
-    // ==========================================
+    // 카운트다운 타이머 로직
     let timerState = 'idle';
     let timerTotalMs = 0;
     let timerRemainingMs = 0;
