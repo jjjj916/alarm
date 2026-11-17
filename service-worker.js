@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'smart-clock-v2';
+const CACHE_NAME = 'smart-clock-v3';
 const ASSETS = [
   './',
   './index.html',

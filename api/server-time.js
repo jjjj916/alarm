@@ -12,7 +12,6 @@ function isBlockedHost(hostname) {
     return true;
   }
 
-  // IPv4 사설망 및 루프백/링크로컬 대역 차단
   const ipv4Match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (ipv4Match) {
     const [, a, b] = ipv4Match.map(Number);
@@ -29,7 +28,6 @@ function isBlockedHost(hostname) {
     }
   }
 
-  // IPv6 내부망 및 특수 주소 차단
   if (host.includes(':')) {
     return true;
   }
@@ -42,7 +40,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: '허용되지 않은 요청 방식입니다.' });
   }
 
-  // 동일 출처(Origin/Referer) 검증으로 외부 사이트 무단 API 호출 방지
   const host = req.headers.host;
   const origin = req.headers.origin;
   const referer = req.headers.referer;
@@ -70,7 +67,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: '유효하지 않은 URL 형식입니다.' });
   }
 
-  // HTTP/HTTPS 프로토콜 및 표준 포트만 허용
   if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
     return res.status(400).json({ error: 'HTTP 또는 HTTPS 주소만 지원합니다.' });
   }

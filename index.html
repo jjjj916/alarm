@@ -8,7 +8,6 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f6f7f9">
   
-  <!-- iOS 홈 화면 앱 설치 전용 설정 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="스마트 시계">
@@ -21,8 +20,9 @@
       background-color: #f6f7f9;
       color: #111827;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", sans-serif;
-      padding-top: env(safe-area-inset-top);
-      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+      padding-top: calc(1rem + env(safe-area-inset-top));
+      /* 하단 고정 내비게이션 바에 마지막 알람이 가려지지 않도록 충분한 하단 여백 확보 */
+      padding-bottom: calc(8.5rem + env(safe-area-inset-bottom));
       -webkit-tap-highlight-color: transparent;
       user-select: none;
     }
@@ -73,7 +73,7 @@
     }
   </style>
 </head>
-<body class="min-h-screen flex flex-col items-center p-4">
+<body class="min-h-screen flex flex-col items-center px-4">
 
   <div class="max-w-lg w-full space-y-4 my-1">
     
@@ -91,20 +91,10 @@
       </button>
     </div>
 
-    <!-- 상단 유틸리티 바 -->
+    <!-- 상단 유틸리티 바 (불필요한 요일 변경 드롭다운 제거 후 깔끔하게 정리) -->
     <div class="flex justify-between items-center px-2 pt-1">
       <div class="flex items-center gap-1.5">
-        <select id="currentDaySelect" class="bg-white text-gray-700 text-xs font-bold py-1.5 px-3 rounded-full shadow-sm border border-gray-200/80 focus:outline-none">
-          <option value="auto">⚡ 요일 자동 감지</option>
-          <option value="0">일요일 기준</option>
-          <option value="1">월요일 기준</option>
-          <option value="2">화요일 기준</option>
-          <option value="3">수요일 기준</option>
-          <option value="4">목요일 기준</option>
-          <option value="5">금요일 기준</option>
-          <option value="6">토요일 기준</option>
-        </select>
-        <span id="activeDayDisplay" class="px-2.5 py-1 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">계산 중...</span>
+        <span id="activeDayDisplay" class="px-3 py-1.5 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">오늘 요일</span>
       </div>
       
       <button id="wakeLockBtn" class="px-3 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
@@ -254,8 +244,8 @@
         <div id="groupToggleList" class="flex flex-wrap gap-2"></div>
       </div>
 
-      <!-- 등록된 알람 목록 -->
-      <div class="space-y-2.5 pt-1">
+      <!-- 등록된 알람 목록 (하단 내비게이션 바에 가려지지 않도록 여유 마진 확보) -->
+      <div class="space-y-2.5 pt-1 pb-8">
         <div class="flex justify-between items-center px-2">
           <h2 class="text-xs font-bold text-gray-500">내 알람 목록</h2>
         </div>
@@ -264,7 +254,7 @@
     </div>
 
     <!-- 탭 2: 정밀 스톱워치 영역 -->
-    <div id="tab-stopwatch" class="hidden space-y-4">
+    <div id="tab-stopwatch" class="hidden space-y-4 pb-8">
       <div class="clean-card p-8 text-center">
         <span class="px-3 py-1 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">⏱️ 스톱워치</span>
         
@@ -295,7 +285,7 @@
     </div>
 
     <!-- 탭 3: 카운트다운 타이머 영역 -->
-    <div id="tab-timer" class="hidden space-y-4">
+    <div id="tab-timer" class="hidden space-y-4 pb-8">
       <div class="clean-card p-6 text-center">
         <span class="px-3 py-1 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">⏳ 타이머</span>
 
@@ -357,7 +347,7 @@
   </div>
 
   <!-- 하단 고정 탭 바 -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/80 z-40" style="padding-bottom: env(safe-area-inset-bottom);">
+  <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/80 z-40 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]" style="padding-bottom: env(safe-area-inset-bottom);">
     <div class="max-w-lg mx-auto flex justify-around items-center h-16 px-4">
       <button onclick="switchTab('alarm')" id="nav-alarm" class="flex-1 flex flex-col items-center justify-center py-1 text-[#0381fe] font-bold transition">
         <span class="text-lg leading-none mb-1">🔔</span>
@@ -398,7 +388,6 @@
   </div>
 
   <script>
-    // XSS 스크립트 삽입 방지용 HTML 이스케이프 함수
     function escapeHTML(str) {
       return String(str)
         .replace(/&/g, '&amp;')
@@ -423,12 +412,10 @@
     let currentRingingAlarm = null;
     let wakeLock = null;
 
-    // 서버 시간 동기화 변수
     let timeOffsetMs = 0;
     let syncedDomain = null;
     let lastFetchTimestamp = 0;
 
-    // 안드로이드 & 아이폰 앱 설치 감지
     let deferredPrompt = null;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -497,9 +484,9 @@
           navBtn.className = 'flex-1 flex flex-col items-center justify-center py-1 text-gray-400 hover:text-gray-600 font-medium transition';
         }
       });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // 서버 시간 동기화
     document.getElementById('fetchServerTimeBtn').addEventListener('click', async () => {
       const nowMs = Date.now();
       if (nowMs - lastFetchTimestamp < 2000) {
@@ -629,8 +616,7 @@
     }
 
     function getActiveDayIndex() {
-      const val = document.getElementById('currentDaySelect').value;
-      return val === 'auto' ? getSynchronizedNow().getDay() : parseInt(val, 10);
+      return getSynchronizedNow().getDay();
     }
 
     function updateNextAlarmCountdown(now, activeDay) {
@@ -690,7 +676,7 @@
       const activeDay = getActiveDayIndex();
 
       document.getElementById('clock').innerText = `${hours}:${minutes}:${seconds}`;
-      document.getElementById('activeDayDisplay').innerText = `${daysMap[activeDay]}요일`;
+      document.getElementById('activeDayDisplay').innerText = `📅 ${daysMap[activeDay]}요일`;
       document.getElementById('todayDateLabel').innerText = `${now.getMonth() + 1}월 ${now.getDate()}일 (${daysMap[now.getDay()]})`;
 
       updateNextAlarmCountdown(now, activeDay);
@@ -736,7 +722,6 @@
       updateClock();
     };
 
-    // 안전한 그룹 제어 렌더링 (XSS 이스케이프 + 이벤트 위임)
     function renderGroupControls() {
       const wrapper = document.getElementById('groupControlWrapper');
       const listEl = document.getElementById('groupToggleList');
