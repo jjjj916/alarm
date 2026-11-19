@@ -555,14 +555,11 @@
       writeStr(36, 'data');
       view.setUint32(40, numSamples, true);
 
-      let lastNoise = 0;
       for (let i = 0; i < numSamples; i++) {
         if (!isAlarmTone) {
-          // iOS가 무음 트랙으로 오인해 강제 정지(Pause)하는 것을 막기 위한 극저음 핑크노이즈(진폭 ±3)
-          const white = (Math.random() * 2 - 1);
-          lastNoise = 0.96 * lastNoise + 0.04 * white;
-          const val = 128 + Math.round(lastNoise * 14);
-          view.setUint8(44 + i, Math.max(0, Math.min(255, val)));
+          // 10Hz 극저주파 + 물리적 최소 진폭(±1)
+          const val = 128 + Math.round(1 * Math.sin((2 * Math.PI * 10 * i) / sampleRate));
+          view.setUint8(44 + i, val);
         } else {
           // 잠금 화면 스피커를 뚫고 나오는 선명한 멜로디 벨소리 (도-미-솔-높은도)
           const noteIdx = Math.floor((i / sampleRate) * 6) % 6;
@@ -649,7 +646,6 @@
         navigator.mediaSession.playbackState = 'paused';
       }
       if (isBgAudioRunning && !isRinging) {
-        // 외부 앱이나 사용자가 잠금 화면 일시정지 버튼을 누른 경우 상태 동기화
         isBgAudioRunning = false;
         updateBgAudioButtonUI();
       }
@@ -660,7 +656,6 @@
       initMasterAudioUrls();
 
       if (!isBgAudioRunning) {
-        // 중요: iOS에서 AudioContext와 동시 호출 시 세션 충돌로 일시정지되므로 masterEl만 단독 실행
         masterEl.src = silentBlobUrl;
         masterEl.volume = 1.0;
         masterEl.loop = true;
@@ -673,7 +668,7 @@
             if ('mediaSession' in navigator) {
               navigator.mediaSession.metadata = new MediaMetadata({
                 title: '스마트 시계 알람 대기 중',
-                artist: '화면을 꺼도 정각에 알람이 울립니다'
+                artist: '최소 신호 백그라운드 유지 중 · 정각에 알람이 울립니다'
               });
               navigator.mediaSession.playbackState = 'playing';
               try {
@@ -690,8 +685,8 @@
             }
             showFeatureInfoBanner(
               '🎧',
-              '백그라운드 유지가 켜졌습니다 (iOS 잠금 화면 재생)',
-              '이제 잠금 화면의 미디어 카드가 <span class="font-bold text-[#0381fe]">재생 중(⏸️ 아이콘)</span>으로 유지되며, 화면을 잠가도 정각에 알람이 울립니다.'
+              '최소 출력 백그라운드 유지가 켜졌습니다',
+              '10Hz 극저주파의 최소 진폭(±1) 신호로 잠금 화면 재생 상태를 유지합니다.'
             );
           }).catch((err) => {
             alert('백그라운드 오디오 실행 실패: ' + err.message);
