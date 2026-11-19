@@ -130,7 +130,28 @@
             <li>② <b>백그라운드 재생 시도</b>를 ON으로 설정하세요.</li>
             <li>③ <b>푸시 알림</b>을 ON으로 설정하고 기기 알림 권한을 허용하세요.</li>
           </ul>
-          <p class="text-[10px] leading-relaxed text-amber-800 mt-2">※ 화면 켜짐 유지는 배터리를 더 사용합니다. 브라우저·기기의 절전 정책이나 앱 종료 시 웹 알람음은 중단될 수 있습니다. 푸시는 보조 알림이며 정각 도착이나 사용자 지정 알람음 재생을 보장하지 않습니다.</p>
+          <div id="androidYoutubeGuide" class="hidden mt-3 rounded-xl border border-amber-300 bg-white/80 p-3">
+            <div class="text-[11px] font-extrabold text-amber-950">📱 안드로이드에서 유튜브 앱을 보면서 알람을 받을 때</div>
+            <p class="mt-1 text-[10px] leading-relaxed text-amber-900">유튜브를 보기 전에 아래 세 가지 휴대폰 설정을 확인해 주세요. 메뉴 이름은 삼성·Pixel 등 제조사와 Android 버전에 따라 조금 다를 수 있습니다.</p>
+            <div class="mt-2 space-y-2 text-[10px] leading-relaxed text-amber-950">
+              <div class="rounded-lg bg-amber-50 p-2">
+                <b>① Chrome 알림 허용</b>
+                <p>휴대폰 설정 → 앱 → Chrome → 알림 → 알림 허용을 켜세요.</p>
+                <p>사이트 알림 또는 알림 카테고리에서 소리와 진동을 활성화하세요. 무음 및 방해 금지 설정도 확인하세요.</p>
+              </div>
+              <div class="rounded-lg bg-amber-50 p-2">
+                <b>② Chrome 배터리 제한 해제</b>
+                <p>휴대폰 설정 → 앱 → Chrome → 배터리에서 백그라운드 사용을 제한하지 않도록 설정하세요.</p>
+              </div>
+              <div class="rounded-lg bg-amber-50 p-2">
+                <b>③ 백그라운드 데이터 허용</b>
+                <p>휴대폰 설정 → 앱 → Chrome → 모바일 데이터에서 백그라운드 데이터 사용을 허용하세요.</p>
+                <p>데이터 절약 모드가 켜져 있다면 Chrome의 백그라운드 데이터 사용도 허용하세요.</p>
+              </div>
+            </div>
+            <p class="mt-2 text-[10px] leading-relaxed text-amber-800">유튜브 앱 위로 표시되는 것은 Android 시스템 푸시 알림입니다. 알림 소리는 휴대폰 알림 설정을 따르며 Smart Clock의 12개 알람음이 재생되는 것은 아닙니다. 이 설정을 모두 켜도 브라우저·운영체제의 제한에 따라 알림이 늦거나 전달되지 않을 수 있습니다.</p>
+          </div>
+          <p class="text-[10px] leading-relaxed text-amber-800 mt-2">※ 화면 켜짐 유지는 이 페이지가 보일 때만 유효합니다. 유튜브로 전환하면 웹 알람 실행이 중단될 수 있습니다. 푸시는 서버의 분 단위 확인 후 발송되는 보조 알림이며 정각 도착이나 사용자 지정 알람음 재생을 보장하지 않습니다.</p>
         </div>
       </div>
     </section>
@@ -1034,6 +1055,12 @@
       }
     }
 
+    // Android에서는 유튜브 앱 전환 시 자체 JS 알람 대신 OS 푸시 알림이 보조 경로임을 안내한다.
+    if (/Android/i.test(navigator.userAgent)) {
+      const androidGuide = document.getElementById('androidYoutubeGuide');
+      if (androidGuide) androidGuide.classList.remove('hidden');
+    }
+
     async function subscribeToPushNotifications(requestPerm = true) {
       if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
         if (requestPerm) alert('이 브라우저 또는 환경에서는 Web Push 알림을 지원하지 않습니다.');
@@ -1121,7 +1148,7 @@
         }
         const sub = await subscribeToPushNotifications(true);
         if (sub) {
-          alert('🔔 푸시 알림이 활성화되었습니다. 앱이 닫혀도 예약 시각에 맞춰 서버 푸시가 발송됩니다.');
+          alert('🔔 푸시 구독이 활성화되었습니다. 안드로이드에서 유튜브를 보는 중에는 휴대폰의 Chrome 알림 소리·진동 설정을 따르는 푸시가 보조 알림으로 전달됩니다. Smart Clock의 사용자 지정 알람음이나 정각 도착은 보장되지 않습니다.');
         }
       } catch (error) {
         console.error('푸시 설정 변경 실패:', error);
