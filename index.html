@@ -28,20 +28,16 @@
     input, select {
       user-select: auto;
       box-sizing: border-box;
-    }
-    input[type="time"] {
-      display: flex;
-      align-items: center;
-      min-height: 48px;
-      line-height: 1.5;
+      max-width: 100%;
     }
     select {
-      min-height: 48px;
+      min-height: 46px;
     }
     .clean-card {
       background-color: #ffffff;
       border-radius: 26px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+      overflow: hidden;
     }
     .pill-switch {
       position: relative;
@@ -188,7 +184,7 @@
         </div>
       </div>
       
-      <!-- 새 알람 추가 카드 (아이패드·모바일 완전 1열 분리 레이아웃) -->
+      <!-- 새 알람 추가 카드 (iPadOS 네이티브 time 오버플로우 원천 차단 3단 셀렉트 적용) -->
       <div class="clean-card p-5 text-left space-y-4">
         <div class="flex justify-between items-center">
           <h2 class="text-sm font-bold text-gray-800">➕ 새 알람 추가</h2>
@@ -198,11 +194,18 @@
         <div class="space-y-3">
           <div>
             <label class="block text-[11px] font-semibold text-gray-500 mb-1">시간</label>
-            <input type="time" id="alarmTime" value="08:00" class="w-full bg-[#f2f4f7] text-gray-900 font-bold px-3.5 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-base">
+            <div class="grid grid-cols-3 gap-2">
+              <select id="alarmAmPm" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 font-bold px-3 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-sm">
+                <option value="AM" selected>오전</option>
+                <option value="PM">오후</option>
+              </select>
+              <select id="alarmHour" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 font-bold px-3 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-sm font-mono"></select>
+              <select id="alarmMinute" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 font-bold px-3 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-sm font-mono"></select>
+            </div>
           </div>
           <div>
             <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람음</label>
-            <select id="alarmSound" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold px-3.5 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+            <select id="alarmSound" class="w-full min-w-0 bg-[#f2f4f7] text-gray-800 text-xs font-semibold px-3.5 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
               <option value="random">🎲 매일 무작위 사운드</option>
               <option value="0">✨ 1. 스파클 라이징 팝</option>
               <option value="1">🌅 2. 선라이즈 오케스트라</option>
@@ -398,7 +401,7 @@
     </div>
   </nav>
 
-  <!-- 알람 편집 모달 (아이패드·모바일 완전 1열 분리 레이아웃) -->
+  <!-- 알람 편집 모달 -->
   <div id="editModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
     <div class="clean-card w-full max-w-md p-6 bg-white space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center pb-2 border-b border-gray-100">
@@ -411,11 +414,18 @@
       <div class="space-y-3">
         <div>
           <label class="block text-[11px] font-semibold text-gray-500 mb-1">시간</label>
-          <input type="time" id="editAlarmTime" class="w-full bg-[#f2f4f7] text-gray-900 font-bold px-3.5 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-base">
+          <div class="grid grid-cols-3 gap-2">
+            <select id="editAlarmAmPm" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 font-bold px-3 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-sm">
+              <option value="AM">오전</option>
+              <option value="PM">오후</option>
+            </select>
+            <select id="editAlarmHour" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 font-bold px-3 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-sm font-mono"></select>
+            <select id="editAlarmMinute" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 font-bold px-3 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-sm font-mono"></select>
+          </div>
         </div>
         <div>
           <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람음</label>
-          <select id="editAlarmSound" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold px-3.5 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+          <select id="editAlarmSound" class="w-full min-w-0 bg-[#f2f4f7] text-gray-800 text-xs font-semibold px-3.5 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
             <option value="0">✨ 1. 스파클 라이징 팝</option>
             <option value="1">🌅 2. 선라이즈 오케스트라</option>
             <option value="2">👾 3. 네온 아케이드 8비트</option>
@@ -487,6 +497,51 @@
   </div>
 
   <script>
+    // 시/분 드롭다운 옵션 초기화 (12시간제 오전/오후 + 24시간 HH:MM 변환 헬퍼)
+    function initTimeSelectOptions(hourId, minId, defaultHour = '8', defaultMin = '00') {
+      const hourEl = document.getElementById(hourId);
+      const minEl = document.getElementById(minId);
+      if (!hourEl || !minEl) return;
+
+      let hOpts = '';
+      for (let h = 1; h <= 12; h++) {
+        const val = String(h);
+        hOpts += `<option value="${val}" ${val === defaultHour ? 'selected' : ''}>${String(h).padStart(2, '0')}시</option>`;
+      }
+      hourEl.innerHTML = hOpts;
+
+      let mOpts = '';
+      for (let m = 0; m < 60; m++) {
+        const val = String(m).padStart(2, '0');
+        mOpts += `<option value="${val}" ${val === defaultMin ? 'selected' : ''}>${val}분</option>`;
+      }
+      minEl.innerHTML = mOpts;
+    }
+
+    function get24HourTimeFromSelects(ampmId, hourId, minId) {
+      const ampm = document.getElementById(ampmId).value;
+      let h12 = parseInt(document.getElementById(hourId).value, 10);
+      const minStr = document.getElementById(minId).value;
+
+      let h24 = h12 % 12;
+      if (ampm === 'PM') h24 += 12;
+      return `${String(h24).padStart(2, '0')}:${minStr}`;
+    }
+
+    function setSelectsFrom24HourTime(time24, ampmId, hourId, minId) {
+      const [hStr, mStr] = (time24 || '08:00').split(':');
+      const h24 = parseInt(hStr, 10);
+      const ampm = h24 >= 12 ? 'PM' : 'AM';
+      const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+
+      document.getElementById(ampmId).value = ampm;
+      document.getElementById(hourId).value = String(h12);
+      document.getElementById(minId).value = mStr;
+    }
+
+    initTimeSelectOptions('alarmHour', 'alarmMinute', '8', '00');
+    initTimeSelectOptions('editAlarmHour', 'editAlarmMinute', '8', '00');
+
     function escapeHTML(str) {
       return String(str)
         .replace(/&/g, '&amp;')
@@ -1296,7 +1351,7 @@
       if (!alarm) return;
 
       document.getElementById('editAlarmId').value = idx;
-      document.getElementById('editAlarmTime').value = alarm.time;
+      setSelectsFrom24HourTime(alarm.time, 'editAlarmAmPm', 'editAlarmHour', 'editAlarmMinute');
       document.getElementById('editAlarmSound').value = alarm.sound;
       document.getElementById('editAlarmName').value = alarm.name;
       document.getElementById('editAlarmGroup').value = alarm.group;
@@ -1325,9 +1380,7 @@
       const alarm = alarms[idx];
       if (!alarm) return;
 
-      const newTime = document.getElementById('editAlarmTime').value;
-      if (!newTime) return alert('알람 시간을 설정해주세요.');
-
+      const newTime = get24HourTimeFromSelects('editAlarmAmPm', 'editAlarmHour', 'editAlarmMinute');
       const newName = document.getElementById('editAlarmName').value.trim().slice(0, 30) || '알람';
       const newGroup = document.getElementById('editAlarmGroup').value.trim().slice(0, 20) || '기본 그룹';
       const newSound = parseInt(document.getElementById('editAlarmSound').value, 10);
@@ -1366,7 +1419,7 @@
       initMasterAudioUrls();
       const name = document.getElementById('alarmName').value.trim().slice(0, 30) || '알람';
       const group = document.getElementById('alarmGroup').value.trim().slice(0, 20) || '기본 그룹';
-      const time = document.getElementById('alarmTime').value;
+      const time = get24HourTimeFromSelects('alarmAmPm', 'alarmHour', 'alarmMinute');
       const soundVal = document.getElementById('alarmSound').value;
 
       let snoozeInterval = 5;
@@ -1392,8 +1445,6 @@
       document.querySelectorAll('.day-btn').forEach(btn => {
         if (btn.classList.contains('selected-day')) selectedDays.push(parseInt(btn.getAttribute('data-day'), 10));
       });
-
-      if (!time) return alert('알람 시간을 설정해주세요.');
 
       let isRepeating = true;
       if (selectedDays.length === 0) {
