@@ -184,7 +184,7 @@
         </div>
       </div>
       
-      <!-- 새 알람 추가 카드 (iPadOS 네이티브 time 오버플로우 원천 차단 3단 셀렉트 적용) -->
+      <!-- 새 알람 추가 카드 -->
       <div class="clean-card p-5 text-left space-y-4">
         <div class="flex justify-between items-center">
           <h2 class="text-sm font-bold text-gray-800">➕ 새 알람 추가</h2>
@@ -497,7 +497,6 @@
   </div>
 
   <script>
-    // 시/분 드롭다운 옵션 초기화 (12시간제 오전/오후 + 24시간 HH:MM 변환 헬퍼)
     function initTimeSelectOptions(hourId, minId, defaultHour = '8', defaultMin = '00') {
       const hourEl = document.getElementById(hourId);
       const minEl = document.getElementById(minId);
@@ -592,7 +591,6 @@
     let wakeLock = null;
     let pushEnabled = false;
 
-    // iOS 화면 잠금 돌파용 단일 통합 오디오 엔진
     let isBgAudioRunning = false;
     let silentBlobUrl = null;
     let ringBlobUrl = null;
@@ -848,18 +846,74 @@
       }
     }
 
+    function ensureServerScheduleFields() {
+      const now = new Date();
+      for (const alarm of alarms) {
+        if (alarm.isRepeating) {
+          alarm.singleShotAt = null;
+          continue;
+        }
+        if (Number.isFinite(Number(alarm.singleShotAt)) && Number(alarm.singleShotAt) > 0) continue;
+        const [hour, minute] = String(alarm.time || '08:00').split(':').map(Number);
+        const targetDay = Array.isArray(alarm.days) && alarm.days.length ? Number(alarm.days[0]) : now.getDay();
+        const target = new Date(now);
+        target.setHours(hour || 0, minute || 0, 0, 0);
+        while (target.getDay() !== targetDay) target.setDate(target.getDate() + 1);
+        if (target.getTime() < now.getTime() - 5 * 60 * 1000) target.setDate(target.getDate() + 7);
+        alarm.singleShotAt = target.getTime();
+      }
+    }
+
     async function syncAlarmsToPushServer(subscription) {
-      if (!subscription) return;
+      if (!subscription) return null;
+      ensureServerScheduleFields();
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
-      await fetch('/api/push-subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subscription,
-          alarms,
-          timeZone: tz
-        })
-      }).catch(() => {});
+      const timer = (typeof timerState !== 'undefined' && timerState === 'running')
+        ? { endAt: timerEndTimestamp, totalMs: timerTotalMs }
+        : null;
+      try {
+        const response = await fetch('/api/push-subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription, alarms, timeZone: tz, timer })
+        });
+        if (!response.ok) throw new Error(`서버 저장 실패 (${response.status})`);
+        const result = await response.json();
+        if (Array.isArray(result.alarms)) {
+          const serverById = new Map(result.alarms.map(item => [String(item.id), item]));
+          for (const localAlarm of alarms) {
+            const serverAlarm = serverById.get(String(localAlarm.id));
+            if (!serverAlarm) continue;
+            if (serverAlarm.serverFiredAt && !localAlarm.isRepeating &&
+                Number(serverAlarm.singleShotAt) === Number(localAlarm.singleShotAt)) {
+              localAlarm.enabled = false;
+              localAlarm.serverFiredAt = serverAlarm.serverFiredAt;
+            }
+            if (serverAlarm.serverLastSentAt && Date.now() - Number(serverAlarm.serverLastSentAt) < 5 * 60 * 1000) {
+              const current = new Date();
+              const dateKey = formatDateKey(current);
+              const firedTime = serverAlarm.nextSnoozeTime || serverAlarm.time;
+              localAlarm.lastTriggeredKey = `${dateKey}_${firedTime}`;
+            }
+          }
+          localStorage.setItem('saved_alarms', JSON.stringify(alarms));
+        }
+        return result;
+      } catch (error) {
+        console.warn('푸시 서버 동기화 실패:', error);
+        return null;
+      }
+    }
+
+    async function syncCurrentPushState() {
+      if (!pushEnabled || !('serviceWorker' in navigator)) return;
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) await syncAlarmsToPushServer(sub);
+      } catch (error) {
+        console.warn('푸시 상태 동기화 실패:', error);
+      }
     }
 
     async function subscribeToPushNotifications(requestPerm = true) {
@@ -898,7 +952,11 @@
         });
       }
 
-      await syncAlarmsToPushServer(subscription);
+      const saved = await syncAlarmsToPushServer(subscription);
+      if (!saved) {
+        if (requestPerm) alert('푸시 구독은 만들어졌지만 서버에 알람을 저장하지 못했습니다. 배포 환경 변수와 Redis 설정을 확인해주세요.');
+        return null;
+      }
       pushEnabled = true;
       updatePushButtonUI();
       return subscription;
@@ -1202,6 +1260,8 @@
       initMasterAudioUrls();
       const now = getSynchronizedNow();
       now.setMinutes(now.getMinutes() + minutesToAdd);
+      now.setSeconds(0, 0);
+      const singleShotAt = now.getTime();
       const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const sound = Math.floor(Math.random() * 12);
 
@@ -1219,6 +1279,9 @@
         snoozeLevel: 0,
         nextSnoozeTime: null,
         lastTriggeredKey: null,
+        singleShotAt,
+        serverFiredAt: null,
+        nextSnoozeAt: null,
         enabled: true
       });
 
@@ -1405,8 +1468,11 @@
       alarm.days = selectedDays;
       alarm.isRepeating = isRepeating;
       alarm.nextSnoozeTime = null;
+      alarm.nextSnoozeAt = null;
       alarm.snoozeLevel = 0;
       alarm.lastTriggeredKey = null;
+      alarm.singleShotAt = null;
+      alarm.serverFiredAt = null;
 
       alarms.sort((a, b) => a.time.localeCompare(b.time));
       saveAlarms();
@@ -1455,7 +1521,8 @@
       alarms.push({
         id: Date.now(), name, group, time, sound, days: selectedDays,
         isRepeating, snoozeInterval, snoozeCount, remainingSnooze: snoozeCount,
-        snoozeLevel: 0, nextSnoozeTime: null, lastTriggeredKey: null, enabled: true
+        snoozeLevel: 0, nextSnoozeTime: null, nextSnoozeAt: null,
+        singleShotAt: null, serverFiredAt: null, lastTriggeredKey: null, enabled: true
       });
 
       alarms.sort((a, b) => a.time.localeCompare(b.time));
@@ -1471,8 +1538,13 @@
       if (!alarms[idx].enabled) {
         alarms[idx].snoozeLevel = 0;
         alarms[idx].nextSnoozeTime = null;
+        alarms[idx].nextSnoozeAt = null;
       } else {
         alarms[idx].lastTriggeredKey = null;
+        if (!alarms[idx].isRepeating && alarms[idx].serverFiredAt) {
+          alarms[idx].serverFiredAt = null;
+          alarms[idx].singleShotAt = null;
+        }
       }
       saveAlarms();
       renderAlarmList();
@@ -1596,6 +1668,7 @@
         currentRingingAlarm.remainingSnooze = currentRingingAlarm.snoozeCount;
         currentRingingAlarm.snoozeLevel = 0;
         currentRingingAlarm.nextSnoozeTime = null;
+        currentRingingAlarm.nextSnoozeAt = null;
         escalateAlarmSound(currentRingingAlarm);
         saveAlarms();
         renderAlarmList();
@@ -1618,6 +1691,7 @@
         const now = getSynchronizedNow();
         now.setMinutes(now.getMinutes() + currentRingingAlarm.snoozeInterval);
         currentRingingAlarm.nextSnoozeTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        currentRingingAlarm.nextSnoozeAt = now.getTime();
         currentRingingAlarm.lastTriggeredKey = null;
         escalateAlarmSound(currentRingingAlarm);
       } else if (currentRingingAlarm) {
@@ -1626,6 +1700,7 @@
         currentRingingAlarm.remainingSnooze = currentRingingAlarm.snoozeCount;
         currentRingingAlarm.snoozeLevel = 0;
         currentRingingAlarm.nextSnoozeTime = null;
+        currentRingingAlarm.nextSnoozeAt = null;
         escalateAlarmSound(currentRingingAlarm);
       }
       saveAlarms();
@@ -1769,7 +1844,8 @@
       document.getElementById('timerProgressCircle').style.strokeDashoffset = offset;
     }
 
-    function triggerTimerFinished() {
+    function triggerTimerFinished(totalMs = timerTotalMs) {
+      if (Number.isFinite(Number(totalMs)) && Number(totalMs) > 0) timerTotalMs = Number(totalMs);
       isRinging = true;
       isTimerRinging = true;
       currentRingingAlarm = null;
@@ -1801,6 +1877,7 @@
     function resetTimerToIdle() {
       timerState = 'idle';
       clearInterval(timerInterval);
+      syncCurrentPushState();
       document.getElementById('timerSetupView').classList.remove('hidden');
       document.getElementById('timerRunningView').classList.add('hidden');
       document.getElementById('timerCancelBtn').classList.add('hidden');
@@ -1823,6 +1900,7 @@
         timerRemainingMs = timerTotalMs;
         timerState = 'running';
         timerEndTimestamp = Date.now() + timerRemainingMs;
+        syncCurrentPushState();
 
         const endDate = new Date(getSynchronizedNow().getTime() + timerRemainingMs);
         document.getElementById('timerEndTimeLabel').innerText = `🔔 종료 예정 ${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
@@ -1849,11 +1927,13 @@
         timerState = 'paused';
         clearInterval(timerInterval);
         timerRemainingMs = Math.max(0, timerEndTimestamp - Date.now());
+        syncCurrentPushState();
         btn.innerText = '계속';
         btn.className = 'w-32 py-3.5 rounded-full bg-[#0381fe] hover:bg-[#026de0] text-white font-bold text-sm transition shadow-md shadow-blue-500/25';
       } else if (timerState === 'paused') {
         timerState = 'running';
         timerEndTimestamp = Date.now() + timerRemainingMs;
+        syncCurrentPushState();
         const endDate = new Date(getSynchronizedNow().getTime() + timerRemainingMs);
         document.getElementById('timerEndTimeLabel').innerText = `🔔 종료 예정 ${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
 
@@ -1877,10 +1957,17 @@
 
     function checkPushAlarmTrigger() {
       const params = new URLSearchParams(window.location.search);
+      if (params.get('triggerTimer') === '1') {
+        const timerMs = Number(params.get('timerMs')) || 0;
+        window.history.replaceState({}, document.title, window.location.pathname);
+        if (!isRinging) triggerTimerFinished(timerMs);
+        return;
+      }
       if (params.get('triggerAlarm') !== '1') return;
 
       const labelParam = params.get('label') || '스마트 시계 알람';
       const bodyParam = params.get('body') || '';
+      const alarmIdParam = params.get('alarmId');
       window.history.replaceState({}, document.title, window.location.pathname);
 
       if (isRinging) return;
@@ -1888,7 +1975,10 @@
       const now = getSynchronizedNow();
       const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-      let matchedAlarm = alarms.find((a) => bodyParam.includes(a.time) || labelParam.includes(a.name));
+      let matchedAlarm = alarmIdParam
+        ? alarms.find((a) => String(a.id) === alarmIdParam)
+        : null;
+      if (!matchedAlarm) matchedAlarm = alarms.find((a) => bodyParam.includes(a.time) || labelParam.includes(a.name));
       if (!matchedAlarm) {
         matchedAlarm = alarms.find((a) => a.enabled && (a.nextSnoozeTime || a.time) === currentHM) || alarms.find((a) => a.enabled);
       }
@@ -1921,13 +2011,13 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./service-worker.js').then((reg) => {
         if ('Notification' in window && Notification.permission === 'granted') {
-          reg.pushManager.getSubscription().then((sub) => {
+          reg.pushManager.getSubscription().then(async (sub) => {
             if (sub) {
-              pushEnabled = true;
+              const saved = await syncAlarmsToPushServer(sub);
+              pushEnabled = Boolean(saved);
               updatePushButtonUI();
-              syncAlarmsToPushServer(sub);
             }
-          });
+          }).catch(() => {});
         }
       });
     }

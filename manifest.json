@@ -1,6 +1,12 @@
 {
-  "short_name": "스마트 시계",
   "name": "스마트 시계 - 알람 · 스톱워치 · 타이머",
+  "short_name": "스마트 시계",
+  "description": "웹사이트 서버 시간 동기화, 단계별 알람, 정밀 스톱워치 및 타이머 앱",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f6f7f9",
+  "theme_color": "#f6f7f9",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "icon-192.png",
@@ -14,10 +20,5 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ],
-  "start_url": "./index.html",
-  "background_color": "#f6f7f9",
-  "theme_color": "#f6f7f9",
-  "display": "standalone",
-  "orientation": "portrait"
+  ]
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-clock-v3';
+const CACHE_NAME = 'smart-clock-v4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -8,85 +8,84 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE).catch(() => {});
-    })
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE)));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      );
-    })
+    caches.keys().then(keys => Promise.all(
+      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+    ))
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('/api/')) {
-    return;
-  }
+  if (new URL(event.request.url).pathname.includes('/api/')) return;
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(event.request).then(response => {
+      if (response && response.ok && event.request.method === 'GET') {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      }
+      return response;
+    }).catch(() => caches.match(event.request))
   );
 });
 
 self.addEventListener('push', (event) => {
-  let data = {
-    title: '스마트 시계 알람',
-    body: '설정한 알람 시각입니다.',
-    tag: 'smart-clock-alarm',
-    url: './?triggerAlarm=1'
+  let payload = {
+    type: 'alarm',
+    title: '⏰ 스마트 시계 알람',
+    body: '알람이 울립니다!',
+    label: '스마트 시계 알람'
   };
-
-  if (event.data) {
-    try {
-      const parsed = event.data.json();
-      data = { ...data, ...parsed };
-    } catch (e) {
-      data.body = event.data.text();
-    }
+  try {
+    if (event.data) payload = Object.assign(payload, event.data.json());
+  } catch (error) {
+    if (event.data) payload.body = event.data.text();
   }
 
+  const params = new URLSearchParams();
+  if (payload.type === 'timer') {
+    params.set('triggerTimer', '1');
+    params.set('timerMs', String(Number(payload.totalMs) || 0));
+  } else {
+    params.set('triggerAlarm', '1');
+    if (payload.alarmId) params.set('alarmId', String(payload.alarmId));
+  }
+  params.set('label', payload.label || payload.title || '스마트 시계 알람');
+  params.set('body', payload.body || '알람이 울립니다!');
+  const targetUrl = `./index.html?${params.toString()}`;
+
   const options = {
-    body: data.body,
+    body: payload.body || '알람이 울립니다!',
     icon: './icon-192.png',
     badge: './icon-192.png',
-    tag: data.tag || 'smart-clock-alarm',
-    silent: false,
-    renotify: true,
-    requireInteraction: true,
     vibrate: [500, 150, 500, 150, 500],
-    data: {
-      url: data.url || './?triggerAlarm=1'
-    }
+    requireInteraction: true,
+    renotify: true,
+    silent: false,
+    tag: payload.tag || `smart-clock-${payload.type || 'alarm'}-${Date.now()}`,
+    data: { url: targetUrl }
   };
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
+  event.waitUntil(self.registration.showNotification(payload.title || '⏰ 스마트 시계 알람', options));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || './?triggerAlarm=1';
-
+  const targetUrl = (event.notification.data && event.notification.data.url) || './index.html';
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
       for (const client of clientList) {
         if ('focus' in client) {
           client.navigate(targetUrl);
           return client.focus();
         }
       }
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
-      }
+      if (clients.openWindow) return clients.openWindow(targetUrl);
     })
   );
 });
