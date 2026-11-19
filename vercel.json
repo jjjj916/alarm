@@ -1,11 +1,5 @@
 {
-  "crons": [
-    {
-      "path": "/api/push-dispatch",
-      "schedule": "* * * * *"
-    }
-  ],
-  "headers": [
+"headers": [
     {
       "source": "/(.*)",
       "headers": [
