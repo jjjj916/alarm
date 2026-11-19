@@ -74,9 +74,6 @@
 </head>
 <body class="min-h-screen flex flex-col items-center px-4">
 
-  <!-- iOS 잠금 화면 돌파용 단일 통합 오디오 엔진 -->
-  <audio id="masterAudioEngine" playsinline loop preload="auto"></audio>
-
   <div class="max-w-lg w-full space-y-4 my-1">
     
     <!-- 스마트폰 앱 다운로드/설치 안내 배너 -->
@@ -103,7 +100,7 @@
         <button id="pushSubscribeBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🔔 푸시 알림: OFF
         </button>
-        <button id="bgAudioKeepAliveBtn" title="백그라운드 오디오를 재생해 아이폰 화면이 잠겨도 알람이 울리게 유지합니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
+        <button id="bgAudioKeepAliveBtn" title="무음 오디오를 백그라운드에서 재생해 아이폰 화면이 잠겨도 알람이 울리게 유지합니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🎧 백그라운드 유지: OFF
         </button>
         <button id="wakeLockBtn" title="알람이 울릴 때까지 화면이 자동으로 꺼지지 않도록 유지합니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
@@ -486,6 +483,7 @@
         .replace(/'/g, '&#39;');
     }
 
+    // 버튼 클릭 시 하단 설명 카드를 잠시 보여주는 함수 (5초 후 자동 닫힘)
     let featureBannerTimer = null;
     function showFeatureInfoBanner(icon, title, descHtml) {
       const banner = document.getElementById('featureInfoBanner');
@@ -527,84 +525,38 @@
     let wakeLock = null;
     let pushEnabled = false;
 
-    // iOS 화면 잠금 돌파용 단일 통합 오디오 엔진
+    // 무음 오디오 백그라운드 유지 (iOS 화면 꺼짐 우회용)
+    let silentAudioEl = null;
     let isBgAudioRunning = false;
-    let silentBlobUrl = null;
-    let ringBlobUrl = null;
 
-    function buildWavBlobUrl(durationSec, isAlarmTone) {
-      const sampleRate = 16000;
-      const numSamples = sampleRate * durationSec;
-      const dataBytes = numSamples * 2; // 16-bit PCM (2 bytes per sample)
-      const buffer = new ArrayBuffer(44 + dataBytes);
+    function createSilentWavDataUrl() {
+      const sampleRate = 8000;
+      const numSamples = sampleRate;
+      const buffer = new ArrayBuffer(44 + numSamples);
       const view = new DataView(buffer);
 
       function writeStr(offset, str) {
         for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
       }
       writeStr(0, 'RIFF');
-      view.setUint32(4, 36 + dataBytes, true);
+      view.setUint32(4, 36 + numSamples, true);
       writeStr(8, 'WAVE');
       writeStr(12, 'fmt ');
       view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true); // PCM
-      view.setUint16(22, 1, true); // Mono
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
       view.setUint32(24, sampleRate, true);
-      view.setUint32(28, sampleRate * 2, true); // ByteRate
-      view.setUint16(32, 2, true); // BlockAlign
-      view.setUint16(34, 16, true); // 16-bit
+      view.setUint32(28, sampleRate, true);
+      view.setUint16(32, 1, true);
+      view.setUint16(34, 8, true);
       writeStr(36, 'data');
-      view.setUint32(40, dataBytes, true);
+      view.setUint32(40, numSamples, true);
+      for (let i = 0; i < numSamples; i++) view.setUint8(44 + i, 128);
 
-      for (let i = 0; i < numSamples; i++) {
-        if (!isAlarmTone) {
-          // 16비트 PCM 최소 신호(진폭 16 / 32767 = 0.00048 출력) + 1Hz 초저주파
-          const sample = Math.round(16 * Math.sin((2 * Math.PI * 1 * i) / sampleRate));
-          view.setInt16(44 + i * 2, sample, true);
-        } else {
-          // 잠금 화면 스피커를 뚫고 나오는 선명한 멜로디 벨소리 (도-미-솔-높은도)
-          const noteIdx = Math.floor((i / sampleRate) * 6) % 6;
-          const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 0];
-          const freq = notes[noteIdx];
-          if (freq > 0) {
-            const sample = Math.round(28000 * Math.sin((2 * Math.PI * freq * i) / sampleRate));
-            view.setInt16(44 + i * 2, sample, true);
-          } else {
-            view.setInt16(44 + i * 2, 0, true);
-          }
-        }
-      }
-
-      const blob = new Blob([buffer], { type: 'audio/wav' });
-      return URL.createObjectURL(blob);
-    }
-
-    function initMasterAudioUrls() {
-      if (!silentBlobUrl) silentBlobUrl = buildWavBlobUrl(30, false);
-      if (!ringBlobUrl) ringBlobUrl = buildWavBlobUrl(2, true);
-    }
-
-    function switchMasterAudioToRing() {
-      initMasterAudioUrls();
-      const masterEl = document.getElementById('masterAudioEngine');
-      masterEl.src = ringBlobUrl;
-      masterEl.volume = 1.0;
-      masterEl.loop = true;
-      masterEl.play().catch(() => {});
-    }
-
-    function restoreMasterAudioAfterRing() {
-      const masterEl = document.getElementById('masterAudioEngine');
-      if (isBgAudioRunning) {
-        initMasterAudioUrls();
-        masterEl.src = silentBlobUrl;
-        masterEl.volume = 1.0;
-        masterEl.loop = true;
-        masterEl.play().catch(() => {});
-      } else {
-        masterEl.pause();
-        masterEl.currentTime = 0;
-      }
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      return 'data:audio/wav;base64,' + btoa(binary);
     }
 
     function updateBgAudioButtonUI() {
@@ -619,91 +571,48 @@
       }
     }
 
-    const masterEl = document.getElementById('masterAudioEngine');
-
-    masterEl.addEventListener('timeupdate', () => {
-      updateClock();
-      if (timerState === 'running') {
-        timerRemainingMs = timerEndTimestamp - Date.now();
-        if (timerRemainingMs <= 0) {
-          timerRemainingMs = 0;
-          updateTimerVisuals();
-          resetTimerToIdle();
-          triggerTimerFinished();
-        } else {
-          updateTimerVisuals();
-        }
-      }
-    });
-
-    masterEl.addEventListener('play', () => {
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = 'playing';
-      }
-    });
-
-    masterEl.addEventListener('pause', () => {
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = 'paused';
-      }
-      if (isBgAudioRunning && !isRinging) {
-        isBgAudioRunning = false;
-        updateBgAudioButtonUI();
-      }
-    });
-
     const bgAudioBtn = document.getElementById('bgAudioKeepAliveBtn');
-    bgAudioBtn.addEventListener('click', () => {
-      initMasterAudioUrls();
+    bgAudioBtn.addEventListener('click', async () => {
+      getAudioContext();
+      if (!silentAudioEl) {
+        silentAudioEl = new Audio(createSilentWavDataUrl());
+        silentAudioEl.loop = true;
+        silentAudioEl.setAttribute('playsinline', '');
+        silentAudioEl.addEventListener('pause', () => {
+          if (isBgAudioRunning && !isRinging) {
+            isBgAudioRunning = false;
+            updateBgAudioButtonUI();
+          }
+        });
+      }
 
       if (!isBgAudioRunning) {
-        masterEl.src = silentBlobUrl;
-        masterEl.volume = 1.0;
-        masterEl.loop = true;
-
-        const playPromise = masterEl.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            isBgAudioRunning = true;
-            updateBgAudioButtonUI();
-            if ('mediaSession' in navigator) {
-              navigator.mediaSession.metadata = new MediaMetadata({
-                title: '스마트 시계 알람 대기 중',
-                artist: '16비트 초미세 무음 신호 · 정각에 알람이 울립니다'
-              });
-              navigator.mediaSession.playbackState = 'playing';
-              try {
-                navigator.mediaSession.setActionHandler('play', () => {
-                  masterEl.play().then(() => {
-                    isBgAudioRunning = true;
-                    updateBgAudioButtonUI();
-                  }).catch(() => {});
-                });
-                navigator.mediaSession.setActionHandler('pause', () => {
-                  masterEl.pause();
-                });
-              } catch (e) {}
-            }
-            showFeatureInfoBanner(
-              '🎧',
-              '초미세 무음 백그라운드 유지가 켜졌습니다',
-              '16비트 정밀 파형(1Hz)으로 양자화 잡음을 제거해 잠금 화면 재생 상태를 유지합니다.'
-            );
-          }).catch((err) => {
-            alert('백그라운드 오디오 실행 실패: ' + err.message);
-          });
+        try {
+          await silentAudioEl.play();
+          isBgAudioRunning = true;
+          updateBgAudioButtonUI();
+          if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+              title: '스마트 시계 알람 대기 중',
+              artist: '화면을 꺼도 정각에 알람이 울립니다'
+            });
+          }
+          showFeatureInfoBanner(
+            '🎧',
+            '백그라운드 유지가 켜졌습니다 (iOS 화면 꺼짐 대응)',
+            '무음 오디오가 백그라운드에서 재생되어 <span class="font-bold text-[#0381fe]">아이폰 화면을 잠가도 정각에 커스텀 알람음</span>이 울립니다. (단, 다른 음악·영상을 재생하면 해제됩니다.)'
+          );
+        } catch (err) {
+          alert('백그라운드 오디오 실행 실패: ' + err.message);
         }
       } else {
         isBgAudioRunning = false;
-        masterEl.pause();
-        if ('mediaSession' in navigator) {
-          navigator.mediaSession.playbackState = 'none';
-        }
+        silentAudioEl.pause();
         updateBgAudioButtonUI();
         showFeatureInfoBanner(
           '🎧',
           '백그라운드 유지가 해제되었습니다',
-          '백그라운드 오디오 재생이 중지되었습니다. 아이폰에서 화면을 잠그면 웹 알람음이 울리지 않을 수 있습니다.'
+          '무음 오디오 재생이 중지되었습니다. 아이폰에서 화면을 잠그면 웹 알람음이 울리지 않을 수 있습니다.'
         );
       }
     });
@@ -749,6 +658,9 @@
         }
       });
     }
+
+    document.body.addEventListener('touchstart', () => { getAudioContext(); }, { once: true });
+    document.body.addEventListener('click', () => { getAudioContext(); }, { once: true });
 
     const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
     const soundNames = [
@@ -1021,7 +933,7 @@
 
     function getAudioContext() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      if (audioCtx.state === 'suspended') audioCtx.resume();
       return audioCtx;
     }
 
@@ -1136,7 +1048,7 @@
     window.addEventListener('focus', updateClock);
 
     window.addQuickTimer = function(minutesToAdd, label) {
-      initMasterAudioUrls();
+      getAudioContext();
       const now = getSynchronizedNow();
       now.setMinutes(now.getMinutes() + minutesToAdd);
       const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -1204,6 +1116,7 @@
     });
 
     window.toggleGroup = function(groupName) {
+      getAudioContext();
       const groupAlarms = alarms.filter(a => a.group === groupName);
       const anyEnabled = groupAlarms.some(a => a.enabled);
       const nextState = !anyEnabled;
@@ -1355,7 +1268,7 @@
     });
 
     document.getElementById('addAlarmBtn').addEventListener('click', () => {
-      initMasterAudioUrls();
+      getAudioContext();
       const name = document.getElementById('alarmName').value.trim().slice(0, 30) || '알람';
       const group = document.getElementById('alarmGroup').value.trim().slice(0, 20) || '기본 그룹';
       const time = document.getElementById('alarmTime').value;
@@ -1409,6 +1322,7 @@
     });
 
     window.toggleAlarm = function(idx) {
+      getAudioContext();
       alarms[idx].enabled = !alarms[idx].enabled;
       if (!alarms[idx].enabled) {
         alarms[idx].snoozeLevel = 0;
@@ -1429,9 +1343,7 @@
     };
 
     function playCustomSound(soundIdx, level = 0) {
-      if (document.visibilityState !== 'visible') return;
       const ctx = getAudioContext();
-      if (ctx.state !== 'running') return;
       const now = ctx.currentTime;
       const scalePresets = [
         [523.25, 659.25, 783.99, 1046.50, 1318.51], [440.00, 554.37, 659.25, 880.00, 1108.73],
@@ -1499,8 +1411,6 @@
       document.getElementById('snoozeAlarmBtn').classList.remove('hidden');
       document.getElementById('alarmModal').classList.remove('hidden');
 
-      switchMasterAudioToRing();
-
       const repeatMs = Math.max(1000 - level * 130, 600);
 
       alarmInterval = setInterval(() => {
@@ -1531,7 +1441,6 @@
     document.getElementById('stopAlarmBtn').addEventListener('click', () => {
       isRinging = false;
       isTimerRinging = false;
-      restoreMasterAudioAfterRing();
       if (alarmInterval) clearInterval(alarmInterval);
       if (currentRingingAlarm) {
         currentRingingAlarm.enabled = currentRingingAlarm.isRepeating;
@@ -1549,7 +1458,6 @@
 
     document.getElementById('snoozeAlarmBtn').addEventListener('click', () => {
       isRinging = false;
-      restoreMasterAudioAfterRing();
       if (alarmInterval) clearInterval(alarmInterval);
       document.getElementById('alarmModal').classList.add('hidden');
 
@@ -1728,8 +1636,6 @@
       document.getElementById('snoozeAlarmBtn').classList.add('hidden');
       document.getElementById('alarmModal').classList.remove('hidden');
 
-      switchMasterAudioToRing();
-
       const soundIdx = Math.floor(Math.random() * 12);
       alarmInterval = setInterval(() => {
         playCustomSound(soundIdx, 2);
@@ -1752,7 +1658,7 @@
     }
 
     document.getElementById('timerStartPauseBtn').addEventListener('click', () => {
-      initMasterAudioUrls();
+      getAudioContext();
       const btn = document.getElementById('timerStartPauseBtn');
 
       if (timerState === 'idle') {
