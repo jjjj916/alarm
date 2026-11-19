@@ -381,6 +381,11 @@
       </div>
     </div>
 
+    <div class="text-center text-[10px] text-gray-400 py-2">
+      <a href="./privacy.html" class="underline underline-offset-2">개인정보 처리 안내</a>
+      <span class="mx-2">·</span>
+      <a href="./terms.html" class="underline underline-offset-2">이용 안내</a>
+    </div>
   </div>
 
   <!-- 하단 고정 탭 바 -->
@@ -1057,14 +1062,52 @@
       return subscription;
     }
 
+    async function unsubscribeFromPushNotifications() {
+      if (!('serviceWorker' in navigator)) return false;
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        pushEnabled = false;
+        updatePushButtonUI();
+        return true;
+      }
+      const response = await fetch('/api/push-unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: subscription.toJSON() })
+      });
+      if (!response.ok) throw new Error('서버에서 푸시 구독 정보를 삭제하지 못했습니다.');
+      await subscription.unsubscribe();
+      pushEnabled = false;
+      updatePushButtonUI();
+      return true;
+    }
+
     document.getElementById('pushSubscribeBtn').addEventListener('click', async () => {
       if (window.AndroidAlarmBridge) {
         AndroidAlarmBridge.openAlarmSettings();
         return;
       }
-      const sub = await subscribeToPushNotifications(true);
-      if (sub) {
-        alert('🔔 푸시 알림이 활성화되었습니다. 앱이 닫혀도 예약 시각에 맞춰 서버 푸시가 발송됩니다.');
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.smartClock) {
+        alert('iPhone 시스템 알람은 기기 알람 권한으로 관리됩니다.');
+        return;
+      }
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const existingSubscription = await registration.pushManager.getSubscription();
+        if (existingSubscription) {
+          if (!confirm('이 기기의 푸시 알림을 끄고 서버에 저장된 이 기기의 알람 정보를 삭제할까요?')) return;
+          await unsubscribeFromPushNotifications();
+          alert('이 기기의 푸시 알림과 서버 저장 정보가 삭제되었습니다.');
+          return;
+        }
+        const sub = await subscribeToPushNotifications(true);
+        if (sub) {
+          alert('🔔 푸시 알림이 활성화되었습니다. 앱이 닫혀도 예약 시각에 맞춰 서버 푸시가 발송됩니다.');
+        }
+      } catch (error) {
+        console.error('푸시 설정 변경 실패:', error);
+        alert(error.message || '푸시 설정을 변경하지 못했습니다.');
       }
     });
 

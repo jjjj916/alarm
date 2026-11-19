@@ -1,10 +1,12 @@
-const CACHE_NAME = 'smart-clock-v6';
+const CACHE_NAME = 'smart-clock-v8';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './privacy.html',
+  './terms.html'
 ];
 
 self.addEventListener('install', (event) => {

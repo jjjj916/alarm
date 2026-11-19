@@ -2,14 +2,14 @@
 
 const {
   getRedis, SUBSCRIPTIONS_SET, recordKey, configureWebPush,
-  getZonedParts, validTimeZone, isCronAuthorized
+  getZonedParts, zonedWallTimeToUtc, validTimeZone, isCronAuthorized
 } = require('../lib/server');
 
 function localDateKey(parts) {
   return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 }
 
-function alarmIsDue(alarm, parts, nowMs) {
+function alarmIsDue(alarm, parts, nowMs, timeZone) {
   if (!alarm.enabled) return null;
 
   if (Number.isFinite(Number(alarm.nextSnoozeAt))) {
@@ -29,8 +29,14 @@ function alarmIsDue(alarm, parts, nowMs) {
 
   if (alarm.isRepeating) {
     const [hour, minute] = alarm.time.split(':').map(Number);
-    if ((alarm.days || []).includes(parts.weekday) && parts.hour === hour && parts.minute === minute) {
-      return { kind: 'repeat', scheduledAt: `${localDateKey(parts)}T${alarm.time}`, displayTime: alarm.time };
+    if (!(alarm.days || []).includes(parts.weekday)) return null;
+    const scheduledAt = zonedWallTimeToUtc({
+      year: parts.year, month: parts.month, day: parts.day, hour, minute
+    }, timeZone);
+    // Cron may run slightly late. Keep a 10-minute delivery window so a
+    // delayed minute-trigger does not silently skip the alarm.
+    if (nowMs >= scheduledAt && nowMs - scheduledAt <= 10 * 60 * 1000) {
+      return { kind: 'repeat', scheduledAt, displayTime: alarm.time };
     }
     return null;
   }
@@ -47,7 +53,7 @@ async function sendPush(webpush, redis, id, record, payload, dedupeKey) {
   if (reserved !== 'OK') return false;
   try {
     await webpush.sendNotification(record.subscription, JSON.stringify(payload), {
-      TTL: 60,
+      TTL: 600,
       urgency: 'high'
     });
     return true;
@@ -93,7 +99,7 @@ module.exports = async function handler(req, res) {
       let changed = false;
 
       for (const alarm of (record.alarms || [])) {
-        const due = alarmIsDue(alarm, parts, now);
+        const due = alarmIsDue(alarm, parts, now, timeZone);
         if (!due) continue;
         const dedupeKey = `smart-clock:sent:${id}:${String(alarm.id)}:${String(due.scheduledAt)}`;
         const delivered = await sendPush(webpush, redis, id, record, {
