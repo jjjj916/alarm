@@ -1,5 +1,4 @@
-
-const CACHE_NAME = 'smart-clock-v5';
+const CACHE_NAME = 'smart-clock-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -30,5 +29,58 @@ self.addEventListener('fetch', (e) => {
   }
   e.respondWith(
     fetch(e.request).catch(() => caches.match(e.request))
+  );
+});
+
+self.addEventListener('push', (event) => {
+  let payload = {
+    title: '스마트 시계 알람',
+    body: '설정된 알람 시간이 되었습니다.',
+    url: './index.html',
+    tag: 'smart-clock-alarm'
+  };
+
+  if (event.data) {
+    try {
+      const parsed = event.data.json();
+      payload = { ...payload, ...parsed };
+    } catch {
+      payload.body = event.data.text() || payload.body;
+    }
+  }
+
+  const options = {
+    body: payload.body,
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    tag: payload.tag,
+    renotify: true,
+    requireInteraction: true,
+    vibrate: [500, 200, 500, 200, 500],
+    data: {
+      url: payload.url
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, options)
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || './index.html';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
   );
 });

@@ -91,14 +91,19 @@
     </div>
 
     <!-- 상단 유틸리티 바 -->
-    <div class="flex justify-between items-center px-2 pt-1">
+    <div class="flex justify-between items-center px-2 pt-1 gap-2">
       <div class="flex items-center gap-1.5">
         <span id="activeDayDisplay" class="px-3 py-1.5 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">오늘 요일</span>
       </div>
       
-      <button id="wakeLockBtn" class="px-3 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
-        🌙 화면 켜짐 유지: OFF
-      </button>
+      <div class="flex items-center gap-1.5">
+        <button id="pushSubscribeBtn" class="px-3 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
+          🔔 푸시 알림: OFF
+        </button>
+        <button id="wakeLockBtn" class="px-3 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
+          🌙 화면 켜짐: OFF
+        </button>
+      </div>
     </div>
 
     <!-- 탭 1: 알람 & 서버 시간 동기화 -->
@@ -475,6 +480,7 @@
     let audioCtx = null;
     let currentRingingAlarm = null;
     let wakeLock = null;
+    let pushEnabled = false;
 
     let timeOffsetMs = 0;
     let syncedDomain = null;
@@ -537,6 +543,88 @@
     ];
 
     const intenseSounds = [2, 6, 9, 11];
+
+    // Web Push 구독 및 서버 동기화 로직
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+    }
+
+    function updatePushButtonUI() {
+      const btn = document.getElementById('pushSubscribeBtn');
+      if (pushEnabled && Notification.permission === 'granted') {
+        btn.innerText = '🔔 푸시 알림: ON';
+        btn.className = 'px-3 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
+      } else {
+        btn.innerText = '🔔 푸시 알림: OFF';
+        btn.className = 'px-3 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition';
+      }
+    }
+
+    async function syncAlarmsToPushServer(subscription) {
+      if (!subscription) return;
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
+      await fetch('/api/push-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription,
+          alarms,
+          timeZone: tz
+        })
+      }).catch(() => {});
+    }
+
+    async function subscribeToPushNotifications(requestPerm = true) {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        if (requestPerm) alert('이 브라우저 또는 환경에서는 Web Push 알림을 지원하지 않습니다.');
+        return null;
+      }
+
+      if (isIOS && !isStandalone && requestPerm) {
+        alert('📱 아이폰(iOS)에서는 Safari 공유 메뉴에서 [홈 화면에 추가]로 설치한 뒤 푸시 알림을 켜주세요.');
+        return null;
+      }
+
+      let permission = Notification.permission;
+      if (permission === 'default' && requestPerm) {
+        permission = await Notification.requestPermission();
+      }
+      if (permission !== 'granted') {
+        if (requestPerm) alert('알림 권한이 허용되지 않았습니다. 기기 또는 브라우저 설정에서 알림을 허용해주세요.');
+        return null;
+      }
+
+      const cfgRes = await fetch('/api/push-config').catch(() => null);
+      const cfg = cfgRes && cfgRes.ok ? await cfgRes.json() : null;
+      if (!cfg || !cfg.enabled || !cfg.vapidPublicKey) {
+        if (requestPerm) alert('서버에 VAPID_PUBLIC_KEY 환경 변수가 아직 설정되지 않았습니다.');
+        return null;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(cfg.vapidPublicKey)
+        });
+      }
+
+      await syncAlarmsToPushServer(subscription);
+      pushEnabled = true;
+      updatePushButtonUI();
+      return subscription;
+    }
+
+    document.getElementById('pushSubscribeBtn').addEventListener('click', async () => {
+      const sub = await subscribeToPushNotifications(true);
+      if (sub) {
+        alert('🔔 푸시 알림이 활성화되었습니다. 앱이 닫혀도 예약 시각에 맞춰 서버 푸시가 발송됩니다.');
+      }
+    });
 
     window.switchTab = function(tabName) {
       ['alarm', 'stopwatch', 'timer'].forEach(t => {
@@ -624,11 +712,11 @@
       try {
         if (!wakeLock) {
           wakeLock = await navigator.wakeLock.request('screen');
-          wakeLockBtn.innerText = '☀️ 화면 켜짐 유지: ON';
+          wakeLockBtn.innerText = '☀️ 화면 켜짐: ON';
           wakeLockBtn.className = 'px-3 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
           wakeLock.addEventListener('release', () => {
             wakeLock = null;
-            wakeLockBtn.innerText = '🌙 화면 켜짐 유지: OFF';
+            wakeLockBtn.innerText = '🌙 화면 켜짐: OFF';
             wakeLockBtn.className = 'px-3 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition';
           });
         } else {
@@ -642,6 +730,14 @@
 
     function saveAlarms() {
       localStorage.setItem('saved_alarms', JSON.stringify(alarms));
+      if (pushEnabled && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.ready
+          .then((reg) => reg.pushManager.getSubscription())
+          .then((sub) => {
+            if (sub) syncAlarmsToPushServer(sub);
+          })
+          .catch(() => {});
+      }
     }
 
     document.getElementById('snoozeIntervalSelect').addEventListener('change', (e) => {
@@ -752,7 +848,6 @@
       countdownEl.innerText = `${prefixLabel}다음 알람까지 ${parts.join(' ')} 남음`;
     }
 
-    // 목표 시각 기반 판별 로직 (백그라운드 복귀 지연 대응 + 중복 울림 방지)
     function updateClock() {
       const now = getSynchronizedNow();
       const hours = String(now.getHours()).padStart(2, '0');
@@ -780,7 +875,6 @@
           const diffMs = now.getTime() - targetDate.getTime();
           const triggerKey = `${todayKey}_${targetTimeStr}`;
 
-          // 목표 시각에 도달했거나 백그라운드에서 늦게 깨어난 경우(0초 ~ 5분 이내)
           if (diffMs >= 0 && diffMs <= 5 * 60 * 1000 && alarm.lastTriggeredKey !== triggerKey) {
             alarm.lastTriggeredKey = triggerKey;
             saveAlarms();
@@ -794,7 +888,6 @@
     setInterval(updateClock, 250);
     updateClock();
 
-    // 화면이 다시 활성화되거나 백그라운드에서 돌아왔을 때 즉시 알람 체크
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         if (audioCtx && audioCtx.state === 'suspended') {
@@ -1484,7 +1577,17 @@
     renderAlarmList();
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./service-worker.js');
+      navigator.serviceWorker.register('./service-worker.js').then((reg) => {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          reg.pushManager.getSubscription().then((sub) => {
+            if (sub) {
+              pushEnabled = true;
+              updatePushButtonUI();
+              syncAlarmsToPushServer(sub);
+            }
+          });
+        }
+      });
     }
   </script>
 </body>

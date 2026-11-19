@@ -1,4 +1,3 @@
-
 function isBlockedHost(hostname) {
   const host = hostname.toLowerCase();
   if (
