@@ -130,3 +130,17 @@ Colab은 코드를 확인하거나 파일을 다루는 데는 쓸 수 있지만,
 - `VAPID_PRIVATE_KEY`, `UPSTASH_REDIS_REST_TOKEN`, `CRON_SECRET`은 비밀로 보관하세요.
 - `.env` 파일이나 비밀값을 GitHub에 올리지 마세요.
 - 공개 저장소를 쓰는 경우 `.env`와 개인키를 커밋하지 마세요.
+
+
+## Android 네이티브 알람 앱
+
+기존 웹 화면을 Android 앱 안에서 실행하고, 예약은 Android `AlarmManager`가 직접 담당하는 앱 소스가 `android-native/`에 추가되었습니다. Android Studio 빌드, 정확한 알람/알림 권한, 테스트 방법은 `android-native/README_ANDROID_KO.md`를 읽어 주세요. 수정된 웹 브리지 코드를 사용하려면 이 프로젝트의 `index.html`을 GitHub에 반영한 뒤 Vercel에 재배포해야 합니다.
+
+
+## 매일 다른 랜덤 알람음
+
+알람 추가 화면에서 알람음을 `랜덤`으로 선택하면 `randomDaily: true`로 저장됩니다. Android 네이티브 알람은 실제 울리는 날짜를 기준으로 12개 음색 중 하나를 선택하고, 전날과 같은 소리가 연속으로 선택되지 않도록 합니다. 직접 고른 알람음은 고정됩니다. iOS 네이티브 소스는 `ios-native` 폴더의 안내를 참고하세요.
+
+## Android/iOS 시스템 알람 통합 소스
+
+크로스플랫폼 코드와 기존 화면을 연결하는 방법은 `README_CROSS_PLATFORM_KO.md`를 참고하세요. Android 네이티브 소스는 `android-native/`, iOS 26+ AlarmKit 연결 소스는 `ios-native/`에 있습니다. iOS 네이티브 빌드에는 Xcode가 설치된 Mac이 필요합니다.

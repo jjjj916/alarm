@@ -1,0 +1,21 @@
+<resources>
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#0381FE</item>
+        <item name="android:statusBarColor">#F6F7F9</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#F6F7F9</item>
+    </style>
+    <style name="RingingTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#0381FE</item>
+        <item name="android:statusBarColor">#F6F7F9</item>
+        <item name="android:navigationBarColor">#F6F7F9</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowShowWhenLocked">true</item>
+        <item name="android:turnScreenOn">true</item>
+        <item name="android:windowBackground">#F6F7F9</item>
+    </style>
+</resources>

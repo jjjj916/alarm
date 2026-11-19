@@ -819,6 +819,30 @@
       '🔮 10. 사이버 펄스 리버브', '🌿 11. 트로피컬 우쿨렐레', '🎉 12. 세레모니 베이스'
     ];
 
+    // Stable daily random sound: same alarm/date gives the same sound on every device.
+    function dailyRandomSoundIndex(alarmId, date = new Date()) {
+      const keyFor = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${alarmId}|${y}-${m}-${day}`;
+      };
+      const hash = (value) => {
+        let h = 2166136261;
+        for (let i = 0; i < value.length; i++) {
+          h ^= value.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return (h >>> 0) % 12;
+      };
+      const today = hash(keyFor(date));
+      const yesterday = new Date(date);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const previous = hash(keyFor(yesterday));
+      return today === previous ? (today + 1) % 12 : today;
+    }
+
+
     const escalatedVibePresets = [
       [300, 200, 300],
       [450, 120, 450, 120, 450],
@@ -837,6 +861,21 @@
 
     function updatePushButtonUI() {
       const btn = document.getElementById('pushSubscribeBtn');
+      if (window.AndroidAlarmBridge) {
+        let status = {};
+        try { status = JSON.parse(AndroidAlarmBridge.getStatus()); } catch (e) {}
+        const ready = Boolean(status.exactAlarm && status.notifications && status.fullScreen);
+        btn.innerText = ready ? '📱 기기 알람: ON' : '📱 알람 권한 설정';
+        btn.className = ready
+          ? 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition'
+          : 'px-2.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[11px] font-bold shadow-sm transition';
+        return;
+      }
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.smartClock) {
+        btn.innerText = '🍎 iPhone 시스템 알람';
+        btn.className = 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
+        return;
+      }
       if (pushEnabled && Notification.permission === 'granted') {
         btn.innerText = '🔔 푸시 알림: ON';
         btn.className = 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
@@ -863,6 +902,60 @@
         alarm.singleShotAt = target.getTime();
       }
     }
+
+    function syncAlarmsToNative() {
+      const timer = (typeof timerState !== 'undefined' && timerState === 'running')
+        ? { endAt: timerEndTimestamp, totalMs: timerTotalMs }
+        : null;
+      const payload = { alarms, timer, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul' };
+      try {
+        if (window.AndroidAlarmBridge && typeof AndroidAlarmBridge.syncState === 'function') {
+          const response = AndroidAlarmBridge.syncState(JSON.stringify(payload));
+          const result = response ? JSON.parse(response) : null;
+          if (result && result.exactAlarmPermission === false) {
+            console.warn('정확한 알람 권한이 필요합니다. 앱에서 알람 권한 설정을 완료해 주세요.');
+          }
+          return result;
+        }
+        // iOS WKWebView bridge: the same existing web screen is hosted by a tiny native shell.
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.smartClock) {
+          window.webkit.messageHandlers.smartClock.postMessage({ action: 'syncState', payload });
+          return { ok: true, platform: 'ios', queued: true };
+        }
+      } catch (error) {
+        console.warn('기기 알람 동기화 실패:', error);
+      }
+      return null;
+    }
+
+    window.syncAlarmsToNativeForIOS = syncAlarmsToNative;
+
+    function restoreNativeAlarmStateFromBridge() {
+      if (!window.AndroidAlarmBridge || typeof AndroidAlarmBridge.getState !== 'function') return;
+      try {
+        const nativeState = JSON.parse(AndroidAlarmBridge.getState() || '{}');
+        if (Array.isArray(nativeState.alarms)) {
+          alarms = nativeState.alarms;
+          localStorage.setItem('saved_alarms', JSON.stringify(alarms));
+          if (typeof timerState !== 'undefined' && timerState === 'running' && !nativeState.timer) {
+            timerRemainingMs = 0;
+            resetTimerToIdle();
+          }
+          if (document.getElementById('alarmList')) {
+            renderAlarmList();
+            updateClock();
+          }
+        } else {
+          // First launch in the native wrapper: import the alarms currently visible in this WebView.
+          syncAlarmsToNative();
+        }
+        updatePushButtonUI();
+      } catch (error) {
+        console.warn('기기 알람 상태를 불러오지 못했습니다:', error);
+      }
+    }
+
+    window.refreshNativeAlarmStateFromBridge = restoreNativeAlarmStateFromBridge;
 
     async function syncAlarmsToPushServer(subscription) {
       if (!subscription) return null;
@@ -906,6 +999,7 @@
     }
 
     async function syncCurrentPushState() {
+      syncAlarmsToNative();
       if (!pushEnabled || !('serviceWorker' in navigator)) return;
       try {
         const reg = await navigator.serviceWorker.ready;
@@ -963,6 +1057,10 @@
     }
 
     document.getElementById('pushSubscribeBtn').addEventListener('click', async () => {
+      if (window.AndroidAlarmBridge) {
+        AndroidAlarmBridge.openAlarmSettings();
+        return;
+      }
       const sub = await subscribeToPushNotifications(true);
       if (sub) {
         alert('🔔 푸시 알림이 활성화되었습니다. 앱이 닫혀도 예약 시각에 맞춰 서버 푸시가 발송됩니다.');
@@ -1088,6 +1186,7 @@
 
     function saveAlarms() {
       localStorage.setItem('saved_alarms', JSON.stringify(alarms));
+      syncAlarmsToNative();
       if (pushEnabled && 'serviceWorker' in navigator) {
         navigator.serviceWorker.ready
           .then((reg) => reg.pushManager.getSubscription())
@@ -1220,7 +1319,7 @@
 
       updateNextAlarmCountdown(now, activeDay);
 
-      if (!isRinging) {
+      if (!isRinging && !window.AndroidAlarmBridge) {
         for (const alarm of alarms) {
           if (!alarm.enabled || !alarm.days.includes(activeDay)) continue;
 
@@ -1271,6 +1370,7 @@
         group: '빠른 알람',
         time: timeStr,
         sound: sound,
+        randomDaily: true,
         days: [getActiveDayIndex()],
         isRepeating: false,
         snoozeInterval: 3,
@@ -1391,7 +1491,7 @@
                 ${snoozeTag}
               </div>
               <div class="text-[11px] text-gray-400 mt-1 font-medium truncate">
-                <span class="${alarm.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${selectedDaysText}</span> · ${soundNames[alarm.sound % 12]}
+                <span class="${alarm.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${selectedDaysText}</span> · ${alarm.randomDaily ? '매일 랜덤' : soundNames[alarm.sound % 12]}
               </div>
             </div>
             <div class="flex items-center gap-3 shrink-0" onclick="event.stopPropagation();">
@@ -1464,6 +1564,7 @@
       alarm.time = newTime;
       alarm.name = newName;
       alarm.group = newGroup;
+      alarm.randomDaily = false;
       alarm.sound = newSound;
       alarm.days = selectedDays;
       alarm.isRepeating = isRepeating;
@@ -1519,7 +1620,9 @@
       }
 
       alarms.push({
-        id: Date.now(), name, group, time, sound, days: selectedDays,
+        id: Date.now(), name, group, time, sound,
+        randomDaily: soundVal === 'random',
+        days: selectedDays,
         isRepeating, snoozeInterval, snoozeCount, remainingSnooze: snoozeCount,
         snoozeLevel: 0, nextSnoozeTime: null, nextSnoozeAt: null,
         singleShotAt: null, serverFiredAt: null, lastTriggeredKey: null, enabled: true
@@ -1621,7 +1724,7 @@
 
       document.getElementById('modalAlarmName').innerText = `[${alarm.group}] ${alarm.name}`;
       document.getElementById('modalAlarmTime').innerText = alarm.nextSnoozeTime || alarm.time;
-      document.getElementById('modalSoundTitle').innerText = `알람음: ${soundNames[alarm.sound % 12]}`;
+      document.getElementById('modalSoundTitle').innerText = `알람음: ${alarm.randomDaily ? '매일 랜덤' : soundNames[alarm.sound % 12]}`;
       document.getElementById('modalRepeatInfo').innerText = alarm.isRepeating 
         ? "🔄 반복 요일 지정됨: 다음 반복 요일에도 자동 ON 유지" 
         : "💡 단발성 알람: 완료 후 자동으로 OFF";
@@ -1918,7 +2021,7 @@
             timerRemainingMs = 0;
             updateTimerVisuals();
             resetTimerToIdle();
-            triggerTimerFinished();
+            if (!window.AndroidAlarmBridge) triggerTimerFinished();
           } else {
             updateTimerVisuals();
           }
@@ -1945,7 +2048,7 @@
             timerRemainingMs = 0;
             updateTimerVisuals();
             resetTimerToIdle();
-            triggerTimerFinished();
+            if (!window.AndroidAlarmBridge) triggerTimerFinished();
           } else {
             updateTimerVisuals();
           }
@@ -1984,6 +2087,7 @@
       }
 
       if (matchedAlarm) {
+        if (matchedAlarm.randomDaily) matchedAlarm.sound = dailyRandomSoundIndex(matchedAlarm.id, now);
         triggerAlarm(matchedAlarm);
       } else {
         triggerAlarm({
@@ -2005,6 +2109,9 @@
       }
     }
 
+    if (window.AndroidAlarmBridge) {
+      restoreNativeAlarmStateFromBridge();
+    }
     renderAlarmList();
     checkPushAlarmTrigger();
 
