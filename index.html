@@ -1574,7 +1574,49 @@
 
     document.getElementById('timerCancelBtn').addEventListener('click', resetTimerToIdle);
 
+function checkPushAlarmTrigger() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('triggerAlarm') !== '1') return;
+
+      const labelParam = params.get('label') || '스마트 시계 알람';
+      const bodyParam = params.get('body') || '';
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      if (isRinging) return;
+
+      const now = getSynchronizedNow();
+      const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      let matchedAlarm = alarms.find((a) => bodyParam.includes(a.time) || labelParam.includes(a.name));
+      if (!matchedAlarm) {
+        matchedAlarm = alarms.find((a) => a.enabled && (a.nextSnoozeTime || a.time) === currentHM) || alarms.find((a) => a.enabled);
+      }
+
+      if (matchedAlarm) {
+        triggerAlarm(matchedAlarm);
+      } else {
+        triggerAlarm({
+          id: Date.now(),
+          name: labelParam.replace(/^\[.*?\]\s*/, '') || '푸시 알람',
+          group: '웹 푸시',
+          time: currentHM,
+          sound: Math.floor(Math.random() * 12),
+          days: [getActiveDayIndex()],
+          isRepeating: false,
+          snoozeInterval: 5,
+          snoozeCount: 1,
+          remainingSnooze: 1,
+          snoozeLevel: 0,
+          nextSnoozeTime: null,
+          lastTriggeredKey: null,
+          enabled: false
+        });
+      }
+    }
+
     renderAlarmList();
+    
+    checkPushAlarmTrigger();
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./service-worker.js').then((reg) => {
