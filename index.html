@@ -100,9 +100,22 @@
         <button id="pushSubscribeBtn" class="px-3 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🔔 푸시 알림: OFF
         </button>
-        <button id="wakeLockBtn" class="px-3 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
-          🌙 화면 켜짐: OFF
+        <button id="wakeLockBtn" title="알람이 울릴 때까지 화면이 자동으로 꺼지지 않도록 유지합니다" class="px-3 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
+          💤 자동꺼짐 방지: OFF
         </button>
+      </div>
+    </div>
+
+    <!-- 자동꺼짐 방지 기능 안내 카드 -->
+    <div class="clean-card px-4 py-3 bg-blue-50/60 border border-blue-100/80 flex items-center justify-between gap-3">
+      <div class="flex items-start gap-2.5 text-left">
+        <span class="text-base leading-none mt-0.5">💡</span>
+        <div>
+          <div class="text-xs font-bold text-gray-800">자동꺼짐 방지란?</div>
+          <p class="text-[11px] text-gray-600 leading-snug mt-0.5">
+            켜두면 알람이 울릴 때까지 스마트폰 화면이 잠기지 않고 켜져 있어, <span class="font-semibold text-[#0381fe]">커스텀 벨소리와 진동이 100% 정각에 울립니다.</span>
+          </p>
+        </div>
       </div>
     </div>
 
@@ -350,6 +363,11 @@
 
   </div>
 
+  <!-- 상태 안내 토스트 메시지 -->
+  <div id="statusToast" class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-gray-900/90 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg z-50 transition-opacity duration-300 opacity-0 pointer-events-none whitespace-nowrap">
+    안내 메시지
+  </div>
+
   <!-- 하단 고정 탭 바 -->
   <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/80 z-40 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]" style="padding-bottom: env(safe-area-inset-bottom);">
     <div class="max-w-lg mx-auto flex justify-around items-center h-16 px-4">
@@ -466,6 +484,20 @@
         .replace(/'/g, '&#39;');
     }
 
+    let toastTimeout = null;
+    function showStatusToast(message) {
+      const toast = document.getElementById('statusToast');
+      if (!toast) return;
+      toast.innerText = message;
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+      }, 2500);
+    }
+
     let alarms = [];
     try {
       const parsed = JSON.parse(localStorage.getItem('saved_alarms') || '[]');
@@ -500,7 +532,11 @@
         guideText.innerText = '하단 공유(⍐) 버튼을 누른 뒤 [홈 화면에 추가]를 선택하세요';
         installBtn.innerText = '설치 방법';
         installBtn.addEventListener('click', () => {
-          alert('📱 아이폰(iOS) 앱 설치 방법:\n\n1. Safari 하단 중앙의 [공유(⍐)] 아이콘을 누릅니다.\n2. 메뉴를 아래로 내려 [홈 화면에 추가]를 누릅니다.\n3. 오른쪽 상단 [추가]를 누르면 홈 화면에 앱이 다운로드됩니다.');
+          alert('📱 아이폰(iOS) 앱 설치 방법:
+
+1. Safari 하단 중앙의 [공유(⍐)] 아이콘을 누릅니다.
+2. 메뉴를 아래로 내려 [홈 화면에 추가]를 누릅니다.
+3. 오른쪽 상단 [추가]를 누르면 홈 화면에 앱이 다운로드됩니다.');
         });
       }
 
@@ -707,24 +743,26 @@
     const wakeLockBtn = document.getElementById('wakeLockBtn');
     wakeLockBtn.addEventListener('click', async () => {
       if (!('wakeLock' in navigator)) {
-        return alert('이 기기의 브라우저에서는 화면 켜짐 유지 기능을 지원하지 않습니다.');
+        return alert('이 기기의 브라우저에서는 자동꺼짐 방지 기능을 지원하지 않습니다.');
       }
       try {
         if (!wakeLock) {
           wakeLock = await navigator.wakeLock.request('screen');
-          wakeLockBtn.innerText = '☀️ 화면 켜짐: ON';
+          wakeLockBtn.innerText = '💡 자동꺼짐 방지: ON';
           wakeLockBtn.className = 'px-3 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
+          showStatusToast('💡 알람이 울릴 때까지 화면이 꺼지지 않고 유지됩니다.');
           wakeLock.addEventListener('release', () => {
             wakeLock = null;
-            wakeLockBtn.innerText = '🌙 화면 켜짐: OFF';
+            wakeLockBtn.innerText = '💤 자동꺼짐 방지: OFF';
             wakeLockBtn.className = 'px-3 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition';
           });
         } else {
           await wakeLock.release();
           wakeLock = null;
+          showStatusToast('💤 자동꺼짐 방지가 해제되었습니다.');
         }
       } catch (err) {
-        alert('화면 켜짐 유지 활성화 실패: ' + err.message);
+        alert('자동꺼짐 방지 활성화 실패: ' + err.message);
       }
     });
 
@@ -1574,7 +1612,7 @@
 
     document.getElementById('timerCancelBtn').addEventListener('click', resetTimerToIdle);
 
-function checkPushAlarmTrigger() {
+    function checkPushAlarmTrigger() {
       const params = new URLSearchParams(window.location.search);
       if (params.get('triggerAlarm') !== '1') return;
 
@@ -1615,7 +1653,6 @@ function checkPushAlarmTrigger() {
     }
 
     renderAlarmList();
-    
     checkPushAlarmTrigger();
 
     if ('serviceWorker' in navigator) {
