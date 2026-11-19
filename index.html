@@ -27,6 +27,16 @@
     }
     input, select {
       user-select: auto;
+      box-sizing: border-box;
+    }
+    input[type="time"] {
+      display: flex;
+      align-items: center;
+      min-height: 48px;
+      line-height: 1.5;
+    }
+    select {
+      min-height: 48px;
     }
     .clean-card {
       background-color: #ffffff;
@@ -74,6 +84,9 @@
 </head>
 <body class="min-h-screen flex flex-col items-center px-4">
 
+  <!-- iOS 잠금 화면 돌파용 단일 통합 오디오 엔진 -->
+  <audio id="masterAudioEngine" playsinline loop preload="auto"></audio>
+
   <div class="max-w-lg w-full space-y-4 my-1">
     
     <!-- 스마트폰 앱 다운로드/설치 안내 배너 -->
@@ -100,7 +113,7 @@
         <button id="pushSubscribeBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🔔 푸시 알림: OFF
         </button>
-        <button id="bgAudioKeepAliveBtn" title="무음 오디오를 백그라운드에서 재생해 아이폰 화면이 잠겨도 알람이 울리게 유지합니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
+        <button id="bgAudioKeepAliveBtn" title="백그라운드 오디오를 재생해 아이폰·아이패드 화면이 잠겨도 알람이 울리게 유지합니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🎧 백그라운드 유지: OFF
         </button>
         <button id="wakeLockBtn" title="알람이 울릴 때까지 화면이 자동으로 꺼지지 않도록 유지합니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
@@ -141,7 +154,7 @@
         </div>
         
         <div class="flex gap-2">
-          <input type="text" id="targetUrlInput" maxlength="150" placeholder="예: example.com 또는 수강신청·예매 사이트 주소" class="flex-1 bg-[#f2f4f7] text-gray-900 text-xs font-medium p-3 rounded-2xl border border-transparent focus:border-cyan-500 focus:bg-white focus:outline-none">
+          <input type="text" id="targetUrlInput" maxlength="150" placeholder="예: example.com 또는 수강신청·예매 사이트 주소" class="flex-1 min-w-0 bg-[#f2f4f7] text-gray-900 text-xs font-medium p-3 rounded-2xl border border-transparent focus:border-cyan-500 focus:bg-white focus:outline-none">
           <button id="fetchServerTimeBtn" class="px-4 py-3 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-300 text-white font-bold rounded-2xl text-xs transition whitespace-nowrap shadow-md shadow-cyan-600/10">
             시간 맞추기
           </button>
@@ -175,21 +188,21 @@
         </div>
       </div>
       
-      <!-- 새 알람 추가 카드 -->
+      <!-- 새 알람 추가 카드 (아이패드·모바일 완전 1열 분리 레이아웃) -->
       <div class="clean-card p-5 text-left space-y-4">
         <div class="flex justify-between items-center">
           <h2 class="text-sm font-bold text-gray-800">➕ 새 알람 추가</h2>
           <button id="previewSelectedSoundBtn" class="text-xs font-bold text-[#0381fe] hover:underline">🔊 알람음 미리듣기</button>
         </div>
         
-        <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-3">
           <div>
             <label class="block text-[11px] font-semibold text-gray-500 mb-1">시간</label>
-            <input type="time" id="alarmTime" class="w-full bg-[#f2f4f7] text-gray-900 font-bold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-base">
+            <input type="time" id="alarmTime" value="08:00" class="w-full bg-[#f2f4f7] text-gray-900 font-bold px-3.5 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-base">
           </div>
           <div>
             <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람음</label>
-            <select id="alarmSound" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-3 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+            <select id="alarmSound" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold px-3.5 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
               <option value="random">🎲 매일 무작위 사운드</option>
               <option value="0">✨ 1. 스파클 라이징 팝</option>
               <option value="1">🌅 2. 선라이즈 오케스트라</option>
@@ -221,20 +234,20 @@
         </div>
 
         <div class="grid grid-cols-2 gap-3">
-          <div>
+          <div class="min-w-0">
             <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람 이름</label>
-            <input type="text" id="alarmName" maxlength="30" placeholder="예: 기상 알람" class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-medium p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+            <input type="text" id="alarmName" maxlength="30" placeholder="예: 기상 알람" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 text-xs font-medium p-3 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
           </div>
-          <div>
+          <div class="min-w-0">
             <label class="block text-[11px] font-semibold text-gray-500 mb-1">그룹 이름</label>
-            <input type="text" id="alarmGroup" maxlength="20" placeholder="예: 출근, 일정" class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-medium p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+            <input type="text" id="alarmGroup" maxlength="20" placeholder="예: 출근, 일정" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 text-xs font-medium p-3 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3 pt-1">
-          <div>
+          <div class="min-w-0">
             <label class="block text-[11px] font-semibold text-gray-500 mb-1">다시 울림 간격</label>
-            <select id="snoozeIntervalSelect" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none mb-1">
+            <select id="snoozeIntervalSelect" class="w-full min-w-0 bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none mb-1">
               <option value="3">3분</option>
               <option value="5" selected>5분</option>
               <option value="10">10분</option>
@@ -242,9 +255,9 @@
             </select>
             <input type="number" id="customSnoozeInterval" placeholder="간격(분)" class="w-full bg-white text-xs p-2 rounded-xl border border-[#0381fe] text-gray-900 hidden" min="1" max="60">
           </div>
-          <div>
+          <div class="min-w-0">
             <label class="block text-[11px] font-semibold text-gray-500 mb-1">반복 횟수</label>
-            <select id="snoozeCountSelect" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none mb-1">
+            <select id="snoozeCountSelect" class="w-full min-w-0 bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none mb-1">
               <option value="1">1회</option>
               <option value="3" selected>3회</option>
               <option value="5">5회</option>
@@ -385,9 +398,9 @@
     </div>
   </nav>
 
-  <!-- 알람 편집 모달 -->
+  <!-- 알람 편집 모달 (아이패드·모바일 완전 1열 분리 레이아웃) -->
   <div id="editModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
-    <div class="clean-card w-full max-w-md p-6 bg-white space-y-4 shadow-xl">
+    <div class="clean-card w-full max-w-md p-6 bg-white space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center pb-2 border-b border-gray-100">
         <h3 class="text-sm font-bold text-gray-900">✏️ 알람 수정하기</h3>
         <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 text-sm font-bold">✕ 닫기</button>
@@ -395,14 +408,14 @@
 
       <input type="hidden" id="editAlarmId">
 
-      <div class="grid grid-cols-2 gap-3">
+      <div class="space-y-3">
         <div>
           <label class="block text-[11px] font-semibold text-gray-500 mb-1">시간</label>
-          <input type="time" id="editAlarmTime" class="w-full bg-[#f2f4f7] text-gray-900 font-bold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-base">
+          <input type="time" id="editAlarmTime" class="w-full bg-[#f2f4f7] text-gray-900 font-bold px-3.5 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-base">
         </div>
         <div>
           <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람음</label>
-          <select id="editAlarmSound" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-3 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+          <select id="editAlarmSound" class="w-full bg-[#f2f4f7] text-gray-800 text-xs font-semibold px-3.5 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
             <option value="0">✨ 1. 스파클 라이징 팝</option>
             <option value="1">🌅 2. 선라이즈 오케스트라</option>
             <option value="2">👾 3. 네온 아케이드 8비트</option>
@@ -433,13 +446,13 @@
       </div>
 
       <div class="grid grid-cols-2 gap-3">
-        <div>
+        <div class="min-w-0">
           <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람 이름</label>
-          <input type="text" id="editAlarmName" maxlength="30" class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-medium p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+          <input type="text" id="editAlarmName" maxlength="30" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 text-xs font-medium p-3 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
         </div>
-        <div>
+        <div class="min-w-0">
           <label class="block text-[11px] font-semibold text-gray-500 mb-1">그룹 이름</label>
-          <input type="text" id="editAlarmGroup" maxlength="20" class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-medium p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+          <input type="text" id="editAlarmGroup" maxlength="20" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 text-xs font-medium p-3 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
         </div>
       </div>
 
@@ -483,7 +496,6 @@
         .replace(/'/g, '&#39;');
     }
 
-    // 버튼 클릭 시 하단 설명 카드를 잠시 보여주는 함수 (5초 후 자동 닫힘)
     let featureBannerTimer = null;
     function showFeatureInfoBanner(icon, title, descHtml) {
       const banner = document.getElementById('featureInfoBanner');
@@ -525,38 +537,82 @@
     let wakeLock = null;
     let pushEnabled = false;
 
-    // 무음 오디오 백그라운드 유지 (iOS 화면 꺼짐 우회용)
-    let silentAudioEl = null;
+    // iOS 화면 잠금 돌파용 단일 통합 오디오 엔진
     let isBgAudioRunning = false;
+    let silentBlobUrl = null;
+    let ringBlobUrl = null;
 
-    function createSilentWavDataUrl() {
-      const sampleRate = 8000;
-      const numSamples = sampleRate;
-      const buffer = new ArrayBuffer(44 + numSamples);
+    function buildWavBlobUrl(durationSec, isAlarmTone) {
+      const sampleRate = 16000;
+      const numSamples = sampleRate * durationSec;
+      const dataBytes = numSamples * 2;
+      const buffer = new ArrayBuffer(44 + dataBytes);
       const view = new DataView(buffer);
 
       function writeStr(offset, str) {
         for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
       }
       writeStr(0, 'RIFF');
-      view.setUint32(4, 36 + numSamples, true);
+      view.setUint32(4, 36 + dataBytes, true);
       writeStr(8, 'WAVE');
       writeStr(12, 'fmt ');
       view.setUint32(16, 16, true);
       view.setUint16(20, 1, true);
       view.setUint16(22, 1, true);
       view.setUint32(24, sampleRate, true);
-      view.setUint32(28, sampleRate, true);
-      view.setUint16(32, 1, true);
-      view.setUint16(34, 8, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
       writeStr(36, 'data');
-      view.setUint32(40, numSamples, true);
-      for (let i = 0; i < numSamples; i++) view.setUint8(44 + i, 128);
+      view.setUint32(40, dataBytes, true);
 
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-      return 'data:audio/wav;base64,' + btoa(binary);
+      for (let i = 0; i < numSamples; i++) {
+        if (!isAlarmTone) {
+          const sample = Math.round(16 * Math.sin((2 * Math.PI * 1 * i) / sampleRate));
+          view.setInt16(44 + i * 2, sample, true);
+        } else {
+          const noteIdx = Math.floor((i / sampleRate) * 6) % 6;
+          const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 0];
+          const freq = notes[noteIdx];
+          if (freq > 0) {
+            const sample = Math.round(28000 * Math.sin((2 * Math.PI * freq * i) / sampleRate));
+            view.setInt16(44 + i * 2, sample, true);
+          } else {
+            view.setInt16(44 + i * 2, 0, true);
+          }
+        }
+      }
+
+      const blob = new Blob([buffer], { type: 'audio/wav' });
+      return URL.createObjectURL(blob);
+    }
+
+    function initMasterAudioUrls() {
+      if (!silentBlobUrl) silentBlobUrl = buildWavBlobUrl(30, false);
+      if (!ringBlobUrl) ringBlobUrl = buildWavBlobUrl(2, true);
+    }
+
+    function switchMasterAudioToRing() {
+      initMasterAudioUrls();
+      const masterEl = document.getElementById('masterAudioEngine');
+      masterEl.src = ringBlobUrl;
+      masterEl.volume = 1.0;
+      masterEl.loop = true;
+      masterEl.play().catch(() => {});
+    }
+
+    function restoreMasterAudioAfterRing() {
+      const masterEl = document.getElementById('masterAudioEngine');
+      if (isBgAudioRunning) {
+        initMasterAudioUrls();
+        masterEl.src = silentBlobUrl;
+        masterEl.volume = 1.0;
+        masterEl.loop = true;
+        masterEl.play().catch(() => {});
+      } else {
+        masterEl.pause();
+        masterEl.currentTime = 0;
+      }
     }
 
     function updateBgAudioButtonUI() {
@@ -571,48 +627,91 @@
       }
     }
 
-    const bgAudioBtn = document.getElementById('bgAudioKeepAliveBtn');
-    bgAudioBtn.addEventListener('click', async () => {
-      getAudioContext();
-      if (!silentAudioEl) {
-        silentAudioEl = new Audio(createSilentWavDataUrl());
-        silentAudioEl.loop = true;
-        silentAudioEl.setAttribute('playsinline', '');
-        silentAudioEl.addEventListener('pause', () => {
-          if (isBgAudioRunning && !isRinging) {
-            isBgAudioRunning = false;
-            updateBgAudioButtonUI();
-          }
-        });
+    const masterEl = document.getElementById('masterAudioEngine');
+
+    masterEl.addEventListener('timeupdate', () => {
+      updateClock();
+      if (timerState === 'running') {
+        timerRemainingMs = timerEndTimestamp - Date.now();
+        if (timerRemainingMs <= 0) {
+          timerRemainingMs = 0;
+          updateTimerVisuals();
+          resetTimerToIdle();
+          triggerTimerFinished();
+        } else {
+          updateTimerVisuals();
+        }
       }
+    });
+
+    masterEl.addEventListener('play', () => {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'playing';
+      }
+    });
+
+    masterEl.addEventListener('pause', () => {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'paused';
+      }
+      if (isBgAudioRunning && !isRinging) {
+        isBgAudioRunning = false;
+        updateBgAudioButtonUI();
+      }
+    });
+
+    const bgAudioBtn = document.getElementById('bgAudioKeepAliveBtn');
+    bgAudioBtn.addEventListener('click', () => {
+      initMasterAudioUrls();
 
       if (!isBgAudioRunning) {
-        try {
-          await silentAudioEl.play();
-          isBgAudioRunning = true;
-          updateBgAudioButtonUI();
-          if ('mediaSession' in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-              title: '스마트 시계 알람 대기 중',
-              artist: '화면을 꺼도 정각에 알람이 울립니다'
-            });
-          }
-          showFeatureInfoBanner(
-            '🎧',
-            '백그라운드 유지가 켜졌습니다 (iOS 화면 꺼짐 대응)',
-            '무음 오디오가 백그라운드에서 재생되어 <span class="font-bold text-[#0381fe]">아이폰 화면을 잠가도 정각에 커스텀 알람음</span>이 울립니다. (단, 다른 음악·영상을 재생하면 해제됩니다.)'
-          );
-        } catch (err) {
-          alert('백그라운드 오디오 실행 실패: ' + err.message);
+        masterEl.src = silentBlobUrl;
+        masterEl.volume = 1.0;
+        masterEl.loop = true;
+
+        const playPromise = masterEl.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            isBgAudioRunning = true;
+            updateBgAudioButtonUI();
+            if ('mediaSession' in navigator) {
+              navigator.mediaSession.metadata = new MediaMetadata({
+                title: '스마트 시계 알람 대기 중',
+                artist: '16비트 초미세 무음 신호 · 정각에 알람이 울립니다'
+              });
+              navigator.mediaSession.playbackState = 'playing';
+              try {
+                navigator.mediaSession.setActionHandler('play', () => {
+                  masterEl.play().then(() => {
+                    isBgAudioRunning = true;
+                    updateBgAudioButtonUI();
+                  }).catch(() => {});
+                });
+                navigator.mediaSession.setActionHandler('pause', () => {
+                  masterEl.pause();
+                });
+              } catch (e) {}
+            }
+            showFeatureInfoBanner(
+              '🎧',
+              '초미세 무음 백그라운드 유지가 켜졌습니다',
+              '16비트 정밀 파형(1Hz)으로 양자화 잡음을 제거해 잠금 화면 재생 상태를 유지합니다.'
+            );
+          }).catch((err) => {
+            alert('백그라운드 오디오 실행 실패: ' + err.message);
+          });
         }
       } else {
         isBgAudioRunning = false;
-        silentAudioEl.pause();
+        masterEl.pause();
+        if ('mediaSession' in navigator) {
+          navigator.mediaSession.playbackState = 'none';
+        }
         updateBgAudioButtonUI();
         showFeatureInfoBanner(
           '🎧',
           '백그라운드 유지가 해제되었습니다',
-          '무음 오디오 재생이 중지되었습니다. 아이폰에서 화면을 잠그면 웹 알람음이 울리지 않을 수 있습니다.'
+          '백그라운드 오디오 재생이 중지되었습니다. 화면을 잠그면 웹 알람음이 울리지 않을 수 있습니다.'
         );
       }
     });
@@ -623,7 +722,7 @@
 
     let deferredPrompt = null;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     if (!isStandalone) {
       const banner = document.getElementById('installAppBanner');
@@ -632,10 +731,10 @@
 
       if (isIOS) {
         banner.classList.remove('hidden');
-        guideText.innerText = 'Safari 하단 공유(⍐) 버튼을 누른 뒤 [홈 화면에 추가]를 선택하세요';
+        guideText.innerText = 'Safari 공유(⍐) 버튼을 누른 뒤 [홈 화면에 추가]를 선택하세요';
         installBtn.innerText = '설치 방법';
         installBtn.addEventListener('click', () => {
-          alert('📱 아이폰(iOS) 앱 설치 방법:\n\n1. 반드시 기본 Safari 브라우저로 접속합니다.\n2. 하단 중앙의 [공유(⍐)] 아이콘을 누릅니다.\n3. 메뉴를 아래로 내려 [홈 화면에 추가]를 누릅니다.\n4. 오른쪽 상단 [추가]를 누르면 홈 화면에 앱이 설치됩니다.');
+          alert('📱 아이폰·아이패드 앱 설치 방법:\n\n1. 기본 Safari 브라우저로 접속합니다.\n2. 상단 또는 하단의 [공유(⍐)] 아이콘을 누릅니다.\n3. 메뉴를 내려 [홈 화면에 추가]를 누릅니다.\n4. 오른쪽 상단 [추가]를 누르면 홈 화면에 앱이 설치됩니다.');
         });
       }
 
@@ -643,7 +742,7 @@
         e.preventDefault();
         deferredPrompt = e;
         banner.classList.remove('hidden');
-        guideText.innerText = '안드로이드 스마트폰 홈 화면에 앱으로 다운로드합니다';
+        guideText.innerText = '기기 홈 화면에 앱으로 다운로드합니다';
         installBtn.innerText = '앱 다운로드';
       });
 
@@ -658,9 +757,6 @@
         }
       });
     }
-
-    document.body.addEventListener('touchstart', () => { getAudioContext(); }, { once: true });
-    document.body.addEventListener('click', () => { getAudioContext(); }, { once: true });
 
     const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
     const soundNames = [
@@ -718,7 +814,7 @@
       }
 
       if (isIOS && !isStandalone && requestPerm) {
-        alert('📱 아이폰(iOS)에서는 기본 Safari 공유 메뉴에서 [홈 화면에 추가]로 설치한 뒤 홈 화면 아이콘으로 실행해서 푸시 알림을 켜주세요.');
+        alert('📱 아이폰·아이패드에서는 Safari 공유 메뉴에서 [홈 화면에 추가]로 설치한 뒤 홈 화면 아이콘으로 실행해서 푸시 알림을 켜주세요.');
         return null;
       }
 
@@ -933,7 +1029,7 @@
 
     function getAudioContext() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
       return audioCtx;
     }
 
@@ -1048,7 +1144,7 @@
     window.addEventListener('focus', updateClock);
 
     window.addQuickTimer = function(minutesToAdd, label) {
-      getAudioContext();
+      initMasterAudioUrls();
       const now = getSynchronizedNow();
       now.setMinutes(now.getMinutes() + minutesToAdd);
       const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -1116,7 +1212,6 @@
     });
 
     window.toggleGroup = function(groupName) {
-      getAudioContext();
       const groupAlarms = alarms.filter(a => a.group === groupName);
       const anyEnabled = groupAlarms.some(a => a.enabled);
       const nextState = !anyEnabled;
@@ -1166,10 +1261,10 @@
 
         return `
           <div class="clean-card p-5 flex justify-between items-center transition cursor-pointer hover:bg-blue-50/30 ${alarm.enabled ? 'opacity-100' : 'opacity-65'}" onclick="openEditModal(${idx}, event)">
-            <div class="text-left flex-1">
-              <div class="flex items-center gap-1.5 mb-1">
+            <div class="text-left flex-1 min-w-0 pr-2">
+              <div class="flex items-center gap-1.5 mb-1 flex-wrap">
                 <span class="text-[11px] px-2 py-0.5 bg-blue-50 text-[#0381fe] rounded-full font-bold">${safeGroup}</span>
-                <span class="text-xs text-gray-600 font-semibold">${safeName}</span>
+                <span class="text-xs text-gray-600 font-semibold truncate">${safeName}</span>
                 ${levelTag}
               </div>
               <div class="flex items-baseline gap-1.5">
@@ -1177,11 +1272,11 @@
                 <span class="text-3xl font-light tracking-tight font-mono ${alarm.enabled ? 'text-gray-900' : 'text-gray-400'}">${escapeHTML(time12)}</span>
                 ${snoozeTag}
               </div>
-              <div class="text-[11px] text-gray-400 mt-1 font-medium">
+              <div class="text-[11px] text-gray-400 mt-1 font-medium truncate">
                 <span class="${alarm.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${selectedDaysText}</span> · ${soundNames[alarm.sound % 12]}
               </div>
             </div>
-            <div class="flex items-center gap-3" onclick="event.stopPropagation();">
+            <div class="flex items-center gap-3 shrink-0" onclick="event.stopPropagation();">
               <label class="pill-switch">
                 <input type="checkbox" ${alarm.enabled ? 'checked' : ''} onchange="toggleAlarm(${idx})">
                 <span class="pill-slider"></span>
@@ -1268,7 +1363,7 @@
     });
 
     document.getElementById('addAlarmBtn').addEventListener('click', () => {
-      getAudioContext();
+      initMasterAudioUrls();
       const name = document.getElementById('alarmName').value.trim().slice(0, 30) || '알람';
       const group = document.getElementById('alarmGroup').value.trim().slice(0, 20) || '기본 그룹';
       const time = document.getElementById('alarmTime').value;
@@ -1318,11 +1413,9 @@
       updateClock();
 
       document.getElementById('alarmName').value = '';
-      document.getElementById('alarmTime').value = '';
     });
 
     window.toggleAlarm = function(idx) {
-      getAudioContext();
       alarms[idx].enabled = !alarms[idx].enabled;
       if (!alarms[idx].enabled) {
         alarms[idx].snoozeLevel = 0;
@@ -1343,7 +1436,9 @@
     };
 
     function playCustomSound(soundIdx, level = 0) {
+      if (document.visibilityState !== 'visible') return;
       const ctx = getAudioContext();
+      if (ctx.state !== 'running') return;
       const now = ctx.currentTime;
       const scalePresets = [
         [523.25, 659.25, 783.99, 1046.50, 1318.51], [440.00, 554.37, 659.25, 880.00, 1108.73],
@@ -1411,6 +1506,8 @@
       document.getElementById('snoozeAlarmBtn').classList.remove('hidden');
       document.getElementById('alarmModal').classList.remove('hidden');
 
+      switchMasterAudioToRing();
+
       const repeatMs = Math.max(1000 - level * 130, 600);
 
       alarmInterval = setInterval(() => {
@@ -1441,6 +1538,7 @@
     document.getElementById('stopAlarmBtn').addEventListener('click', () => {
       isRinging = false;
       isTimerRinging = false;
+      restoreMasterAudioAfterRing();
       if (alarmInterval) clearInterval(alarmInterval);
       if (currentRingingAlarm) {
         currentRingingAlarm.enabled = currentRingingAlarm.isRepeating;
@@ -1458,6 +1556,7 @@
 
     document.getElementById('snoozeAlarmBtn').addEventListener('click', () => {
       isRinging = false;
+      restoreMasterAudioAfterRing();
       if (alarmInterval) clearInterval(alarmInterval);
       document.getElementById('alarmModal').classList.add('hidden');
 
@@ -1636,6 +1735,8 @@
       document.getElementById('snoozeAlarmBtn').classList.add('hidden');
       document.getElementById('alarmModal').classList.remove('hidden');
 
+      switchMasterAudioToRing();
+
       const soundIdx = Math.floor(Math.random() * 12);
       alarmInterval = setInterval(() => {
         playCustomSound(soundIdx, 2);
@@ -1658,7 +1759,7 @@
     }
 
     document.getElementById('timerStartPauseBtn').addEventListener('click', () => {
-      getAudioContext();
+      initMasterAudioUrls();
       const btn = document.getElementById('timerStartPauseBtn');
 
       if (timerState === 'idle') {
