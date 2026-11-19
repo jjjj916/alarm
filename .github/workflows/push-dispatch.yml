@@ -1,0 +1,32 @@
+name: Dispatch Smart Clock Push Alarms
+
+on:
+  schedule:
+    - cron: '* * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Call push-dispatch endpoint
+        env:
+          DISPATCH_URL: ${{ secrets.PUSH_DISPATCH_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DISPATCH_URL" ]; then
+            echo "PUSH_DISPATCH_URL secret is missing."
+            exit 1
+          fi
+
+          if [ -n "${CRON_SECRET:-}" ]; then
+            curl --fail --silent --show-error --max-time 15 \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              "$DISPATCH_URL"
+          else
+            curl --fail --silent --show-error --max-time 15 \
+              "$DISPATCH_URL"
+          fi
+          echo ""
