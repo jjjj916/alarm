@@ -535,41 +535,42 @@
     function buildWavBlobUrl(durationSec, isAlarmTone) {
       const sampleRate = 16000;
       const numSamples = sampleRate * durationSec;
-      const buffer = new ArrayBuffer(44 + numSamples);
+      const dataBytes = numSamples * 2; // 16-bit PCM (2 bytes per sample)
+      const buffer = new ArrayBuffer(44 + dataBytes);
       const view = new DataView(buffer);
 
       function writeStr(offset, str) {
         for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
       }
       writeStr(0, 'RIFF');
-      view.setUint32(4, 36 + numSamples, true);
+      view.setUint32(4, 36 + dataBytes, true);
       writeStr(8, 'WAVE');
       writeStr(12, 'fmt ');
       view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true);
-      view.setUint16(22, 1, true);
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, 1, true); // Mono
       view.setUint32(24, sampleRate, true);
-      view.setUint32(28, sampleRate, true);
-      view.setUint16(32, 1, true);
-      view.setUint16(34, 8, true);
+      view.setUint32(28, sampleRate * 2, true); // ByteRate
+      view.setUint16(32, 2, true); // BlockAlign
+      view.setUint16(34, 16, true); // 16-bit
       writeStr(36, 'data');
-      view.setUint32(40, numSamples, true);
+      view.setUint32(40, dataBytes, true);
 
       for (let i = 0; i < numSamples; i++) {
         if (!isAlarmTone) {
-          // 10Hz 극저주파 + 물리적 최소 진폭(±1)
-          const val = 128 + Math.round(1 * Math.sin((2 * Math.PI * 10 * i) / sampleRate));
-          view.setUint8(44 + i, val);
+          // 16비트 PCM 최소 신호(진폭 16 / 32767 = 0.00048 출력) + 1Hz 초저주파
+          const sample = Math.round(16 * Math.sin((2 * Math.PI * 1 * i) / sampleRate));
+          view.setInt16(44 + i * 2, sample, true);
         } else {
           // 잠금 화면 스피커를 뚫고 나오는 선명한 멜로디 벨소리 (도-미-솔-높은도)
           const noteIdx = Math.floor((i / sampleRate) * 6) % 6;
           const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 0];
           const freq = notes[noteIdx];
           if (freq > 0) {
-            const val = 128 + Math.round(120 * Math.sin((2 * Math.PI * freq * i) / sampleRate));
-            view.setUint8(44 + i, val);
+            const sample = Math.round(28000 * Math.sin((2 * Math.PI * freq * i) / sampleRate));
+            view.setInt16(44 + i * 2, sample, true);
           } else {
-            view.setUint8(44 + i, 128);
+            view.setInt16(44 + i * 2, 0, true);
           }
         }
       }
@@ -668,7 +669,7 @@
             if ('mediaSession' in navigator) {
               navigator.mediaSession.metadata = new MediaMetadata({
                 title: '스마트 시계 알람 대기 중',
-                artist: '최소 신호 백그라운드 유지 중 · 정각에 알람이 울립니다'
+                artist: '16비트 초미세 무음 신호 · 정각에 알람이 울립니다'
               });
               navigator.mediaSession.playbackState = 'playing';
               try {
@@ -685,8 +686,8 @@
             }
             showFeatureInfoBanner(
               '🎧',
-              '최소 출력 백그라운드 유지가 켜졌습니다',
-              '10Hz 극저주파의 최소 진폭(±1) 신호로 잠금 화면 재생 상태를 유지합니다.'
+              '초미세 무음 백그라운드 유지가 켜졌습니다',
+              '16비트 정밀 파형(1Hz)으로 양자화 잡음을 제거해 잠금 화면 재생 상태를 유지합니다.'
             );
           }).catch((err) => {
             alert('백그라운드 오디오 실행 실패: ' + err.message);
