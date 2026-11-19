@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-clock-v6';
+const CACHE_NAME = 'smart-clock-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -49,6 +49,10 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const baseUrl = payload.url || './index.html';
+  const separator = baseUrl.includes('?') ? '&' : '?';
+  const triggerUrl = `${baseUrl}${separator}triggerAlarm=1&label=${encodeURIComponent(payload.title)}&body=${encodeURIComponent(payload.body)}`;
+
   const options = {
     body: payload.body,
     icon: './icon-192.png',
@@ -58,7 +62,7 @@ self.addEventListener('push', (event) => {
     requireInteraction: true,
     vibrate: [500, 200, 500, 200, 500],
     data: {
-      url: payload.url
+      url: triggerUrl
     }
   };
 
@@ -69,12 +73,13 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || './index.html';
+  const targetUrl = (event.notification.data && event.notification.data.url) || './index.html?triggerAlarm=1';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if ('focus' in client) {
+          client.navigate(targetUrl);
           return client.focus();
         }
       }
