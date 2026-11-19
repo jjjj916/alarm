@@ -243,7 +243,7 @@
         <div id="groupToggleList" class="flex flex-wrap gap-2"></div>
       </div>
 
-      <!-- 등록된 알람 목록 (카드를 누르면 편집 모달 오픈) -->
+      <!-- 등록된 알람 목록 -->
       <div class="space-y-2.5 pt-1 pb-8">
         <div class="flex justify-between items-center px-2">
           <h2 class="text-xs font-bold text-gray-500">내 알람 목록 <span class="text-[10px] text-blue-500 font-normal">(카드를 누르면 수정됩니다)</span></h2>
@@ -700,6 +700,10 @@
       return getSynchronizedNow().getDay();
     }
 
+    function formatDateKey(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
     function updateNextAlarmCountdown(now, activeDay) {
       const countdownEl = document.getElementById('nextAlarmCountdown');
       const enabledAlarms = alarms.filter(a => a.enabled);
@@ -748,13 +752,14 @@
       countdownEl.innerText = `${prefixLabel}다음 알람까지 ${parts.join(' ')} 남음`;
     }
 
+    // 목표 시각 기반 판별 로직 (백그라운드 복귀 지연 대응 + 중복 울림 방지)
     function updateClock() {
       const now = getSynchronizedNow();
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
       const seconds = String(now.getSeconds()).padStart(2, '0');
-      const currentTimeStr = `${hours}:${minutes}`;
       const activeDay = getActiveDayIndex();
+      const todayKey = formatDateKey(now);
 
       document.getElementById('clock').innerText = `${hours}:${minutes}:${seconds}`;
       document.getElementById('activeDayDisplay').innerText = `📅 ${daysMap[activeDay]}요일`;
@@ -762,17 +767,43 @@
 
       updateNextAlarmCountdown(now, activeDay);
 
-      if (seconds === '00' && !isRinging) {
-        alarms.forEach(alarm => {
-          const targetTime = alarm.nextSnoozeTime || alarm.time;
-          if (alarm.enabled && targetTime === currentTimeStr && alarm.days.includes(activeDay)) {
+      if (!isRinging) {
+        for (const alarm of alarms) {
+          if (!alarm.enabled || !alarm.days.includes(activeDay)) continue;
+
+          const targetTimeStr = alarm.nextSnoozeTime || alarm.time;
+          const [th, tm] = targetTimeStr.split(':').map(Number);
+
+          const targetDate = new Date(now);
+          targetDate.setHours(th, tm, 0, 0);
+
+          const diffMs = now.getTime() - targetDate.getTime();
+          const triggerKey = `${todayKey}_${targetTimeStr}`;
+
+          // 목표 시각에 도달했거나 백그라운드에서 늦게 깨어난 경우(0초 ~ 5분 이내)
+          if (diffMs >= 0 && diffMs <= 5 * 60 * 1000 && alarm.lastTriggeredKey !== triggerKey) {
+            alarm.lastTriggeredKey = triggerKey;
+            saveAlarms();
             triggerAlarm(alarm);
+            break;
           }
-        });
+        }
       }
     }
-    setInterval(updateClock, 200);
+
+    setInterval(updateClock, 250);
     updateClock();
+
+    // 화면이 다시 활성화되거나 백그라운드에서 돌아왔을 때 즉시 알람 체크
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+        updateClock();
+      }
+    });
+    window.addEventListener('focus', updateClock);
 
     window.addQuickTimer = function(minutesToAdd, label) {
       getAudioContext();
@@ -794,6 +825,7 @@
         remainingSnooze: 2,
         snoozeLevel: 0,
         nextSnoozeTime: null,
+        lastTriggeredKey: null,
         enabled: true
       });
 
@@ -853,6 +885,8 @@
           if (!nextState) {
             a.snoozeLevel = 0;
             a.nextSnoozeTime = null;
+          } else {
+            a.lastTriggeredKey = null;
           }
         }
       });
@@ -919,7 +953,6 @@
       }).join('');
     }
 
-    // 알람 편집 모달 열기
     window.openEditModal = function(idx, event) {
       if (event) event.stopPropagation();
       const alarm = alarms[idx];
@@ -983,6 +1016,7 @@
       alarm.isRepeating = isRepeating;
       alarm.nextSnoozeTime = null;
       alarm.snoozeLevel = 0;
+      alarm.lastTriggeredKey = null;
 
       alarms.sort((a, b) => a.time.localeCompare(b.time));
       saveAlarms();
@@ -1033,7 +1067,7 @@
       alarms.push({
         id: Date.now(), name, group, time, sound, days: selectedDays,
         isRepeating, snoozeInterval, snoozeCount, remainingSnooze: snoozeCount,
-        snoozeLevel: 0, nextSnoozeTime: null, enabled: true
+        snoozeLevel: 0, nextSnoozeTime: null, lastTriggeredKey: null, enabled: true
       });
 
       alarms.sort((a, b) => a.time.localeCompare(b.time));
@@ -1051,6 +1085,8 @@
       if (!alarms[idx].enabled) {
         alarms[idx].snoozeLevel = 0;
         alarms[idx].nextSnoozeTime = null;
+      } else {
+        alarms[idx].lastTriggeredKey = null;
       }
       saveAlarms();
       renderAlarmList();
@@ -1190,6 +1226,7 @@
         const now = getSynchronizedNow();
         now.setMinutes(now.getMinutes() + currentRingingAlarm.snoozeInterval);
         currentRingingAlarm.nextSnoozeTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        currentRingingAlarm.lastTriggeredKey = null;
         escalateAlarmSound(currentRingingAlarm);
       } else if (currentRingingAlarm) {
         alert('남은 다시 울림 횟수가 소진되었습니다.');
