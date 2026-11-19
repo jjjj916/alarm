@@ -479,6 +479,7 @@
       <div id="modalIntensityBadge" class="inline-block px-3 py-1 rounded-full text-xs font-extrabold bg-blue-100 text-[#0381fe] mb-3">
         🔊 강도 Lv.1 (기본)
       </div>
+      <p class="text-[11px] font-extrabold tracking-widest text-[#0381fe] mb-2">NOW RINGING · 현재 울리는 알람</p>
       <p id="modalAlarmTime" class="text-6xl font-light text-gray-900 font-mono tracking-tight my-2">00:00</p>
       <h2 id="modalAlarmName" class="text-xl font-bold text-gray-800 mt-2">기상 알람</h2>
       <p id="modalSoundTitle" class="text-xs text-gray-500 mt-1">알람음 재생 중...</p>
@@ -1257,6 +1258,22 @@
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
 
+    // 알람 목록에는 오늘 울릴 소리, 이미 울린 반복 알람에는 다음 날 소리를 표시한다.
+    function getDisplayedAlarmSoundIndex(alarm) {
+      if (!alarm.randomDaily) return (Number(alarm.sound) || 0) % 12;
+      if (isRinging && currentRingingAlarm && String(currentRingingAlarm.id) === String(alarm.id)) {
+        return (Number(alarm.sound) || 0) % 12;
+      }
+      const now = getSynchronizedNow();
+      const todayKey = formatDateKey(now);
+      const lastTriggeredDate = String(alarm.lastTriggeredKey || '').split('_')[0];
+      const displayDate = new Date(now);
+      if (alarm.isRepeating && lastTriggeredDate === todayKey && !alarm.nextSnoozeTime) {
+        displayDate.setDate(displayDate.getDate() + 1);
+      }
+      return dailyRandomSoundIndex(alarm.id, displayDate);
+    }
+
     function updateNextAlarmCountdown(now, activeDay) {
       const countdownEl = document.getElementById('nextAlarmCountdown');
       const enabledAlarms = alarms.filter(a => a.enabled);
@@ -1491,7 +1508,7 @@
                 ${snoozeTag}
               </div>
               <div class="text-[11px] text-gray-400 mt-1 font-medium truncate">
-                <span class="${alarm.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${selectedDaysText}</span> · ${alarm.randomDaily ? '매일 랜덤' : soundNames[alarm.sound % 12]}
+                <span class="${alarm.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${selectedDaysText}</span> · ${alarm.randomDaily ? `매일 랜덤 · ${soundNames[getDisplayedAlarmSoundIndex(alarm)]}` : soundNames[alarm.sound % 12]}
               </div>
             </div>
             <div class="flex items-center gap-3 shrink-0" onclick="event.stopPropagation();">
@@ -1705,6 +1722,13 @@
     });
 
     function triggerAlarm(alarm) {
+      // 반복 랜덤 알람은 오늘 날짜에 고정된 소리를 사용한다. 다시 울림은 별도 강도 로직을 유지한다.
+      if (alarm.randomDaily && !alarm.nextSnoozeTime) {
+        const ringingNow = getSynchronizedNow();
+        alarm.sound = dailyRandomSoundIndex(alarm.id, ringingNow);
+        alarm.lastTriggeredKey = `${formatDateKey(ringingNow)}_${alarm.time}`;
+        saveAlarms();
+      }
       isRinging = true;
       isTimerRinging = false;
       currentRingingAlarm = alarm;
@@ -1724,7 +1748,7 @@
 
       document.getElementById('modalAlarmName').innerText = `[${alarm.group}] ${alarm.name}`;
       document.getElementById('modalAlarmTime').innerText = alarm.nextSnoozeTime || alarm.time;
-      document.getElementById('modalSoundTitle').innerText = `알람음: ${alarm.randomDaily ? '매일 랜덤' : soundNames[alarm.sound % 12]}`;
+      document.getElementById('modalSoundTitle').innerText = `알람음: ${alarm.randomDaily ? `매일 랜덤 · ${soundNames[getDisplayedAlarmSoundIndex(alarm)]}` : soundNames[alarm.sound % 12]}`;
       document.getElementById('modalRepeatInfo').innerText = alarm.isRepeating 
         ? "🔄 반복 요일 지정됨: 다음 반복 요일에도 자동 ON 유지" 
         : "💡 단발성 알람: 완료 후 자동으로 OFF";
