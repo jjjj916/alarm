@@ -109,14 +109,31 @@
         <button id="pushSubscribeBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🔔 푸시 알림: OFF
         </button>
-        <button id="bgAudioKeepAliveBtn" title="브라우저가 허용하는 동안 백그라운드 미디어 재생을 시도합니다. 실제 알람 작동은 보장하지 않습니다." class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
+        <button id="bgAudioKeepAliveBtn" title="백그라운드 오디오 재생을 시도합니다. 브라우저나 운영체제가 중단할 수 있어 알람 실행을 보장하지 않습니다." class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🎧 백그라운드 재생 시도: OFF
         </button>
-        <button id="wakeLockBtn" title="앱 화면이 보이는 동안 화면 자동 잠금을 막아 웹 알람의 백그라운드 전환을 줄입니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
+        <button id="wakeLockBtn" title="화면이 보이는 동안 자동 잠금을 막습니다. 배터리 소모가 늘며 백그라운드 실행을 보장하지 않습니다." class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           💤 화면 켜짐 유지: OFF
         </button>
       </div>
     </div>
+
+    <!-- 알람 사용 전 필수 설정 안내 -->
+    <section id="alarmReadinessWarning" class="clean-card p-4 bg-amber-50 border border-amber-200/90 text-left" role="note" aria-label="알람 사용 전 필수 안내">
+      <div class="flex items-start gap-2.5">
+        <span class="text-lg leading-none mt-0.5" aria-hidden="true">⚠️</span>
+        <div class="min-w-0">
+          <div class="text-sm font-extrabold text-amber-900">알람 사용 전 필수 설정을 확인해 주세요</div>
+          <p class="text-[11px] leading-relaxed text-amber-900/90 mt-1">웹 알람 소리를 놓치지 않으려면 알람 시간에 Smart Clock 화면을 열어두고 앱이나 브라우저를 완전히 종료하지 마세요.</p>
+          <ul class="mt-2.5 space-y-1.5 text-[11px] leading-relaxed text-amber-950">
+            <li>① <b>화면 켜짐 유지</b>를 ON으로 설정하세요.</li>
+            <li>② <b>백그라운드 재생 시도</b>를 ON으로 설정하세요.</li>
+            <li>③ <b>푸시 알림</b>을 ON으로 설정하고 기기 알림 권한을 허용하세요.</li>
+          </ul>
+          <p class="text-[10px] leading-relaxed text-amber-800 mt-2">※ 화면 켜짐 유지는 배터리를 더 사용합니다. 브라우저·기기의 절전 정책이나 앱 종료 시 웹 알람음은 중단될 수 있습니다. 푸시는 보조 알림이며 정각 도착이나 사용자 지정 알람음 재생을 보장하지 않습니다.</p>
+        </div>
+      </div>
+    </section>
 
     <!-- 버튼 클릭 시 잠시 나타났다 사라지는 기능 설명 배너 -->
     <div id="featureInfoBanner" class="clean-card px-4 py-3.5 bg-blue-50/90 border border-blue-200/80 text-left hidden transition-all duration-300">
