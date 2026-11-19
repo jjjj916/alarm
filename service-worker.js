@@ -1,5 +1,5 @@
-const CACHE_NAME = 'smart-clock-v7';
-const ASSETS = [
+const CACHE_NAME = 'smart-clock-v3';
+const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
@@ -7,73 +7,74 @@ const ASSETS = [
   './icon-512.png'
 ];
 
-self.addEventListener('install', (e) => {
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE).catch(() => {});
+    })
+  );
   self.skipWaiting();
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    ).then(() => clients.claim())
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+      );
+    })
   );
+  self.clients.claim();
 });
 
-self.addEventListener('fetch', (e) => {
-  if (e.request.url.includes('/api/')) {
-    e.respondWith(fetch(e.request));
+self.addEventListener('fetch', (event) => {
+  if (event.request.url.includes('/api/')) {
     return;
   }
-  e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
 
 self.addEventListener('push', (event) => {
-  let payload = {
+  let data = {
     title: '스마트 시계 알람',
-    body: '설정된 알람 시간이 되었습니다.',
-    url: './index.html',
-    tag: 'smart-clock-alarm'
+    body: '설정한 알람 시각입니다.',
+    tag: 'smart-clock-alarm',
+    url: './?triggerAlarm=1'
   };
 
   if (event.data) {
     try {
       const parsed = event.data.json();
-      payload = { ...payload, ...parsed };
-    } catch {
-      payload.body = event.data.text() || payload.body;
+      data = { ...data, ...parsed };
+    } catch (e) {
+      data.body = event.data.text();
     }
   }
 
-  const baseUrl = payload.url || './index.html';
-  const separator = baseUrl.includes('?') ? '&' : '?';
-  const triggerUrl = `${baseUrl}${separator}triggerAlarm=1&label=${encodeURIComponent(payload.title)}&body=${encodeURIComponent(payload.body)}`;
-
   const options = {
-    body: payload.body,
+    body: data.body,
     icon: './icon-192.png',
     badge: './icon-192.png',
-    tag: payload.tag,
+    tag: data.tag || 'smart-clock-alarm',
+    silent: false,
     renotify: true,
     requireInteraction: true,
-    vibrate: [500, 200, 500, 200, 500],
+    vibrate: [500, 150, 500, 150, 500],
     data: {
-      url: triggerUrl
+      url: data.url || './?triggerAlarm=1'
     }
   };
 
   event.waitUntil(
-    self.registration.showNotification(payload.title, options)
+    self.registration.showNotification(data.title, options)
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || './index.html?triggerAlarm=1';
+  const targetUrl = (event.notification.data && event.notification.data.url) || './?triggerAlarm=1';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
