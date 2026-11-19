@@ -74,6 +74,10 @@
 </head>
 <body class="min-h-screen flex flex-col items-center px-4">
 
+  <!-- iOS 백그라운드 유지용 실제 DOM 오디오 엘리먼트 -->
+  <audio id="bgKeepAliveAudio" playsinline loop preload="auto" class="hidden"></audio>
+  <audio id="fallbackRingAudio" playsinline loop preload="auto" class="hidden"></audio>
+
   <div class="max-w-lg w-full space-y-4 my-1">
     
     <!-- 스마트폰 앱 다운로드/설치 안내 배너 -->
@@ -100,7 +104,7 @@
         <button id="pushSubscribeBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🔔 푸시 알림: OFF
         </button>
-        <button id="bgAudioKeepAliveBtn" title="무음 오디오를 백그라운드에서 재생해 아이폰 화면이 잠겨도 알람이 울리게 유지합니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
+        <button id="bgAudioKeepAliveBtn" title="백그라운드 오디오를 재생해 아이폰 화면이 잠겨도 알람이 울리게 유지합니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🎧 백그라운드 유지: OFF
         </button>
         <button id="wakeLockBtn" title="알람이 울릴 때까지 화면이 자동으로 꺼지지 않도록 유지합니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
@@ -483,7 +487,6 @@
         .replace(/'/g, '&#39;');
     }
 
-    // 버튼 클릭 시 하단 설명 카드를 잠시 보여주는 함수 (5초 후 자동 닫힘)
     let featureBannerTimer = null;
     function showFeatureInfoBanner(icon, title, descHtml) {
       const banner = document.getElementById('featureInfoBanner');
@@ -525,13 +528,14 @@
     let wakeLock = null;
     let pushEnabled = false;
 
-    // 무음 오디오 백그라운드 유지 (iOS 화면 꺼짐 우회용)
-    let silentAudioEl = null;
+    // iOS 백그라운드 유지용 Blob WAV 생성 (10초 분량, 극미세 진폭으로 iOS 절전 차단 우회)
     let isBgAudioRunning = false;
+    let bgBlobUrl = null;
+    let ringBlobUrl = null;
 
-    function createSilentWavDataUrl() {
+    function buildWavBlobUrl(durationSec, isAlarmTone) {
       const sampleRate = 8000;
-      const numSamples = sampleRate;
+      const numSamples = sampleRate * durationSec;
       const buffer = new ArrayBuffer(44 + numSamples);
       const view = new DataView(buffer);
 
@@ -551,12 +555,40 @@
       view.setUint16(34, 8, true);
       writeStr(36, 'data');
       view.setUint32(40, numSamples, true);
-      for (let i = 0; i < numSamples; i++) view.setUint8(44 + i, 128);
 
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-      return 'data:audio/wav;base64,' + btoa(binary);
+      for (let i = 0; i < numSamples; i++) {
+        if (!isAlarmTone) {
+          // 귀에 안 들리는 15Hz 극미세 신호 (iOS가 완전 무음으로 인식해 끊는 것을 방지)
+          const val = 128 + Math.round(Math.sin((2 * Math.PI * 15 * i) / sampleRate));
+          view.setUint8(44 + i, val);
+        } else {
+          // 잠금 화면에서도 울리는 HTML5 폴백 벨소리 (880Hz <-> 1174Hz 비프 패턴)
+          const cycle = (i % (sampleRate / 2)) / (sampleRate / 2);
+          if (cycle < 0.7) {
+            const freq = cycle < 0.35 ? 880 : 1174.66;
+            const val = 128 + Math.round(115 * Math.sin((2 * Math.PI * freq * i) / sampleRate));
+            view.setUint8(44 + i, val);
+          } else {
+            view.setUint8(44 + i, 128);
+          }
+        }
+      }
+
+      const blob = new Blob([buffer], { type: 'audio/wav' });
+      return URL.createObjectURL(blob);
+    }
+
+    function initDomAudios() {
+      const bgEl = document.getElementById('bgKeepAliveAudio');
+      const ringEl = document.getElementById('fallbackRingAudio');
+      if (!bgBlobUrl) {
+        bgBlobUrl = buildWavBlobUrl(10, false);
+        bgEl.src = bgBlobUrl;
+      }
+      if (!ringBlobUrl) {
+        ringBlobUrl = buildWavBlobUrl(2, true);
+        ringEl.src = ringBlobUrl;
+      }
     }
 
     function updateBgAudioButtonUI() {
@@ -574,21 +606,13 @@
     const bgAudioBtn = document.getElementById('bgAudioKeepAliveBtn');
     bgAudioBtn.addEventListener('click', async () => {
       getAudioContext();
-      if (!silentAudioEl) {
-        silentAudioEl = new Audio(createSilentWavDataUrl());
-        silentAudioEl.loop = true;
-        silentAudioEl.setAttribute('playsinline', '');
-        silentAudioEl.addEventListener('pause', () => {
-          if (isBgAudioRunning && !isRinging) {
-            isBgAudioRunning = false;
-            updateBgAudioButtonUI();
-          }
-        });
-      }
+      initDomAudios();
+      const bgEl = document.getElementById('bgKeepAliveAudio');
 
       if (!isBgAudioRunning) {
         try {
-          await silentAudioEl.play();
+          bgEl.volume = 0.02;
+          await bgEl.play();
           isBgAudioRunning = true;
           updateBgAudioButtonUI();
           if ('mediaSession' in navigator) {
@@ -596,24 +620,35 @@
               title: '스마트 시계 알람 대기 중',
               artist: '화면을 꺼도 정각에 알람이 울립니다'
             });
+            navigator.mediaSession.playbackState = 'playing';
           }
           showFeatureInfoBanner(
             '🎧',
             '백그라운드 유지가 켜졌습니다 (iOS 화면 꺼짐 대응)',
-            '무음 오디오가 백그라운드에서 재생되어 <span class="font-bold text-[#0381fe]">아이폰 화면을 잠가도 정각에 커스텀 알람음</span>이 울립니다. (단, 다른 음악·영상을 재생하면 해제됩니다.)'
+            '백그라운드 오디오 세션이 활성화되어 <span class="font-bold text-[#0381fe]">아이폰 화면을 잠가도 정각에 알람</span>이 울립니다. (잠금 화면에 미디어 컨트롤러가 표시됩니다.)'
           );
         } catch (err) {
           alert('백그라운드 오디오 실행 실패: ' + err.message);
         }
       } else {
         isBgAudioRunning = false;
-        silentAudioEl.pause();
+        bgEl.pause();
+        if ('mediaSession' in navigator) {
+          navigator.mediaSession.playbackState = 'none';
+        }
         updateBgAudioButtonUI();
         showFeatureInfoBanner(
           '🎧',
           '백그라운드 유지가 해제되었습니다',
-          '무음 오디오 재생이 중지되었습니다. 아이폰에서 화면을 잠그면 웹 알람음이 울리지 않을 수 있습니다.'
+          '백그라운드 오디오 재생이 중지되었습니다. 아이폰에서 화면을 잠그면 웹 알람음이 울리지 않을 수 있습니다.'
         );
+      }
+    });
+
+    document.getElementById('bgKeepAliveAudio').addEventListener('pause', () => {
+      if (isBgAudioRunning && !isRinging) {
+        isBgAudioRunning = false;
+        updateBgAudioButtonUI();
       }
     });
 
@@ -659,8 +694,8 @@
       });
     }
 
-    document.body.addEventListener('touchstart', () => { getAudioContext(); }, { once: true });
-    document.body.addEventListener('click', () => { getAudioContext(); }, { once: true });
+    document.body.addEventListener('touchstart', () => { getAudioContext(); initDomAudios(); }, { once: true });
+    document.body.addEventListener('click', () => { getAudioContext(); initDomAudios(); }, { once: true });
 
     const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
     const soundNames = [
@@ -933,7 +968,7 @@
 
     function getAudioContext() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
       return audioCtx;
     }
 
@@ -1049,6 +1084,7 @@
 
     window.addQuickTimer = function(minutesToAdd, label) {
       getAudioContext();
+      initDomAudios();
       const now = getSynchronizedNow();
       now.setMinutes(now.getMinutes() + minutesToAdd);
       const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -1269,6 +1305,7 @@
 
     document.getElementById('addAlarmBtn').addEventListener('click', () => {
       getAudioContext();
+      initDomAudios();
       const name = document.getElementById('alarmName').value.trim().slice(0, 30) || '알람';
       const group = document.getElementById('alarmGroup').value.trim().slice(0, 20) || '기본 그룹';
       const time = document.getElementById('alarmTime').value;
@@ -1344,6 +1381,7 @@
 
     function playCustomSound(soundIdx, level = 0) {
       const ctx = getAudioContext();
+      if (ctx.state !== 'running') return;
       const now = ctx.currentTime;
       const scalePresets = [
         [523.25, 659.25, 783.99, 1046.50, 1318.51], [440.00, 554.37, 659.25, 880.00, 1108.73],
@@ -1383,6 +1421,21 @@
       if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
     });
 
+    function startFallbackRingAudio() {
+      initDomAudios();
+      const ringEl = document.getElementById('fallbackRingAudio');
+      ringEl.volume = 1.0;
+      ringEl.play().catch(() => {});
+    }
+
+    function stopFallbackRingAudio() {
+      const ringEl = document.getElementById('fallbackRingAudio');
+      if (ringEl) {
+        ringEl.pause();
+        ringEl.currentTime = 0;
+      }
+    }
+
     function triggerAlarm(alarm) {
       isRinging = true;
       isTimerRinging = false;
@@ -1410,6 +1463,9 @@
       document.getElementById('modalSnoozeInfo').innerText = `다시 울림: ${alarm.snoozeInterval}분 간격 (${alarm.remainingSnooze}/${alarm.snoozeCount}회 남음)`;
       document.getElementById('snoozeAlarmBtn').classList.remove('hidden');
       document.getElementById('alarmModal').classList.remove('hidden');
+
+      // iOS 화면 잠금 상태에서도 소리가 나도록 HTML5 폴백 오디오 동시 재생
+      startFallbackRingAudio();
 
       const repeatMs = Math.max(1000 - level * 130, 600);
 
@@ -1441,6 +1497,7 @@
     document.getElementById('stopAlarmBtn').addEventListener('click', () => {
       isRinging = false;
       isTimerRinging = false;
+      stopFallbackRingAudio();
       if (alarmInterval) clearInterval(alarmInterval);
       if (currentRingingAlarm) {
         currentRingingAlarm.enabled = currentRingingAlarm.isRepeating;
@@ -1458,6 +1515,7 @@
 
     document.getElementById('snoozeAlarmBtn').addEventListener('click', () => {
       isRinging = false;
+      stopFallbackRingAudio();
       if (alarmInterval) clearInterval(alarmInterval);
       document.getElementById('alarmModal').classList.add('hidden');
 
@@ -1636,6 +1694,8 @@
       document.getElementById('snoozeAlarmBtn').classList.add('hidden');
       document.getElementById('alarmModal').classList.remove('hidden');
 
+      startFallbackRingAudio();
+
       const soundIdx = Math.floor(Math.random() * 12);
       alarmInterval = setInterval(() => {
         playCustomSound(soundIdx, 2);
@@ -1659,6 +1719,7 @@
 
     document.getElementById('timerStartPauseBtn').addEventListener('click', () => {
       getAudioContext();
+      initDomAudios();
       const btn = document.getElementById('timerStartPauseBtn');
 
       if (timerState === 'idle') {
