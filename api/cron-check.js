@@ -9,12 +9,15 @@ function localDateKey(parts) {
   return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 }
 
+// 1분 주기 서버 점검의 지연 허용폭. 10분 동안 오래된 기상 알람을 뒤늦게 보내지 않도록 90초로 제한한다.
+const DELIVERY_GRACE_MS = 90 * 1000;
+
 function alarmIsDue(alarm, parts, nowMs, timeZone) {
   if (!alarm.enabled) return null;
 
   if (Number.isFinite(Number(alarm.nextSnoozeAt))) {
     const dueAt = Number(alarm.nextSnoozeAt);
-    if (dueAt <= nowMs && nowMs - dueAt <= 10 * 60 * 1000) {
+    if (dueAt <= nowMs && nowMs - dueAt <= DELIVERY_GRACE_MS) {
       return { kind: 'snooze', scheduledAt: dueAt, displayTime: alarm.nextSnoozeTime || alarm.time };
     }
     if (dueAt > nowMs) return null;
@@ -33,16 +36,16 @@ function alarmIsDue(alarm, parts, nowMs, timeZone) {
     const scheduledAt = zonedWallTimeToUtc({
       year: parts.year, month: parts.month, day: parts.day, hour, minute
     }, timeZone);
-    // Cron may run slightly late. Keep a 10-minute delivery window so a
-    // delayed minute-trigger does not silently skip the alarm.
-    if (nowMs >= scheduledAt && nowMs - scheduledAt <= 10 * 60 * 1000) {
+    // Cron is checked about once per minute. Keep only a short 90-second
+    // grace window; this is not a promise of exact-time push delivery.
+    if (nowMs >= scheduledAt && nowMs - scheduledAt <= DELIVERY_GRACE_MS) {
       return { kind: 'repeat', scheduledAt, displayTime: alarm.time };
     }
     return null;
   }
 
   const singleShotAt = Number(alarm.singleShotAt);
-  if (Number.isFinite(singleShotAt) && singleShotAt > 0 && nowMs >= singleShotAt && nowMs - singleShotAt <= 10 * 60 * 1000) {
+  if (Number.isFinite(singleShotAt) && singleShotAt > 0 && nowMs >= singleShotAt && nowMs - singleShotAt <= DELIVERY_GRACE_MS) {
     return { kind: 'single', scheduledAt: singleShotAt, displayTime: alarm.time };
   }
   return null;
@@ -53,7 +56,7 @@ async function sendPush(webpush, redis, id, record, payload, dedupeKey) {
   if (reserved !== 'OK') return false;
   try {
     await webpush.sendNotification(record.subscription, JSON.stringify(payload), {
-      TTL: 600,
+      TTL: 90,
       urgency: 'high'
     });
     return true;

@@ -109,11 +109,11 @@
         <button id="pushSubscribeBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🔔 푸시 알림: OFF
         </button>
-        <button id="bgAudioKeepAliveBtn" title="백그라운드 오디오를 재생해 아이폰·아이패드 화면이 잠겨도 알람이 울리게 유지합니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
-          🎧 백그라운드 유지: OFF
+        <button id="bgAudioKeepAliveBtn" title="브라우저가 허용하는 동안 백그라운드 미디어 재생을 시도합니다. 실제 알람 작동은 보장하지 않습니다." class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
+          🎧 백그라운드 재생 시도: OFF
         </button>
-        <button id="wakeLockBtn" title="알람이 울릴 때까지 화면이 자동으로 꺼지지 않도록 유지합니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
-          💤 자동꺼짐 방지: OFF
+        <button id="wakeLockBtn" title="앱 화면이 보이는 동안 화면 자동 잠금을 막아 웹 알람의 백그라운드 전환을 줄입니다" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
+          💤 화면 켜짐 유지: OFF
         </button>
       </div>
     </div>
@@ -595,6 +595,7 @@
     let audioCtx = null;
     let currentRingingAlarm = null;
     let wakeLock = null;
+    let wakeLockRequested = false;
     let pushEnabled = false;
 
     let isBgAudioRunning = false;
@@ -678,10 +679,10 @@
       const btn = document.getElementById('bgAudioKeepAliveBtn');
       if (!btn) return;
       if (isBgAudioRunning) {
-        btn.innerText = '🎧 백그라운드 유지: ON';
+        btn.innerText = '🎧 백그라운드 재생 시도: ON';
         btn.className = 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
       } else {
-        btn.innerText = '🎧 백그라운드 유지: OFF';
+        btn.innerText = '🎧 백그라운드 재생 시도: OFF';
         btn.className = 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition';
       }
     }
@@ -736,7 +737,7 @@
             if ('mediaSession' in navigator) {
               navigator.mediaSession.metadata = new MediaMetadata({
                 title: '스마트 시계 알람 대기 중',
-                artist: '16비트 초미세 무음 신호 · 정각에 알람이 울립니다'
+                artist: '백그라운드 재생 호환성 실험 · 알람 보장 아님'
               });
               navigator.mediaSession.playbackState = 'playing';
               try {
@@ -753,8 +754,8 @@
             }
             showFeatureInfoBanner(
               '🎧',
-              '초미세 무음 백그라운드 유지가 켜졌습니다',
-              '16비트 정밀 파형(1Hz)으로 양자화 잡음을 제거해 잠금 화면 재생 상태를 유지합니다.'
+              '백그라운드 재생 시도를 켰습니다',
+              '브라우저가 허용하는 동안 오디오 재생 상태를 유지하려고 시도합니다. 기기 절전 정책이나 브라우저 종료 시 중단될 수 있으며, 이 기능은 실제 알람 실행을 보장하지 않습니다.'
             );
           }).catch((err) => {
             alert('백그라운드 오디오 실행 실패: ' + err.message);
@@ -769,7 +770,7 @@
         updateBgAudioButtonUI();
         showFeatureInfoBanner(
           '🎧',
-          '백그라운드 유지가 해제되었습니다',
+          '백그라운드 재생 시도가 해제되었습니다',
           '백그라운드 오디오 재생이 중지되었습니다. 화면을 잠그면 웹 알람음이 울리지 않을 수 있습니다.'
         );
       }
@@ -1190,41 +1191,51 @@
     });
 
     const wakeLockBtn = document.getElementById('wakeLockBtn');
-    wakeLockBtn.addEventListener('click', async () => {
-      if (!('wakeLock' in navigator)) {
-        showFeatureInfoBanner(
-          '💤',
-          '자동꺼짐 방지 미지원 브라우저',
-          '현재 브라우저에서는 화면 켜짐 유지 API를 지원하지 않습니다. 기기 설정에서 자동 잠금 시간을 늘려주세요.'
-        );
-        return;
-      }
+    function updateWakeLockButton(active) {
+      wakeLockBtn.innerText = active ? '💡 화면 켜짐 유지: ON' : '💤 화면 켜짐 유지: OFF';
+      wakeLockBtn.className = active
+        ? 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition'
+        : 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition';
+    }
+    async function acquireWakeLock() {
+      if (!wakeLockRequested || document.visibilityState !== 'visible' || !('wakeLock' in navigator)) return;
       try {
         if (!wakeLock) {
           wakeLock = await navigator.wakeLock.request('screen');
-          wakeLockBtn.innerText = '💡 자동꺼짐 방지: ON';
-          wakeLockBtn.className = 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
-          showFeatureInfoBanner(
-            '💡',
-            '자동꺼짐 방지가 켜졌습니다',
-            '알람이 울릴 때까지 화면이 자동으로 잠기지 않고 계속 켜져 있어, <span class="font-bold text-[#0381fe]">벨소리와 진동이 100% 정각에 울립니다.</span>'
-          );
           wakeLock.addEventListener('release', () => {
             wakeLock = null;
-            wakeLockBtn.innerText = '💤 자동꺼짐 방지: OFF';
-            wakeLockBtn.className = 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition';
-          });
-        } else {
-          await wakeLock.release();
-          wakeLock = null;
-          showFeatureInfoBanner(
-            '💤',
-            '자동꺼짐 방지가 해제되었습니다',
-            '이제 기기 기본 설정에 따라 일정 시간이 지나면 화면이 자동으로 꺼집니다.'
-          );
+            updateWakeLockButton(false);
+            if (wakeLockRequested && document.visibilityState === 'visible') {
+              setTimeout(() => acquireWakeLock(), 250);
+            }
+          }, { once: true });
         }
+        updateWakeLockButton(true);
       } catch (err) {
-        alert('자동꺼짐 방지 활성화 실패: ' + err.message);
+        updateWakeLockButton(false);
+        console.warn('화면 켜짐 유지 요청 실패:', err);
+      }
+    }
+    wakeLockBtn.addEventListener('click', async () => {
+      if (!('wakeLock' in navigator)) {
+        showFeatureInfoBanner('💤', '화면 켜짐 유지 미지원', '이 브라우저에서는 화면 켜짐 유지 기능을 지원하지 않습니다. 기기 설정에서 화면 자동 잠금 시간을 조정해 주세요.');
+        return;
+      }
+      if (wakeLockRequested) {
+        wakeLockRequested = false;
+        if (wakeLock) await wakeLock.release().catch(() => {});
+        wakeLock = null;
+        updateWakeLockButton(false);
+        showFeatureInfoBanner('💤', '화면 켜짐 유지 해제', '화면 자동 잠금이 다시 기기 설정을 따릅니다.');
+        return;
+      }
+      wakeLockRequested = true;
+      await acquireWakeLock();
+      if (wakeLock) {
+        showFeatureInfoBanner('💡', '화면 켜짐 유지 활성화', '이 페이지가 화면에 보이는 동안 화면이 꺼지지 않도록 요청합니다. 다른 앱으로 전환하거나 브라우저를 닫으면 운영체제가 웹 실행을 중단할 수 있어 알람 소리나 정각 작동을 보장하지는 않습니다.');
+      } else {
+        wakeLockRequested = false;
+        alert('화면 켜짐 유지 권한을 얻지 못했습니다. 브라우저와 기기 설정을 확인해 주세요.');
       }
     });
 
@@ -1392,7 +1403,7 @@
           const diffMs = now.getTime() - targetDate.getTime();
           const triggerKey = `${todayKey}_${targetTimeStr}`;
 
-          if (diffMs >= 0 && diffMs <= 5 * 60 * 1000 && alarm.lastTriggeredKey !== triggerKey) {
+          if (diffMs >= 0 && diffMs <= 90 * 1000 && alarm.lastTriggeredKey !== triggerKey) {
             alarm.lastTriggeredKey = triggerKey;
             saveAlarms();
             triggerAlarm(alarm);
@@ -1407,9 +1418,8 @@
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        if (audioCtx && audioCtx.state === 'suspended') {
-          audioCtx.resume().catch(() => {});
-        }
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+        if (wakeLockRequested && !wakeLock) acquireWakeLock();
         updateClock();
       }
     });
