@@ -74,8 +74,8 @@
 </head>
 <body class="min-h-screen flex flex-col items-center px-4">
 
-  <!-- iOS 잠금 화면 돌파용 단일 통합 오디오 엔진 (무음 유지 -> 정각 시 벨소리로 src만 교체) -->
-  <audio id="masterAudioEngine" playsinline loop preload="auto" class="hidden"></audio>
+  <!-- iOS 잠금 화면 돌파용 단일 통합 오디오 엔진 -->
+  <audio id="masterAudioEngine" playsinline loop preload="auto"></audio>
 
   <div class="max-w-lg w-full space-y-4 my-1">
     
@@ -533,7 +533,7 @@
     let ringBlobUrl = null;
 
     function buildWavBlobUrl(durationSec, isAlarmTone) {
-      const sampleRate = 8000;
+      const sampleRate = 16000;
       const numSamples = sampleRate * durationSec;
       const buffer = new ArrayBuffer(44 + numSamples);
       const view = new DataView(buffer);
@@ -555,11 +555,14 @@
       writeStr(36, 'data');
       view.setUint32(40, numSamples, true);
 
+      let lastNoise = 0;
       for (let i = 0; i < numSamples; i++) {
         if (!isAlarmTone) {
-          // 귀에 안 들리는 15Hz 극미세 진폭 (iOS가 무음 오디오를 절전 차단하지 않도록 유지)
-          const val = 128 + Math.round(Math.sin((2 * Math.PI * 15 * i) / sampleRate));
-          view.setUint8(44 + i, val);
+          // iOS가 무음 트랙으로 오인해 강제 정지(Pause)하는 것을 막기 위한 극저음 핑크노이즈(진폭 ±3)
+          const white = (Math.random() * 2 - 1);
+          lastNoise = 0.96 * lastNoise + 0.04 * white;
+          const val = 128 + Math.round(lastNoise * 14);
+          view.setUint8(44 + i, Math.max(0, Math.min(255, val)));
         } else {
           // 잠금 화면 스피커를 뚫고 나오는 선명한 멜로디 벨소리 (도-미-솔-높은도)
           const noteIdx = Math.floor((i / sampleRate) * 6) % 6;
@@ -579,11 +582,10 @@
     }
 
     function initMasterAudioUrls() {
-      if (!silentBlobUrl) silentBlobUrl = buildWavBlobUrl(10, false);
+      if (!silentBlobUrl) silentBlobUrl = buildWavBlobUrl(30, false);
       if (!ringBlobUrl) ringBlobUrl = buildWavBlobUrl(2, true);
     }
 
-    // 이미 재생 중인 단일 masterAudioEngine의 트랙(src)만 교체하여 iOS 백그라운드 재생 차단 우회
     function switchMasterAudioToRing() {
       initMasterAudioUrls();
       const masterEl = document.getElementById('masterAudioEngine');
@@ -598,7 +600,7 @@
       if (isBgAudioRunning) {
         initMasterAudioUrls();
         masterEl.src = silentBlobUrl;
-        masterEl.volume = 0.02;
+        masterEl.volume = 1.0;
         masterEl.loop = true;
         masterEl.play().catch(() => {});
       } else {
@@ -621,7 +623,6 @@
 
     const masterEl = document.getElementById('masterAudioEngine');
 
-    // 핵심: 화면이 잠겨 setInterval이 멈추더라도 오디오가 재생 중이면 timeupdate가 0.25초마다 깨어남
     masterEl.addEventListener('timeupdate', () => {
       updateClock();
       if (timerState === 'running') {
@@ -637,40 +638,64 @@
       }
     });
 
+    masterEl.addEventListener('play', () => {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'playing';
+      }
+    });
+
     masterEl.addEventListener('pause', () => {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'paused';
+      }
       if (isBgAudioRunning && !isRinging) {
+        // 외부 앱이나 사용자가 잠금 화면 일시정지 버튼을 누른 경우 상태 동기화
         isBgAudioRunning = false;
         updateBgAudioButtonUI();
       }
     });
 
     const bgAudioBtn = document.getElementById('bgAudioKeepAliveBtn');
-    bgAudioBtn.addEventListener('click', async () => {
-      getAudioContext();
+    bgAudioBtn.addEventListener('click', () => {
       initMasterAudioUrls();
 
       if (!isBgAudioRunning) {
-        try {
-          masterEl.src = silentBlobUrl;
-          masterEl.volume = 0.02;
-          masterEl.loop = true;
-          await masterEl.play();
-          isBgAudioRunning = true;
-          updateBgAudioButtonUI();
-          if ('mediaSession' in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-              title: '스마트 시계 알람 대기 중',
-              artist: '화면을 꺼도 정각에 알람이 울립니다'
-            });
-            navigator.mediaSession.playbackState = 'playing';
-          }
-          showFeatureInfoBanner(
-            '🎧',
-            '백그라운드 유지가 켜졌습니다 (iOS 잠금 화면 돌파)',
-            '오디오 트랙이 활성화되어 <span class="font-bold text-[#0381fe]">아이폰 화면을 잠가도 정각에 벨소리로 자동 전환</span>되어 울립니다. (단, 아이폰 측면 무음 스위치는 해제해 주세요.)'
-          );
-        } catch (err) {
-          alert('백그라운드 오디오 실행 실패: ' + err.message);
+        // 중요: iOS에서 AudioContext와 동시 호출 시 세션 충돌로 일시정지되므로 masterEl만 단독 실행
+        masterEl.src = silentBlobUrl;
+        masterEl.volume = 1.0;
+        masterEl.loop = true;
+
+        const playPromise = masterEl.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            isBgAudioRunning = true;
+            updateBgAudioButtonUI();
+            if ('mediaSession' in navigator) {
+              navigator.mediaSession.metadata = new MediaMetadata({
+                title: '스마트 시계 알람 대기 중',
+                artist: '화면을 꺼도 정각에 알람이 울립니다'
+              });
+              navigator.mediaSession.playbackState = 'playing';
+              try {
+                navigator.mediaSession.setActionHandler('play', () => {
+                  masterEl.play().then(() => {
+                    isBgAudioRunning = true;
+                    updateBgAudioButtonUI();
+                  }).catch(() => {});
+                });
+                navigator.mediaSession.setActionHandler('pause', () => {
+                  masterEl.pause();
+                });
+              } catch (e) {}
+            }
+            showFeatureInfoBanner(
+              '🎧',
+              '백그라운드 유지가 켜졌습니다 (iOS 잠금 화면 재생)',
+              '이제 잠금 화면의 미디어 카드가 <span class="font-bold text-[#0381fe]">재생 중(⏸️ 아이콘)</span>으로 유지되며, 화면을 잠가도 정각에 알람이 울립니다.'
+            );
+          }).catch((err) => {
+            alert('백그라운드 오디오 실행 실패: ' + err.message);
+          });
         }
       } else {
         isBgAudioRunning = false;
@@ -728,9 +753,6 @@
         }
       });
     }
-
-    document.body.addEventListener('touchstart', () => { getAudioContext(); initMasterAudioUrls(); }, { once: true });
-    document.body.addEventListener('click', () => { getAudioContext(); initMasterAudioUrls(); }, { once: true });
 
     const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
     const soundNames = [
@@ -1118,7 +1140,6 @@
     window.addEventListener('focus', updateClock);
 
     window.addQuickTimer = function(minutesToAdd, label) {
-      getAudioContext();
       initMasterAudioUrls();
       const now = getSynchronizedNow();
       now.setMinutes(now.getMinutes() + minutesToAdd);
@@ -1187,7 +1208,6 @@
     });
 
     window.toggleGroup = function(groupName) {
-      getAudioContext();
       const groupAlarms = alarms.filter(a => a.group === groupName);
       const anyEnabled = groupAlarms.some(a => a.enabled);
       const nextState = !anyEnabled;
@@ -1339,7 +1359,6 @@
     });
 
     document.getElementById('addAlarmBtn').addEventListener('click', () => {
-      getAudioContext();
       initMasterAudioUrls();
       const name = document.getElementById('alarmName').value.trim().slice(0, 30) || '알람';
       const group = document.getElementById('alarmGroup').value.trim().slice(0, 20) || '기본 그룹';
@@ -1394,7 +1413,6 @@
     });
 
     window.toggleAlarm = function(idx) {
-      getAudioContext();
       alarms[idx].enabled = !alarms[idx].enabled;
       if (!alarms[idx].enabled) {
         alarms[idx].snoozeLevel = 0;
@@ -1415,6 +1433,7 @@
     };
 
     function playCustomSound(soundIdx, level = 0) {
+      if (document.visibilityState !== 'visible') return;
       const ctx = getAudioContext();
       if (ctx.state !== 'running') return;
       const now = ctx.currentTime;
@@ -1484,7 +1503,6 @@
       document.getElementById('snoozeAlarmBtn').classList.remove('hidden');
       document.getElementById('alarmModal').classList.remove('hidden');
 
-      // 핵심: 이미 재생 중인 단일 masterAudioEngine의 트랙만 벨소리로 전환하여 잠금 화면 통과
       switchMasterAudioToRing();
 
       const repeatMs = Math.max(1000 - level * 130, 600);
@@ -1738,7 +1756,6 @@
     }
 
     document.getElementById('timerStartPauseBtn').addEventListener('click', () => {
-      getAudioContext();
       initMasterAudioUrls();
       const btn = document.getElementById('timerStartPauseBtn');
 
