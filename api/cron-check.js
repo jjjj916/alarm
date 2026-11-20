@@ -13,7 +13,7 @@ const DELIVERY_GRACE_MS = 90 * 1000;
 
 function alarmIsDue(alarm, parts, nowMs, timeZone) {
   if (!alarm.enabled) return null;
-  if (alarm.userDismissedAt && nowMs - Number(alarm.userDismissedAt) < 90 * 1000 && !alarm.nextSnoozeAt) {
+  if (alarm.userDismissedAt && nowMs - Number(alarm.userDismissedAt) < 120 * 1000 && !alarm.nextSnoozeAt) {
     return null;
   }
 
