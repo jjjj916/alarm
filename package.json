@@ -1,6 +1,6 @@
 {
   "name": "smart-clock-pwa-push",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Smart Clock PWA with server-sent Web Push alarms",
   "scripts": {
