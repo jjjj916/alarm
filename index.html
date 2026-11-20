@@ -128,6 +128,39 @@
         <p id="todayDateLabel" class="text-xs text-gray-500 font-medium mt-1">오늘 날짜 불러오는 중...</p>
       </div>
 
+      <!-- 필수 확인 안내 배너 (미디어 볼륨 + 앱 완전 종료 금지 + 배터리 절전 해제) -->
+      <div class="clean-card px-4 py-3.5 bg-amber-50/95 border border-amber-200/90 text-left space-y-2.5">
+        <div class="flex items-start gap-2">
+          <span class="text-sm leading-none mt-0.5 shrink-0">🔊</span>
+          <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
+            <strong class="font-extrabold">미디어 볼륨 사용:</strong> 알람음은 벨소리가 아닌 기기의 <strong class="font-extrabold underline decoration-amber-400 underline-offset-2">미디어 볼륨</strong>으로 재생됩니다. 소리가 들리도록 미디어 음량을 미리 높여주세요.
+          </p>
+        </div>
+        <div class="flex items-start gap-2 pt-2 border-t border-amber-200/60">
+          <span class="text-sm leading-none mt-0.5 shrink-0">🚫</span>
+          <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
+            <strong class="font-extrabold text-rose-700">어플 완전 종료 금지:</strong> 최근 앱 목록에서 위로 밀어 <strong class="font-extrabold underline decoration-rose-400 underline-offset-2">어플을 완전히 종료(강제 종료)하지 마세요.</strong> 홈 화면으로 나가거나 화면만 끄고 백그라운드에 켜두어야 알람음이 정상적으로 울립니다.
+          </p>
+        </div>
+        <div class="flex items-start gap-2 pt-2 border-t border-amber-200/60">
+          <span class="text-sm leading-none mt-0.5 shrink-0">🔋</span>
+          <div class="text-[11px] text-amber-950 font-medium leading-relaxed flex-1">
+            <p>
+              <strong class="font-extrabold text-amber-900">배터리 절전 모드 해제:</strong> 절전 모드나 배터리 최적화 기능으로 백그라운드 실행이 끊기지 않도록 아래 설정을 확인해주세요.
+            </p>
+            <details class="mt-1.5 group">
+              <summary class="cursor-pointer font-extrabold text-amber-900 hover:text-amber-700 select-none flex items-center gap-1">
+                <span>📱 기기별 배터리 예외 설정 방법 보기</span>
+              </summary>
+              <div class="mt-1.5 p-2.5 bg-white/80 rounded-xl border border-amber-200/70 space-y-1.5 text-[10.5px] text-gray-800">
+                <p><strong>• 안드로이드(갤럭시):</strong> <span class="text-blue-700 font-semibold">설정 &gt; 애플리케이션 &gt; 사용 브라우저(Chrome/삼성 인터넷) &gt; 배터리 &gt; '제한 없음'</span> 선택</p>
+                <p><strong>• 아이폰(iOS):</strong> <span class="text-blue-700 font-semibold">설정 &gt; 배터리 &gt; '저전력 모드' 끄기</span> (저전력 모드 시 백그라운드 작동이 제한될 수 있습니다)</p>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+
       <!-- 웹사이트 서버 시간 동기화 카드 -->
       <div class="clean-card p-5 text-left border border-transparent focus-within:border-cyan-300 transition-all">
         <div class="flex justify-between items-center mb-2.5">
@@ -679,7 +712,7 @@
           if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
               title: '스마트 시계 알람 대기 중',
-              artist: '백그라운드 알람 자동 유지 활성화됨'
+              artist: '앱을 완전히 종료하지 말고 백그라운드에 유지하세요'
             });
             navigator.mediaSession.playbackState = 'playing';
           }
@@ -715,7 +748,7 @@
       if (!isBgAudioRunning) {
         bgAudioManuallyDisabled = false;
         ensureAutoBgKeepAlive(true);
-        showFeatureInfoBanner('🎧', '백그라운드 유지가 켜졌습니다', '앱을 나가거나 화면을 꺼도 브라우저가 절전 모드에 빠지지 않도록 백그라운드 엔진을 가동합니다.');
+        showFeatureInfoBanner('🎧', '백그라운드 유지가 켜졌습니다', '앱을 <b>완전히 종료(강제 종료)하지 않고</b> 배터리 절전 모드를 끈 상태로 백그라운드에 열어두면 알람음이 정상 재생됩니다.');
       } else {
         bgAudioManuallyDisabled = true;
         isBgAudioRunning = false;

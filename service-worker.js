@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-clock-v18';
+const CACHE_NAME = 'smart-clock-v21';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -115,7 +115,6 @@ self.addEventListener('push', (event) => {
   const deliverNotifications = async () => {
     await self.registration.showNotification(payload.title || '⏰ 스마트 시계 알람', baseOptions);
 
-    // 기존 3차 긴급 알림과 동일한 방식으로 사용자가 [✕ 알람 끄기]를 누르기 전까지 무제한 반복
     if (payload.urgentBurstMode) {
       let count = 1;
       while (!isAlarmDismissed) {

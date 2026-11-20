@@ -101,7 +101,6 @@ module.exports = async function handler(req, res) {
       const isUrgent = Boolean(record.urgentBurstMode);
       let changed = false;
 
-      // 무한 연타 모드 활성 중이고 사용자가 끄기 전이면 매분 무제한 재발송
       if (isUrgent && record.activeRinging) {
         const delivered = await sendPush(webpush, redis, id, record, {
           type: record.activeRinging.type || 'alarm',
