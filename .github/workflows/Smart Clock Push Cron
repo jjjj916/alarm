@@ -1,0 +1,34 @@
+name: Smart Clock Push Cron
+
+on:
+  schedule:
+    - cron: '* * * * *'
+  workflow_dispatch:
+
+jobs:
+  trigger-vercel-cron:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Call Vercel /api/cron-check
+        run: https://vercel.com/j-ae20/alarm/6WFRe8sgf4zDRYXQHDekFZZep1eV
+          # 본인의 실제 Vercel 도메인으로 수정하세요 (끝에 / 제외)
+          TARGET_URL="https://내-실제-도메인.vercel.app/api/cron-check"
+          echo "Requesting: $TARGET_URL"
+
+          RESPONSE=$(curl -sS -w "\n%{http_code}" -X GET "$TARGET_URL" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "User-Agent: GitHub-Actions-Cron")
+          
+          HTTP_BODY=$(echo "$RESPONSE" | sed '$d')
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          
+          echo "HTTP Status: $HTTP_STATUS"
+          echo "Response Body: $HTTP_BODY"
+          
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "❌ Cron 호출 실패 (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
+          echo "✅ Cron 호출 성공"
