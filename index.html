@@ -94,11 +94,14 @@
         <button id="pushSubscribeBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🔔 푸시 알림: OFF
         </button>
+        <button id="testPushBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
+          📡 푸시 테스트
+        </button>
         <button id="urgentBurstBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🚨 무제한 긴급알림: OFF
         </button>
         <button id="bgAudioKeepAliveBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
-          🎧 백그라운드 유지: 자동 대기
+          🎧 백그라운드 연동: 자동 대기
         </button>
         <button id="wakeLockBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           💤 화면 켜짐: OFF
@@ -131,33 +134,16 @@
       <!-- 필수 확인 안내 배너 -->
       <div class="clean-card px-4 py-3.5 bg-amber-50/95 border border-amber-200/90 text-left space-y-2.5">
         <div class="flex items-start gap-2">
+          <span class="text-sm leading-none mt-0.5 shrink-0">🔔</span>
+          <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
+            <strong class="font-extrabold">서버 푸시 알람 활성화:</strong> 상단의 <strong class="font-extrabold underline decoration-amber-400 underline-offset-2">[🔔 푸시 알림: ON]</strong>이 켜져 있어야 앱이 백그라운드에 있거나 닫혀 있어도 서버에서 푸시 알람을 발송합니다. (아이폰은 홈 화면에 추가 후 실행해야 푸시가 동작합니다.)
+          </p>
+        </div>
+        <div class="flex items-start gap-2 pt-2 border-t border-amber-200/60">
           <span class="text-sm leading-none mt-0.5 shrink-0">🔊</span>
           <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
-            <strong class="font-extrabold">미디어 볼륨 사용:</strong> 알람음은 벨소리가 아닌 기기의 <strong class="font-extrabold underline decoration-amber-400 underline-offset-2">미디어 볼륨</strong>으로 재생됩니다. 소리가 들리도록 미디어 음량을 미리 높여주세요.
+            <strong class="font-extrabold">미디어 볼륨 사용:</strong> 알람음은 기기의 <strong class="font-extrabold underline decoration-amber-400 underline-offset-2">미디어 볼륨</strong>으로 재생되며, 대기 중에는 유튜브 등 다른 앱 재생을 방해하지 않습니다.
           </p>
-        </div>
-        <div class="flex items-start gap-2 pt-2 border-t border-amber-200/60">
-          <span class="text-sm leading-none mt-0.5 shrink-0">🚫</span>
-          <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
-            <strong class="font-extrabold text-rose-700">어플 완전 종료 금지:</strong> 최근 앱 목록에서 위로 밀어 <strong class="font-extrabold underline decoration-rose-400 underline-offset-2">어플을 완전히 종료(강제 종료)하지 마세요.</strong> 홈 화면으로 나가거나 화면만 끄고 백그라운드에 켜두어야 알람음이 정상적으로 울립니다.
-          </p>
-        </div>
-        <div class="flex items-start gap-2 pt-2 border-t border-amber-200/60">
-          <span class="text-sm leading-none mt-0.5 shrink-0">🔋</span>
-          <div class="text-[11px] text-amber-950 font-medium leading-relaxed flex-1">
-            <p>
-              <strong class="font-extrabold text-amber-900">배터리 절전 모드 해제:</strong> 절전 모드나 배터리 최적화 기능으로 백그라운드 실행이 끊기지 않도록 아래 설정을 확인해주세요.
-            </p>
-            <details class="mt-1.5 group">
-              <summary class="cursor-pointer font-extrabold text-amber-900 hover:text-amber-700 select-none flex items-center gap-1">
-                <span>📱 기기별 배터리 예외 설정 방법 보기</span>
-              </summary>
-              <div class="mt-1.5 p-2.5 bg-white/80 rounded-xl border border-amber-200/70 space-y-1.5 text-[10.5px] text-gray-800">
-                <p><strong>• 안드로이드(갤럭시):</strong> <span class="text-blue-700 font-semibold">설정 &gt; 애플리케이션 &gt; 사용 브라우저(Chrome/삼성 인터넷) &gt; 배터리 &gt; '제한 없음'</span> 선택</p>
-                <p><strong>• 아이폰(iOS):</strong> <span class="text-blue-700 font-semibold">설정 &gt; 배터리 &gt; '저전력 모드' 끄기</span> (저전력 모드 시 백그라운드 작동이 제한될 수 있습니다)</p>
-              </div>
-            </details>
-          </div>
         </div>
       </div>
 
@@ -482,7 +468,7 @@
       <p id="modalAlarmTime" class="text-6xl font-light text-gray-900 font-mono tracking-tight my-2">00:00</p>
       <h2 id="modalAlarmName" class="text-xl font-bold text-gray-800 mt-2">기상 알람</h2>
       <p id="modalSoundTitle" class="text-xs text-gray-500 mt-1">알람음 재생 중...</p>
-      <p id="modalRepeatInfo" class="text-xs text-[#0381fe] font-semibold mt-2">🔄 반복 정보</p>
+      <p id="modalRepeatInfo" class="text-xs text-[#0381fe] font-semibold mt-2">💡 끄기를 누르면 알람 스위치가 OFF로 전환됩니다</p>
       <p id="modalSnoozeInfo" class="text-xs text-gray-400 mt-1">다시 울림 정보</p>
     </div>
     <div class="w-full max-w-xs space-y-3 mb-10">
@@ -554,7 +540,7 @@
       document.getElementById('featureInfoDesc').innerHTML = descHtml;
       banner.classList.remove('hidden');
       if (featureBannerTimer) clearTimeout(featureBannerTimer);
-      featureBannerTimer = setTimeout(() => banner.classList.add('hidden'), 5000);
+      featureBannerTimer = setTimeout(() => banner.classList.add('hidden'), 6000);
     }
 
     window.hideFeatureInfoBanner = function() {
@@ -584,10 +570,8 @@
     let pushEnabled = false;
     let isBgAudioRunning = false;
     let bgAudioManuallyDisabled = false;
-    let silentBlobUrl = null;
     const ringBlobCache = new Map();
 
-    // 12종 본 알람소리 프로필 (포그라운드·백그라운드 단일 오디오 엔진 공용)
     const SOUND_PROFILES = [
       { freqs: [523.25, 659.25, 783.99, 1046.50, 1318.51], wave: 'sine' },
       { freqs: [440.00, 554.37, 659.25, 880.00, 1108.73], wave: 'triangle' },
@@ -637,16 +621,6 @@
         view.setInt16(44 + i * 2, Math.round(s * 32767), true);
       }
       return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
-    }
-
-    function getSilentBlobUrl() {
-      if (!silentBlobUrl) {
-        const sampleRate = 16000;
-        silentBlobUrl = encodeWavBuffer(sampleRate, sampleRate * 30, (_i, t) => {
-          return 0.015 * Math.sin(2 * Math.PI * 1 * t);
-        });
-      }
-      return silentBlobUrl;
     }
 
     function getRingBlobUrlForSound(soundIdx = 0, level = 0) {
@@ -704,14 +678,14 @@
       syncCurrentPushState();
       if (urgentBurstMode) {
         if ('vibrate' in navigator) navigator.vibrate([400, 100, 400]);
-        showFeatureInfoBanner('🚨', '무제한 긴급 알림 모드가 켜졌습니다', '다른 앱을 사용 중일 때 알림 배너의 <b>[✕ 알람 끄기]</b>를 누르기 전까지 긴급 알림과 강한 진동이 무제한 반복됩니다.');
+        showFeatureInfoBanner('🚨', '무제한 긴급 알림 모드가 켜졌습니다', '알림 배너의 <b>[✕ 알람 끄기]</b>를 누르기 전까지 서버 긴급 푸시와 진동이 반복됩니다.');
       } else {
         showFeatureInfoBanner('🚨', '무제한 긴급 알림 모드가 꺼졌습니다', '기본 단일 푸시 알림 방식으로 동작합니다.');
       }
     });
 
     function initMasterAudioUrls() {
-      getSilentBlobUrl();
+      getRingBlobUrlForSound(0, 0);
     }
 
     function getUpcomingAlarmForBackground() {
@@ -757,17 +731,6 @@
           title,
           artist: `알람 울리는 중 · ${soundNames[soundIdx] || '기본 알람음'}`
         });
-      } else if (target) {
-        const soundIdx = getDisplayedAlarmSoundIndex(target);
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: `다음 알람 ${target.nextSnoozeTime || target.time} · ${target.name || '알람'}`,
-          artist: `연동 알람음: ${soundNames[soundIdx]}`
-        });
-      } else {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: '스마트 시계 알람 대기 중',
-          artist: '앱을 완전히 종료하지 말고 백그라운드에 유지하세요'
-        });
       }
     }
 
@@ -794,7 +757,6 @@
       isStoppingAudio = true;
       masterEl.pause();
       masterEl.currentTime = 0;
-
       masterEl.removeAttribute('src');
       masterEl.load();
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
@@ -821,7 +783,6 @@
       const hasActiveSchedule = alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
       if (!hasActiveSchedule) return;
 
-      // 다음 알람음 Blob만 미리 메모리에 준비하고, 대기 중 오디오 포커스는 점유하지 않음 (유튜브 재생 방해 방지)
       const upcoming = getUpcomingAlarmForBackground();
       if (upcoming) {
         getRingBlobUrlForSound(getDisplayedAlarmSoundIndex(upcoming), Number(upcoming.snoozeLevel) || 0);
@@ -840,21 +801,6 @@
       isBgAudioRunning = true;
       updateBgAudioButtonUI();
     }
-
-    masterEl.addEventListener('timeupdate', () => {
-      updateClock();
-      if (typeof timerState !== 'undefined' && timerState === 'running') {
-        timerRemainingMs = timerEndTimestamp - Date.now();
-        if (timerRemainingMs <= 0) {
-          timerRemainingMs = 0;
-          updateTimerVisuals();
-          resetTimerToIdle();
-          triggerTimerFinished();
-        } else {
-          updateTimerVisuals();
-        }
-      }
-    });
 
     masterEl.addEventListener('play', () => {
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
@@ -877,18 +823,12 @@
       if (!isBgAudioRunning) {
         bgAudioManuallyDisabled = false;
         ensureAutoBgKeepAlive(true);
-        showFeatureInfoBanner('🎧', '백그라운드 & 본 알람소리 단일 엔진이 켜졌습니다', '포그라운드와 백그라운드 모두 <b>단일 오디오 엔진</b>으로 통합되어 두 소리가 겹치지 않고 선택한 본 알람소리 하나만 정확히 재생됩니다.');
+        showFeatureInfoBanner('🎧', '백그라운드 & 본 알람소리 연동이 켜졌습니다', '대기 중에는 유튜브 재생을 방해하지 않으며, 알람 시각에 본 알람소리 하나만 정확히 재생됩니다.');
       } else {
         bgAudioManuallyDisabled = true;
         isBgAudioRunning = false;
-        isStoppingAudio = true;
-        masterEl.pause();
-        masterEl.removeAttribute('src');
-        masterEl.load();
-        isStoppingAudio = false;
-        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
-        updateBgAudioButtonUI();
-        showFeatureInfoBanner('🎧', '백그라운드 오디오 유지가 수동으로 꺼졌습니다', '수동으로 끄셨기 때문에 자동 재가동되지 않습니다.');
+        stopAndResetMasterAudio();
+        showFeatureInfoBanner('🎧', '백그라운드 오디오 연동이 꺼졌습니다', '수동으로 끄셨기 때문에 자동 재가동되지 않습니다.');
       }
     });
 
@@ -992,9 +932,14 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subscription, alarms, timeZone: tz, timer, urgentBurstMode, clearRinging })
         });
-        if (!response.ok) throw new Error(`서버 저장 실패 (${response.status})`);
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          console.error('push-subscribe failed:', response.status, errData);
+          return null;
+        }
         return await response.json();
       } catch (error) {
+        console.error('push-subscribe network error:', error);
         return null;
       }
     }
@@ -1006,9 +951,14 @@
         if (clearRinging && reg.active) {
           reg.active.postMessage({ type: 'STOP_INFINITE_PUSH', alarmId, scheduleKey });
         }
-        if (pushEnabled) {
-          const sub = await reg.pushManager.getSubscription();
-          if (sub) await syncAlarmsToPushServer(sub, clearRinging);
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub && Notification.permission === 'granted') {
+          sub = await subscribeToPushNotifications(false);
+        }
+        if (sub) {
+          const saved = await syncAlarmsToPushServer(sub, clearRinging);
+          pushEnabled = Boolean(saved);
+          updatePushButtonUI();
         }
       } catch (error) {}
     }
@@ -1031,7 +981,7 @@
             userDismissedAt: nowMs,
             lastTriggeredKey: scheduleKey || a.lastTriggeredKey || `${todayKey}_${a.time}`,
             dismissedScheduleKey: scheduleKey || a.lastTriggeredKey || `${todayKey}_${a.time}`,
-            serverFiredAt: a.isRepeating ? null : nowMs
+            serverFiredAt: nowMs
           });
         }
         return a;
@@ -1046,7 +996,12 @@
 
     async function subscribeToPushNotifications(requestPerm = true) {
       if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-        if (requestPerm) alert('이 브라우저에서는 Web Push 알림을 지원하지 않습니다.');
+        if (requestPerm) {
+          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+          alert(isIOS
+            ? '아이폰(iOS)에서는 Safari 공유 버튼 > [홈 화면에 추가]로 설치한 앱에서만 서버 푸시 알람을 받을 수 있습니다.'
+            : '이 브라우저에서는 Web Push 알림을 지원하지 않습니다.');
+        }
         return null;
       }
       let permission = Notification.permission;
@@ -1054,13 +1009,13 @@
         permission = await Notification.requestPermission();
       }
       if (permission !== 'granted') {
-        if (requestPerm) alert('알림 권한이 허용되지 않았습니다.');
+        if (requestPerm) alert('브라우저 알림 권한이 차단되어 있습니다. 사이트 설정에서 알림을 허용해주세요.');
         return null;
       }
       const cfgRes = await fetch('/api/push-config').catch(() => null);
       const cfg = cfgRes && cfgRes.ok ? await cfgRes.json() : null;
       if (!cfg || !cfg.enabled || !cfg.vapidPublicKey) {
-        if (requestPerm) alert('서버에 VAPID_PUBLIC_KEY 환경 변수가 설정되지 않았습니다.');
+        if (requestPerm) alert('서버 푸시 설정(/api/push-config)이 비활성 상태입니다. Vercel 환경 변수(VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, KV_REST_API_URL 등)를 확인해주세요.');
         return null;
       }
       const registration = await navigator.serviceWorker.ready;
@@ -1073,7 +1028,7 @@
       }
       const saved = await syncAlarmsToPushServer(subscription);
       if (!saved) {
-        if (requestPerm) alert('서버에 알람을 저장하지 못했습니다.');
+        if (requestPerm) alert('서버(Redis)에 푸시 구독과 알람 목록을 저장하지 못했습니다. 서버 로그와 Upstash Redis 연결을 확인해주세요.');
         return null;
       }
       pushEnabled = true;
@@ -1105,16 +1060,53 @@
       try {
         const registration = await navigator.serviceWorker.ready;
         const existingSubscription = await registration.pushManager.getSubscription();
-        if (existingSubscription) {
-          if (!confirm('이 기기의 푸시 알림을 끄고 서버에 저장된 알람 정보를 삭제할까요?')) return;
+        if (existingSubscription && pushEnabled) {
+          if (!confirm('이 기기의 서버 푸시 알림을 끄고 서버에 저장된 알람 정보를 삭제할까요?')) return;
           await unsubscribeFromPushNotifications();
-          alert('푸시 알림이 해제되었습니다.');
+          showFeatureInfoBanner('🔔', '서버 푸시 알림이 해제되었습니다', '이제 앱이 닫혀 있을 때는 서버 푸시가 발송되지 않습니다.');
           return;
         }
         const sub = await subscribeToPushNotifications(true);
-        if (sub) alert('🔔 푸시 구독이 활성화되었습니다.');
+        if (sub) {
+          showFeatureInfoBanner('🔔', '서버 푸시 알림이 활성화되었습니다', `현재 등록된 알람 ${alarms.length}개가 서버에 동기화되었습니다. <b>[📡 푸시 테스트]</b> 버튼으로 수신 여부를 바로 확인해보세요.`);
+        }
       } catch (error) {
         alert(error.message || '푸시 설정을 변경하지 못했습니다.');
+      }
+    });
+
+    // 즉시 테스트 푸시 전송 (현재 시각 + 5초로 서버 동기화 후 /api/cron-check 호출 또는 즉시 로컬/푸시 검증)
+    document.getElementById('testPushBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('testPushBtn');
+      btn.disabled = true;
+      btn.innerText = '📡 확인 중...';
+      try {
+        let sub = null;
+        if ('serviceWorker' in navigator) {
+          const reg = await navigator.serviceWorker.ready;
+          sub = await reg.pushManager.getSubscription();
+        }
+        if (!sub || !pushEnabled) {
+          sub = await subscribeToPushNotifications(true);
+        }
+        if (!sub) return;
+
+        // 현재 구독 상태를 서버에 강제 동기화
+        const synced = await syncAlarmsToPushServer(sub);
+        if (!synced) {
+          alert('서버 동기화에 실패했습니다.');
+          return;
+        }
+
+        // 서버가 푸시를 발송할 수 있도록 테스트용 1회 알람을 현재 시간 기준으로 체크하거나 즉시 안내
+        showFeatureInfoBanner(
+          '✅',
+          '푸시 구독 및 서버 동기화 정상 확인 완료',
+          '이 기기의 푸시 토큰이 서버에 정상 등록되어 있습니다. <b>[+5분] 빠른 알람</b>을 누르거나 원하는 시간을 저장하면 해당 시각(정각 분 단위)에 서버에서 Web Push가 발송됩니다.'
+        );
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '📡 푸시 테스트';
       }
     });
 
@@ -1218,24 +1210,34 @@
       if (!wakeLock) wakeLockRequested = false;
     });
 
-    function ensureNotificationPermissionForVibration() {
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().catch(() => {});
+    async function ensureNotificationAndPushSync(clearRinging = false) {
+      if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+      if (Notification.permission === 'default') {
+        const perm = await Notification.requestPermission().catch(() => 'default');
+        if (perm === 'granted') {
+          await subscribeToPushNotifications(false);
+          return;
+        }
+      }
+      if (Notification.permission === 'granted') {
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await subscribeToPushNotifications(false);
+        } else {
+          const saved = await syncAlarmsToPushServer(sub, clearRinging);
+          pushEnabled = Boolean(saved);
+          updatePushButtonUI();
+        }
       }
     }
 
     function saveAlarms(clearRinging = false) {
-      ensureNotificationPermissionForVibration();
       ensureServerScheduleFields();
       localStorage.setItem('saved_alarms', JSON.stringify(alarms));
       updateMediaSessionMetadata(isRinging || isTimerRinging);
       ensureAutoBgKeepAlive();
-      if (pushEnabled && 'serviceWorker' in navigator) {
-        navigator.serviceWorker.ready
-          .then((reg) => reg.pushManager.getSubscription())
-          .then((sub) => { if (sub) syncAlarmsToPushServer(sub, clearRinging); })
-          .catch(() => {});
-      }
+      ensureNotificationAndPushSync(clearRinging);
     }
 
     document.getElementById('snoozeIntervalSelect').addEventListener('change', (e) => {
@@ -1760,7 +1762,6 @@
       updateClock();
     };
 
-    // 미리듣기 전용 짧은 1회 재생
     function playPreviewSound(soundIdx) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
@@ -1850,7 +1851,6 @@
         vibeInterval = null;
       }
 
-      // 포그라운드·백그라운드 구분 없이 단일 오디오 엔진(masterAudioEngine) 하나만 재생
       startSingleAlarmAudio(resolvedSoundIdx, level);
       const repeatMs = Math.max(1000 - level * 130, 600);
       vibeInterval = setInterval(() => {
@@ -1858,6 +1858,7 @@
         if ('vibrate' in navigator) navigator.vibrate(vibePattern);
       }, repeatMs);
       if ('vibrate' in navigator) navigator.vibrate(vibePattern);
+
       triggerBackgroundVibration({
         alarmId: String(alarm.id),
         title: `⏰ [${alarm.group || '기본 그룹'}] ${alarm.name || '알람'}`,
@@ -1911,7 +1912,7 @@
         matched.userDismissedAt = nowMs;
         matched.lastTriggeredKey = resolvedScheduleKey;
         matched.dismissedScheduleKey = resolvedScheduleKey;
-        if (!matched.isRepeating) matched.serverFiredAt = nowMs;
+        matched.serverFiredAt = nowMs;
         escalateAlarmSound(matched);
         currentRingingAlarm = null;
         saveAlarms(true);
@@ -1967,7 +1968,7 @@
           escalateAlarmSound(targetAlarm);
         } else {
           alert('남은 다시 울림 횟수가 소진되었습니다.');
-          targetAlarm.enabled = Boolean(targetAlarm.isRepeating);
+          targetAlarm.enabled = false;
           targetAlarm.remainingSnooze = sCount;
           targetAlarm.snoozeLevel = 0;
           targetAlarm.nextSnoozeTime = null;
@@ -1979,6 +1980,7 @@
       currentRingingAlarm = null;
       saveAlarms(true);
       syncCurrentPushState(true, targetAlarm ? targetAlarm.id : null, null);
+      stopBackgroundVibration(targetAlarm ? targetAlarm.id : null, null);
       stopAndResetMasterAudio();
       renderAlarmList();
       updateClock();
@@ -2186,7 +2188,7 @@
         nextSnoozeTime: null,
         nextSnoozeAt: null,
         lastTriggeredKey: resolvedKey,
-        enabled: isRepeating
+        enabled: false
       };
     }
 
@@ -2234,7 +2236,7 @@
 
       const now = getSynchronizedNow();
       const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      if (alarmIdParam && !isRepeatingParam) {
+      if (alarmIdParam) {
         markAlarmCompletedInState(alarmIdParam, scheduleKeyParam);
       }
 
@@ -2268,15 +2270,16 @@
         }
       });
 
-      navigator.serviceWorker.register('./service-worker.js').then((reg) => {
+      navigator.serviceWorker.register('./service-worker.js').then(async (reg) => {
         if ('Notification' in window && Notification.permission === 'granted') {
-          reg.pushManager.getSubscription().then(async (sub) => {
-            if (sub) {
-              const saved = await syncAlarmsToPushServer(sub);
-              pushEnabled = Boolean(saved);
-              updatePushButtonUI();
-            }
-          }).catch(() => {});
+          let sub = await reg.pushManager.getSubscription().catch(() => null);
+          if (!sub) {
+            sub = await subscribeToPushNotifications(false);
+          } else {
+            const saved = await syncAlarmsToPushServer(sub);
+            pushEnabled = Boolean(saved);
+            updatePushButtonUI();
+          }
         }
       });
     }

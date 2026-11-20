@@ -9,7 +9,8 @@ function localDateKey(parts) {
   return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 }
 
-const DELIVERY_GRACE_MS = 90 * 1000;
+const DELIVERY_GRACE_MS = 120 * 1000;
+const EARLY_TOLERANCE_MS = 5 * 1000;
 
 function alarmIsDue(alarm, parts, nowMs, timeZone) {
   if (!alarm.enabled) return null;
@@ -19,10 +20,10 @@ function alarmIsDue(alarm, parts, nowMs, timeZone) {
 
   if (Number.isFinite(Number(alarm.nextSnoozeAt))) {
     const dueAt = Number(alarm.nextSnoozeAt);
-    if (dueAt <= nowMs && nowMs - dueAt <= DELIVERY_GRACE_MS) {
+    if (nowMs + EARLY_TOLERANCE_MS >= dueAt && nowMs - dueAt <= DELIVERY_GRACE_MS) {
       return { kind: 'snooze', scheduledAt: dueAt, displayTime: alarm.nextSnoozeTime || alarm.time };
     }
-    if (dueAt > nowMs) return null;
+    if (dueAt > nowMs + EARLY_TOLERANCE_MS) return null;
   }
 
   if (alarm.nextSnoozeTime && !Number.isFinite(Number(alarm.nextSnoozeAt))) {
@@ -40,7 +41,7 @@ function alarmIsDue(alarm, parts, nowMs, timeZone) {
     }, timeZone);
     const schedKey = `${localDateKey(parts)}_${alarm.time}_${scheduledAt}`;
     if (alarm.dismissedScheduleKey === schedKey || alarm.dismissedScheduleKey === `${localDateKey(parts)}_${alarm.time}`) return null;
-    if (nowMs >= scheduledAt && nowMs - scheduledAt <= DELIVERY_GRACE_MS) {
+    if (nowMs + EARLY_TOLERANCE_MS >= scheduledAt && nowMs - scheduledAt <= DELIVERY_GRACE_MS) {
       return { kind: 'repeat', scheduledAt, scheduleKey: schedKey, displayTime: alarm.time };
     }
     return null;
@@ -49,7 +50,7 @@ function alarmIsDue(alarm, parts, nowMs, timeZone) {
   const singleShotAt = Number(alarm.singleShotAt);
   const schedKey = `single_${alarm.time}_${singleShotAt}`;
   if (alarm.dismissedScheduleKey === schedKey) return null;
-  if (Number.isFinite(singleShotAt) && singleShotAt > 0 && nowMs >= singleShotAt && nowMs - singleShotAt <= DELIVERY_GRACE_MS) {
+  if (Number.isFinite(singleShotAt) && singleShotAt > 0 && nowMs + EARLY_TOLERANCE_MS >= singleShotAt && nowMs - singleShotAt <= DELIVERY_GRACE_MS) {
     return { kind: 'single', scheduledAt: singleShotAt, scheduleKey: schedKey, displayTime: alarm.time };
   }
   return null;
@@ -62,7 +63,7 @@ async function sendPush(webpush, redis, id, record, payload, dedupeKey) {
   }
   try {
     await webpush.sendNotification(record.subscription, JSON.stringify(payload), {
-      TTL: 90,
+      TTL: 120,
       urgency: 'high'
     });
     return true;
@@ -205,7 +206,7 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      if (record.timer && Number(record.timer.endAt) <= now) {
+      if (record.timer && Number(record.timer.endAt) <= now + EARLY_TOLERANCE_MS) {
         const timer = record.timer;
         const dedupeKey = `smart-clock:timer-sent:${id}:${timer.endAt}`;
         const delivered = await sendPush(webpush, redis, id, record, {

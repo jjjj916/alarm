@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-clock-v31';
+const CACHE_NAME = 'smart-clock-v32';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -10,13 +10,14 @@ const ASSETS_TO_CACHE = [
 ];
 
 const VIBE_BY_LEVEL = [
-  [300, 200, 300],
-  [450, 120, 450, 120, 450],
-  [600, 80, 600, 80, 600, 80, 600],
-  [900, 60, 900, 60, 900, 60, 900]
+  [400, 150, 400, 150, 400],
+  [550, 120, 550, 120, 550, 120, 550],
+  [750, 100, 750, 100, 750, 100, 750],
+  [1000, 80, 1000, 80, 1000, 80, 1000]
 ];
 
 let isAlarmDismissed = false;
+let isLocalVibeActive = false;
 let latestAlarmPayload = null;
 let dismissedAlarmIds = new Set();
 
@@ -63,9 +64,55 @@ async function dismissOnServer(alarmId = null, scheduleKey = null) {
   } catch (e) {}
 }
 
+async function runLocalVibrationLoop(payload) {
+  if (isLocalVibeActive) return;
+  isLocalVibeActive = true;
+  isAlarmDismissed = false;
+  latestAlarmPayload = payload;
+
+  const sLevel = Math.max(0, Number(payload.snoozeLevel) || 0);
+  const vibePattern = VIBE_BY_LEVEL[Math.min(sLevel, VIBE_BY_LEVEL.length - 1)];
+  const title = payload.title || `⏰ ${payload.label || '알람'}`;
+  const body = payload.body || '알람이 울리고 있습니다 · [✕ 알람 끄기]를 눌러 종료하세요.';
+
+  try {
+    let count = 0;
+    while (!isAlarmDismissed && count < 40) {
+      count++;
+      await self.registration.showNotification(title, {
+        body,
+        icon: './icon-192.png',
+        badge: './icon-192.png',
+        vibrate: vibePattern,
+        requireInteraction: true,
+        renotify: true,
+        silent: false,
+        tag: `smart-clock-bg-vibe-${payload.alarmId || 'active'}`,
+        actions: [
+          { action: 'dismiss_alarm', title: '✕ 알람 끄기' },
+          { action: 'open_app', title: '📱 시계 열기' }
+        ],
+        data: { url: './index.html', payload }
+      });
+      await sleep(3200);
+    }
+  } finally {
+    isLocalVibeActive = false;
+  }
+}
+
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'STOP_INFINITE_PUSH') {
+  if (!event.data) return;
+
+  if (event.data.type === 'TRIGGER_BG_VIBRATION') {
+    const payload = event.data.payload || {};
+    if (payload.alarmId) dismissedAlarmIds.delete(String(payload.alarmId));
+    event.waitUntil(runLocalVibrationLoop(payload));
+  }
+
+  if (event.data.type === 'STOP_INFINITE_PUSH') {
     isAlarmDismissed = true;
+    isLocalVibeActive = false;
     const targetAlarmId = event.data.alarmId || (latestAlarmPayload && latestAlarmPayload.alarmId) || null;
     const scheduleKey = event.data.scheduleKey || (latestAlarmPayload && latestAlarmPayload.scheduleKey) || null;
     if (targetAlarmId) dismissedAlarmIds.add(String(targetAlarmId));
@@ -159,13 +206,15 @@ self.addEventListener('push', (event) => {
     if (payload.urgentBurstMode) {
       let count = 1;
       while (!isAlarmDismissed) {
-        await sleep(3500);
+        await sleep(3200);
         if (isAlarmDismissed) break;
         count++;
         await self.registration.showNotification(
           `🚨 (Lv.${sLevel + 1} · ${count}회차) ${payload.label || '알람'}`,
           Object.assign({}, baseOptions, {
-            tag: `smart-clock-urgent-burst-${Date.now()}-${count}`,
+            tag: `smart-clock-urgent-burst-${payload.alarmId || 'active'}`,
+            renotify: true,
+            vibrate: vibePattern,
             body: `다시 울림 ${rSnooze}/${sCount}회 남음 · [✕ 알람 끄기]를 누르기 전까지 반복됩니다.`
           })
         );
@@ -184,9 +233,11 @@ self.addEventListener('notificationclick', (event) => {
   const scheduleKey = payload.scheduleKey || null;
   event.notification.close();
 
+  isAlarmDismissed = true;
+  isLocalVibeActive = false;
+  if (alarmId) dismissedAlarmIds.add(String(alarmId));
+
   if (action === 'dismiss_alarm') {
-    isAlarmDismissed = true;
-    if (alarmId) dismissedAlarmIds.add(String(alarmId));
     event.waitUntil(
       Promise.all([
         self.registration.getNotifications().then(list => list.forEach(n => n.close())),
@@ -206,8 +257,6 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
-  isAlarmDismissed = true;
-  if (alarmId) dismissedAlarmIds.add(String(alarmId));
   const targetUrl = data.url || './index.html';
   event.waitUntil(
     Promise.all([

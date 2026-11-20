@@ -31,14 +31,14 @@ module.exports = async function handler(req, res) {
         record.alarms = record.alarms.map(a => {
           if (!alarmId || String(a.id) === alarmId) {
             return Object.assign({}, a, {
-              enabled: Boolean(a.isRepeating),
+              enabled: false,
               remainingSnooze: Number(a.snoozeCount) || 3,
               snoozeLevel: 0,
               nextSnoozeAt: null,
               nextSnoozeTime: null,
               userDismissedAt: dismissedAt,
               dismissedScheduleKey: scheduleKey || a.dismissedScheduleKey || `${a.time}_${a.singleShotAt || ''}`,
-              serverFiredAt: a.isRepeating ? null : dismissedAt
+              serverFiredAt: dismissedAt
             });
           }
           return a;
