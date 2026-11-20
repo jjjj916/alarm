@@ -489,7 +489,7 @@
       <button id="snoozeAlarmBtn" class="w-full py-4 bg-white hover:bg-gray-50 text-gray-800 font-bold rounded-full text-sm transition shadow-md border border-gray-200">
         😴 다시 울림 (다음 울림 강도 상승)
       </button>
-      <button id="stopAlarmBtn" class="w-full py-4 bg-[#0381fe] hover:bg-[#026de0] text-white font-extrabold rounded-full text-base transition shadow-lg shadow-blue-500/30">
+      <button id="stopAlarmBtn" type="button" class="w-full py-4 bg-[#0381fe] hover:bg-[#026de0] text-white font-extrabold rounded-full text-base transition shadow-lg shadow-blue-500/30">
         ✕ 끄기
       </button>
     </div>
@@ -575,6 +575,8 @@
     let alarmInterval = null;
     let isRinging = false;
     let isTimerRinging = false;
+    let isStoppingAudio = false;
+    let lastStoppedAlarmStamp = 0;
     let audioCtx = null;
     let currentRingingAlarm = null;
     let wakeLock = null;
@@ -584,21 +586,21 @@
     let bgAudioManuallyDisabled = false;
     let silentBlobUrl = null;
     const ringBlobCache = new Map();
+    const activeOscillators = new Set();
 
-    // 12종 본 알람소리(음계 + 파형) 공통 정의 — 포그라운드 Web Audio와 백그라운드 WAV 엔진이 1:1 공유
     const SOUND_PROFILES = [
-      { freqs: [523.25, 659.25, 783.99, 1046.50, 1318.51], wave: 'sine' },     // 0. 스파클 라이징 팝
-      { freqs: [440.00, 554.37, 659.25, 880.00, 1108.73], wave: 'triangle' }, // 1. 선라이즈 오케스트라
-      { freqs: [587.33, 739.99, 880.00, 1174.66, 1479.98], wave: 'square' },   // 2. 네온 아케이드 8비트
-      { freqs: [698.46, 880.00, 1046.50, 1396.91], wave: 'sine' },             // 3. 브라이트 윈드 차임
-      { freqs: [783.99, 987.77, 1174.66, 1567.98], wave: 'sine' },             // 4. 크리스탈 하모닉 벨
-      { freqs: [659.25, 783.99, 987.77, 1318.51], wave: 'triangle' },          // 5. 릴랙싱 피아노 스케일
-      { freqs: [880.00, 1046.50, 1318.51, 1760.00], wave: 'sawtooth' },        // 6. 일렉트로 피치 하모니
-      { freqs: [523.25, 659.25, 880.00, 1046.50], wave: 'triangle' },          // 7. 재지 모닝 브라스
-      { freqs: [440.00, 659.25, 880.00, 1318.51], wave: 'sine' },              // 8. 어쿠스틱 스트럼
-      { freqs: [783.99, 1174.66, 1567.98, 2093.00], wave: 'square' },          // 9. 사이버 펄스 리버브
-      { freqs: [523.25, 659.25, 783.99, 987.77], wave: 'sine' },               // 10. 트로피컬 우쿨렐레
-      { freqs: [392.00, 523.25, 659.25, 783.99, 1046.50], wave: 'triangle' }   // 11. 세레모니 베이스
+      { freqs: [523.25, 659.25, 783.99, 1046.50, 1318.51], wave: 'sine' },
+      { freqs: [440.00, 554.37, 659.25, 880.00, 1108.73], wave: 'triangle' },
+      { freqs: [587.33, 739.99, 880.00, 1174.66, 1479.98], wave: 'square' },
+      { freqs: [698.46, 880.00, 1046.50, 1396.91], wave: 'sine' },
+      { freqs: [783.99, 987.77, 1174.66, 1567.98], wave: 'sine' },
+      { freqs: [659.25, 783.99, 987.77, 1318.51], wave: 'triangle' },
+      { freqs: [880.00, 1046.50, 1318.51, 1760.00], wave: 'sawtooth' },
+      { freqs: [523.25, 659.25, 880.00, 1046.50], wave: 'triangle' },
+      { freqs: [440.00, 659.25, 880.00, 1318.51], wave: 'sine' },
+      { freqs: [783.99, 1174.66, 1567.98, 2093.00], wave: 'square' },
+      { freqs: [523.25, 659.25, 783.99, 987.77], wave: 'sine' },
+      { freqs: [392.00, 523.25, 659.25, 783.99, 1046.50], wave: 'triangle' }
     ];
 
     function sampleWave(waveType, phase) {
@@ -647,7 +649,6 @@
       return silentBlobUrl;
     }
 
-    // 선택한 본 알람소리(soundIdx) + 강도(level)를 백그라운드 <audio>용 WAV 루프로 합성
     function getRingBlobUrlForSound(soundIdx = 0, level = 0) {
       const idx = ((Number(soundIdx) || 0) % 12 + 12) % 12;
       const lv = Math.max(0, Math.min(3, Number(level) || 0));
@@ -681,6 +682,17 @@
       });
       ringBlobCache.set(cacheKey, url);
       return url;
+    }
+
+    function stopAllWebAudioNotes() {
+      activeOscillators.forEach((osc) => {
+        try { osc.stop(0); } catch {}
+        try { osc.disconnect(); } catch {}
+      });
+      activeOscillators.clear();
+      if (audioCtx && audioCtx.state === 'running') {
+        audioCtx.suspend().catch(() => {});
+      }
     }
 
     function updateUrgentBurstUI() {
@@ -771,33 +783,48 @@
     }
 
     function switchMasterAudioToRing(soundIdx = 0, level = 0) {
+      if (!isRinging && !isTimerRinging) return;
       const masterEl = document.getElementById('masterAudioEngine');
       const ringUrl = getRingBlobUrlForSound(soundIdx, level);
-      if (masterEl.src !== ringUrl) {
-        masterEl.src = ringUrl;
-      }
+      isStoppingAudio = true;
+      masterEl.pause();
+      masterEl.src = ringUrl;
       masterEl.volume = 1.0;
       masterEl.loop = true;
       updateMediaSessionMetadata(true, currentRingingAlarm);
       const p = masterEl.play();
-      if (p && typeof p.catch === 'function') p.catch(() => {});
+      if (p && typeof p.then === 'function') {
+        p.finally(() => { isStoppingAudio = false; });
+      } else {
+        isStoppingAudio = false;
+      }
     }
 
     function restoreMasterAudioAfterRing() {
       const masterEl = document.getElementById('masterAudioEngine');
-      if (isBgAudioRunning && alarms.some(a => a.enabled)) {
-        const silentUrl = getSilentBlobUrl();
-        if (masterEl.src !== silentUrl) masterEl.src = silentUrl;
+      isStoppingAudio = true;
+      masterEl.pause();
+      masterEl.currentTime = 0;
+
+      const hasActiveSchedule = alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
+      if (isBgAudioRunning && !bgAudioManuallyDisabled && hasActiveSchedule) {
+        masterEl.src = getSilentBlobUrl();
         masterEl.volume = 1.0;
         masterEl.loop = true;
         updateMediaSessionMetadata(false);
         const p = masterEl.play();
-        if (p && typeof p.catch === 'function') p.catch(() => {});
+        if (p && typeof p.then === 'function') {
+          p.finally(() => { isStoppingAudio = false; });
+        } else {
+          isStoppingAudio = false;
+        }
       } else {
         isBgAudioRunning = false;
-        masterEl.pause();
-        masterEl.currentTime = 0;
+        masterEl.removeAttribute('src');
+        masterEl.load();
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
         updateBgAudioButtonUI();
+        isStoppingAudio = false;
       }
     }
 
@@ -816,6 +843,7 @@
     const masterEl = document.getElementById('masterAudioEngine');
 
     function ensureAutoBgKeepAlive(force = false) {
+      if (isStoppingAudio || isRinging || isTimerRinging) return;
       if (bgAudioManuallyDisabled && !force) return;
       const hasActiveSchedule = alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
       if (!hasActiveSchedule) return;
@@ -826,7 +854,7 @@
       }
 
       if (isBgAudioRunning && !masterEl.paused) {
-        updateMediaSessionMetadata(isRinging || isTimerRinging);
+        updateMediaSessionMetadata(false);
         return;
       }
 
@@ -849,7 +877,7 @@
 
     masterEl.addEventListener('timeupdate', () => {
       updateClock();
-      if ((isRinging || isTimerRinging) && masterEl.paused) {
+      if ((isRinging || isTimerRinging) && masterEl.paused && !isStoppingAudio) {
         const soundIdx = currentRingingAlarm ? getDisplayedAlarmSoundIndex(currentRingingAlarm) : 0;
         const level = currentRingingAlarm ? (Number(currentRingingAlarm.snoozeLevel) || 0) : 2;
         switchMasterAudioToRing(soundIdx, level);
@@ -873,10 +901,14 @@
 
     masterEl.addEventListener('pause', () => {
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+      if (isStoppingAudio) return;
       const shouldKeepPlaying = isRinging || isTimerRinging || (!bgAudioManuallyDisabled && alarms.some(a => a.enabled));
       if (shouldKeepPlaying) {
         setTimeout(() => {
-          masterEl.play().catch(() => {});
+          if (isStoppingAudio) return;
+          if (isRinging || isTimerRinging || (!bgAudioManuallyDisabled && alarms.some(a => a.enabled))) {
+            masterEl.play().catch(() => {});
+          }
         }, 100);
       }
     });
@@ -890,7 +922,11 @@
       } else {
         bgAudioManuallyDisabled = true;
         isBgAudioRunning = false;
+        isStoppingAudio = true;
         masterEl.pause();
+        masterEl.removeAttribute('src');
+        masterEl.load();
+        isStoppingAudio = false;
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
         updateBgAudioButtonUI();
         showFeatureInfoBanner('🎧', '백그라운드 오디오 유지가 수동으로 꺼졌습니다', '수동으로 끄셨기 때문에 자동 재가동되지 않습니다.');
@@ -1019,11 +1055,13 @@
     }
 
     function markAlarmCompletedInState(targetAlarmId, scheduleKey = null) {
-      if (!targetAlarmId) return false;
-      let updated = false;
       const nowMs = Date.now();
+      const todayKey = formatDateKey(getSynchronizedNow());
+      let updated = false;
       alarms = alarms.map(a => {
-        if (String(a.id) === String(targetAlarmId)) {
+        const idMatched = targetAlarmId && String(a.id) === String(targetAlarmId);
+        const keyMatched = scheduleKey && (a.lastTriggeredKey === scheduleKey || `${todayKey}_${a.time}` === scheduleKey);
+        if (idMatched || keyMatched || (!targetAlarmId && a.enabled)) {
           updated = true;
           return Object.assign({}, a, {
             enabled: Boolean(a.isRepeating),
@@ -1032,7 +1070,8 @@
             nextSnoozeTime: null,
             nextSnoozeAt: null,
             userDismissedAt: nowMs,
-            dismissedScheduleKey: scheduleKey || a.lastTriggeredKey || a.dismissedScheduleKey || null,
+            lastTriggeredKey: scheduleKey || a.lastTriggeredKey || `${todayKey}_${a.time}`,
+            dismissedScheduleKey: scheduleKey || a.lastTriggeredKey || `${todayKey}_${a.time}`,
             serverFiredAt: a.isRepeating ? null : nowMs
           });
         }
@@ -1353,12 +1392,14 @@
 
       updateNextAlarmCountdown(now, activeDay);
 
+      if (Date.now() - lastStoppedAlarmStamp < 2000) return;
+
       const windowMs = document.visibilityState === 'visible' ? 120 * 1000 : 20 * 1000;
 
       if (!isRinging) {
         for (const alarm of alarms) {
           if (!alarm.enabled) continue;
-          if (alarm.userDismissedAt && Date.now() - Number(alarm.userDismissedAt) < 25 * 1000 && !alarm.nextSnoozeAt) {
+          if (alarm.userDismissedAt && Date.now() - Number(alarm.userDismissedAt) < 90 * 1000 && !alarm.nextSnoozeAt) {
             continue;
           }
 
@@ -1407,15 +1448,14 @@
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
         if (isRinging && currentRingingAlarm) {
+          if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
           switchMasterAudioToRing(getDisplayedAlarmSoundIndex(currentRingingAlarm), Number(currentRingingAlarm.snoozeLevel) || 0);
         }
         if (wakeLockRequested && !wakeLock) acquireWakeLock();
         ensureAutoBgKeepAlive();
         updateClock();
       } else {
-        // 백그라운드 전환 시 현재 울리는 알람 또는 다음 예정 알람의 본 알람소리 파형을 즉시 준비
         if (isRinging && currentRingingAlarm) {
           switchMasterAudioToRing(getDisplayedAlarmSoundIndex(currentRingingAlarm), Number(currentRingingAlarm.snoozeLevel) || 0);
         } else {
@@ -1768,8 +1808,9 @@
       updateClock();
     };
 
-    function playCustomSound(soundIdx, level = 0) {
-      if (document.visibilityState !== 'visible') return;
+    function playCustomSound(soundIdx, level = 0, forcePreview = false) {
+      if (!forcePreview && !isRinging && !isTimerRinging) return;
+      if (!forcePreview && document.visibilityState !== 'visible') return;
       const ctx = getAudioContext();
       if (ctx.state !== 'running') return;
       const now = ctx.currentTime;
@@ -1791,6 +1832,8 @@
         gain.gain.exponentialRampToValueAtTime(0.001, now + i * stepDelay + 0.45);
         osc.connect(gain);
         gain.connect(ctx.destination);
+        activeOscillators.add(osc);
+        osc.onended = () => activeOscillators.delete(osc);
         osc.start(now + i * stepDelay);
         osc.stop(now + i * stepDelay + 0.5);
       });
@@ -1799,7 +1842,7 @@
     document.getElementById('previewSelectedSoundBtn').addEventListener('click', () => {
       const val = document.getElementById('alarmSound').value;
       const soundIdx = val === 'random' ? Math.floor(Math.random() * 12) : parseInt(val, 10);
-      playCustomSound(soundIdx, 0);
+      playCustomSound(soundIdx, 0, true);
       if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
     });
 
@@ -1840,10 +1883,14 @@
       document.getElementById('snoozeAlarmBtn').classList.remove('hidden');
       document.getElementById('alarmModal').classList.remove('hidden');
 
-      // 백그라운드 <audio> 엔진에도 동일한 본 알람소리 + 강도 파형 연결
+      if (alarmInterval) {
+        clearInterval(alarmInterval);
+        alarmInterval = null;
+      }
       switchMasterAudioToRing(resolvedSoundIdx, level);
       const repeatMs = Math.max(1000 - level * 130, 600);
       alarmInterval = setInterval(() => {
+        if (!isRinging) return;
         playCustomSound(resolvedSoundIdx, level);
         if ('vibrate' in navigator) navigator.vibrate(vibePattern);
       }, repeatMs);
@@ -1866,44 +1913,65 @@
     }
 
     function stopAllRingingState(explicitAlarmId = null, explicitScheduleKey = null) {
+      lastStoppedAlarmStamp = Date.now();
       isRinging = false;
       isTimerRinging = false;
-      if (alarmInterval) clearInterval(alarmInterval);
+
+      if (alarmInterval) {
+        clearInterval(alarmInterval);
+        alarmInterval = null;
+      }
+      stopAllWebAudioNotes();
       if ('vibrate' in navigator) navigator.vibrate(0);
+
+      document.getElementById('alarmModal').classList.add('hidden');
 
       const targetId = explicitAlarmId || (currentRingingAlarm && currentRingingAlarm.id) || null;
       const nowMs = Date.now();
+      const todayKey = formatDateKey(getSynchronizedNow());
       let resolvedScheduleKey = explicitScheduleKey || null;
 
       if (currentRingingAlarm) {
         const matched = alarms.find(a => String(a.id) === String(currentRingingAlarm.id)) || currentRingingAlarm;
-        resolvedScheduleKey = resolvedScheduleKey || matched.lastTriggeredKey || `${formatDateKey(getSynchronizedNow())}_${matched.time}`;
+        resolvedScheduleKey = resolvedScheduleKey || matched.lastTriggeredKey || `${todayKey}_${matched.time}`;
         matched.enabled = Boolean(matched.isRepeating);
         matched.remainingSnooze = Number(matched.snoozeCount) || 3;
         matched.snoozeLevel = 0;
         matched.nextSnoozeTime = null;
         matched.nextSnoozeAt = null;
         matched.userDismissedAt = nowMs;
+        matched.lastTriggeredKey = resolvedScheduleKey;
         matched.dismissedScheduleKey = resolvedScheduleKey;
         if (!matched.isRepeating) matched.serverFiredAt = nowMs;
         escalateAlarmSound(matched);
+        currentRingingAlarm = null;
         saveAlarms(true);
+        syncCurrentPushState(true, matched.id, resolvedScheduleKey);
         renderAlarmList();
         updateClock();
-        currentRingingAlarm = null;
       } else {
-        if (targetId) markAlarmCompletedInState(targetId, resolvedScheduleKey);
+        markAlarmCompletedInState(targetId, resolvedScheduleKey);
         syncCurrentPushState(true, targetId, resolvedScheduleKey);
       }
+
       restoreMasterAudioAfterRing();
-      document.getElementById('alarmModal').classList.add('hidden');
     }
 
-    document.getElementById('stopAlarmBtn').addEventListener('click', () => stopAllRingingState());
+    const stopBtn = document.getElementById('stopAlarmBtn');
+    stopBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      stopAllRingingState();
+    });
 
     document.getElementById('snoozeAlarmBtn').addEventListener('click', () => {
+      lastStoppedAlarmStamp = Date.now();
       isRinging = false;
-      if (alarmInterval) clearInterval(alarmInterval);
+      if (alarmInterval) {
+        clearInterval(alarmInterval);
+        alarmInterval = null;
+      }
+      stopAllWebAudioNotes();
       if ('vibrate' in navigator) navigator.vibrate(0);
       document.getElementById('alarmModal').classList.add('hidden');
 
@@ -1940,6 +2008,7 @@
       }
       currentRingingAlarm = null;
       saveAlarms(true);
+      syncCurrentPushState(true, targetAlarm ? targetAlarm.id : null, null);
       restoreMasterAudioAfterRing();
       renderAlarmList();
       updateClock();
@@ -2034,8 +2103,16 @@
       document.getElementById('snoozeAlarmBtn').classList.add('hidden');
       document.getElementById('alarmModal').classList.remove('hidden');
       const soundIdx = Math.floor(Math.random() * 12);
+      if (alarmInterval) {
+        clearInterval(alarmInterval);
+        alarmInterval = null;
+      }
       switchMasterAudioToRing(soundIdx, 2);
-      alarmInterval = setInterval(() => { playCustomSound(soundIdx, 2); if ('vibrate' in navigator) navigator.vibrate([500, 150, 500]); }, 800);
+      alarmInterval = setInterval(() => {
+        if (!isTimerRinging) return;
+        playCustomSound(soundIdx, 2);
+        if ('vibrate' in navigator) navigator.vibrate([500, 150, 500]);
+      }, 800);
       playCustomSound(soundIdx, 2);
       if ('vibrate' in navigator) navigator.vibrate([500, 150, 500]);
     }
@@ -2097,12 +2174,15 @@
       const group = payload.group || (matched && matched.group) || '기본 그룹';
       const time = payload.time || (matched && (matched.nextSnoozeTime || matched.time)) || currentHM;
       const sound = Number.isFinite(Number(payload.sound)) ? Number(payload.sound) : (matched ? Number(matched.sound) || 0 : 0);
+      const todayKey = formatDateKey(getSynchronizedNow());
+      const resolvedKey = payload.scheduleKey || `${todayKey}_${time}`;
 
       if (matched) {
         matched.snoozeCount = sCount;
         matched.snoozeInterval = sInterval;
         matched.remainingSnooze = rSnooze;
         matched.snoozeLevel = sLevel;
+        matched.lastTriggeredKey = resolvedKey;
         if (!isRepeating) {
           matched.enabled = false;
           matched.serverFiredAt = Date.now();
@@ -2129,16 +2209,17 @@
         snoozeLevel: sLevel,
         nextSnoozeTime: null,
         nextSnoozeAt: null,
-        lastTriggeredKey: payload.scheduleKey || null,
+        lastTriggeredKey: resolvedKey,
         enabled: isRepeating
       };
     }
 
     function triggerFromPushPayload(payload) {
       if (isRinging || !payload) return;
+      if (Date.now() - lastStoppedAlarmStamp < 3000) return;
       if (payload.alarmId) {
         const matched = alarms.find((a) => String(a.id) === String(payload.alarmId));
-        if (matched && matched.userDismissedAt && Date.now() - Number(matched.userDismissedAt) < 10 * 1000) {
+        if (matched && matched.userDismissedAt && Date.now() - Number(matched.userDismissedAt) < 90 * 1000) {
           return;
         }
       }

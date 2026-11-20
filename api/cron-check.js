@@ -13,7 +13,7 @@ const DELIVERY_GRACE_MS = 90 * 1000;
 
 function alarmIsDue(alarm, parts, nowMs, timeZone) {
   if (!alarm.enabled) return null;
-  if (alarm.userDismissedAt && nowMs - Number(alarm.userDismissedAt) < 25 * 1000 && !alarm.nextSnoozeAt) {
+  if (alarm.userDismissedAt && nowMs - Number(alarm.userDismissedAt) < 90 * 1000 && !alarm.nextSnoozeAt) {
     return null;
   }
 
@@ -39,7 +39,7 @@ function alarmIsDue(alarm, parts, nowMs, timeZone) {
       year: parts.year, month: parts.month, day: parts.day, hour, minute
     }, timeZone);
     const schedKey = `${localDateKey(parts)}_${alarm.time}_${scheduledAt}`;
-    if (alarm.dismissedScheduleKey === schedKey) return null;
+    if (alarm.dismissedScheduleKey === schedKey || alarm.dismissedScheduleKey === `${localDateKey(parts)}_${alarm.time}`) return null;
     if (nowMs >= scheduledAt && nowMs - scheduledAt <= DELIVERY_GRACE_MS) {
       return { kind: 'repeat', scheduledAt, scheduleKey: schedKey, displayTime: alarm.time };
     }
