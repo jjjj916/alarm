@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-clock-v17';
+const CACHE_NAME = 'smart-clock-v18';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -90,16 +90,15 @@ self.addEventListener('push', (event) => {
   params.set('body', payload.body || '알람이 울립니다!');
   const targetUrl = `./index.html?${params.toString()}`;
 
-  const tagKey = payload.tag || `smart-clock-${payload.type || 'alarm'}`;
   const baseOptions = {
     body: payload.body || '알람이 울립니다!',
     icon: './icon-192.png',
     badge: './icon-192.png',
-    vibrate: [900, 150, 900, 150, 900, 150, 900],
+    vibrate: [800, 150, 800, 150, 800, 150, 800],
     requireInteraction: true,
     renotify: true,
     silent: false,
-    tag: tagKey,
+    tag: payload.tag || `smart-clock-${payload.type || 'alarm'}-${Date.now()}`,
     actions: [
       { action: 'dismiss_alarm', title: '✕ 알람 끄기' },
       { action: 'open_app', title: '📱 시계 열기' }
@@ -116,19 +115,18 @@ self.addEventListener('push', (event) => {
   const deliverNotifications = async () => {
     await self.registration.showNotification(payload.title || '⏰ 스마트 시계 알람', baseOptions);
 
-    // 무한 연타 모드일 경우 사용자가 '알람 끄기'를 누를 때까지 3.5초 간격으로 계속 갱신 발송
+    // 기존 3차 긴급 알림과 동일한 방식으로 사용자가 [✕ 알람 끄기]를 누르기 전까지 무제한 반복
     if (payload.urgentBurstMode) {
       let count = 1;
-      while (!isAlarmDismissed && count < 20) {
+      while (!isAlarmDismissed) {
         await sleep(3500);
         if (isAlarmDismissed) break;
         count++;
         await self.registration.showNotification(
-          `🚨 (${count}회차 울리는 중) ${payload.label || '스마트 시계 알람'}`,
+          `🚨 (${count}회차 긴급 알림) ${payload.label || '스마트 시계 알람'}`,
           Object.assign({}, baseOptions, {
-            tag: tagKey,
-            renotify: true,
-            body: '알람을 끄기 전까지 계속 울립니다! 아래 [✕ 알람 끄기]를 누르세요.'
+            tag: `smart-clock-urgent-burst-${Date.now()}-${count}`,
+            body: '다른 앱 사용 중 알람이 울리고 있습니다! [✕ 알람 끄기]를 누르기 전까지 무제한 반복됩니다.'
           })
         );
       }
@@ -142,7 +140,6 @@ self.addEventListener('notificationclick', (event) => {
   const action = event.action;
   event.notification.close();
 
-  // 알림 배너의 '✕ 알람 끄기' 버튼을 누른 경우 즉시 무한 푸시 중단
   if (action === 'dismiss_alarm') {
     isAlarmDismissed = true;
     event.waitUntil(
@@ -159,11 +156,11 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
-  // 알림 본문 또는 '시계 열기'를 누른 경우 앱으로 진입하면서 연타 중단
   isAlarmDismissed = true;
   const targetUrl = (event.notification.data && event.notification.data.url) || './index.html';
   event.waitUntil(
     Promise.all([
+      self.registration.getNotifications().then(list => list.forEach(n => n.close())),
       dismissOnServer(),
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
         for (const client of clientList) {

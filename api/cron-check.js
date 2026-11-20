@@ -10,7 +10,6 @@ function localDateKey(parts) {
 }
 
 const DELIVERY_GRACE_MS = 90 * 1000;
-const MAX_INFINITE_RING_MS = 30 * 60 * 1000; // 안전장치: 최대 30분간 연속 발송
 
 function alarmIsDue(alarm, parts, nowMs, timeZone) {
   if (!alarm.enabled) return null;
@@ -102,27 +101,20 @@ module.exports = async function handler(req, res) {
       const isUrgent = Boolean(record.urgentBurstMode);
       let changed = false;
 
-      // 1. 이미 울리고 있는 무한 연타 알람이 있으면 끄기 전까지 매분 재발송
+      // 무한 연타 모드 활성 중이고 사용자가 끄기 전이면 매분 무제한 재발송
       if (isUrgent && record.activeRinging) {
-        const elapsed = now - Number(record.activeRinging.startedAt || now);
-        if (elapsed <= MAX_INFINITE_RING_MS) {
-          const delivered = await sendPush(webpush, redis, id, record, {
-            type: record.activeRinging.type || 'alarm',
-            urgentBurstMode: true,
-            title: `🚨 [알람 울리는 중] ${record.activeRinging.label}`,
-            body: '알람이 꺼지지 않았습니다! 알림의 [알람 끄기] 버튼을 누르세요.',
-            label: record.activeRinging.label,
-            alarmId: record.activeRinging.alarmId || '',
-            tag: `smart-clock-infinite-${record.activeRinging.alarmId || 'timer'}`
-          }, null);
-          if (delivered) sent++;
-        } else {
-          record.activeRinging = null;
-          changed = true;
-        }
+        const delivered = await sendPush(webpush, redis, id, record, {
+          type: record.activeRinging.type || 'alarm',
+          urgentBurstMode: true,
+          title: `🚨 [긴급 알람 계속 울리는 중] ${record.activeRinging.label}`,
+          body: '알람이 꺼지지 않았습니다! 알림의 [✕ 알람 끄기]를 누르기 전까지 무제한 반복됩니다.',
+          label: record.activeRinging.label,
+          alarmId: record.activeRinging.alarmId || '',
+          tag: `smart-clock-urgent-${record.activeRinging.alarmId || 'timer'}-${now}`
+        }, null);
+        if (delivered) sent++;
       }
 
-      // 2. 새로 도래한 알람 확인
       for (const alarm of (record.alarms || [])) {
         const due = alarmIsDue(alarm, parts, now, timeZone);
         if (!due) continue;
@@ -132,12 +124,12 @@ module.exports = async function handler(req, res) {
           type: 'alarm',
           urgentBurstMode: isUrgent,
           title: isUrgent ? `🚨 [긴급 알람] ${label}` : `⏰ ${label}`,
-          body: `[${alarm.group || '알람'}] ${due.displayTime} 알람이 울립니다. [알람 끄기]를 누르기 전까지 반복됩니다.`,
+          body: `[${alarm.group || '알람'}] ${due.displayTime} 알람이 울립니다. 터치하여 끄세요.`,
           label,
           alarmId: String(alarm.id),
           time: due.displayTime,
           tag: isUrgent
-            ? `smart-clock-infinite-${alarm.id}`
+            ? `smart-clock-urgent-${alarm.id}-${now}`
             : `smart-clock-alarm-${alarm.id}-${String(due.scheduledAt).replace(/[^0-9]/g, '')}`
         }, dedupeKey);
 
@@ -164,7 +156,6 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // 3. 타이머 완료 확인
       if (record.timer && Number(record.timer.endAt) <= now) {
         const timer = record.timer;
         const dedupeKey = `smart-clock:timer-sent:${id}:${timer.endAt}`;
