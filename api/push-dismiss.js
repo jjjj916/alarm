@@ -17,6 +17,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid subscription' });
     }
 
+    const alarmId = body.alarmId ? String(body.alarmId) : null;
     const redis = getRedis();
     const id = subscriptionId(subscription);
     const key = recordKey(id);
@@ -24,6 +25,21 @@ module.exports = async function handler(req, res) {
 
     if (record) {
       record.activeRinging = null;
+      if (alarmId && Array.isArray(record.alarms)) {
+        record.alarms = record.alarms.map(a => {
+          if (String(a.id) === alarmId) {
+            return Object.assign({}, a, {
+              enabled: Boolean(a.isRepeating),
+              remainingSnooze: Number(a.snoozeCount) || 3,
+              snoozeLevel: 0,
+              nextSnoozeAt: null,
+              nextSnoozeTime: null,
+              serverFiredAt: a.isRepeating ? null : Date.now()
+            });
+          }
+          return a;
+        });
+      }
       record.updatedAt = Date.now();
       await redis.set(key, record);
     }

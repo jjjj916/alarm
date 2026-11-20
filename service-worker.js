@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-clock-v22';
+const CACHE_NAME = 'smart-clock-v24';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -9,7 +9,15 @@ const ASSETS_TO_CACHE = [
   './terms.html'
 ];
 
+const VIBE_BY_LEVEL = [
+  [300, 200, 300],
+  [450, 120, 450, 120, 450],
+  [600, 80, 600, 80, 600, 80, 600],
+  [900, 60, 900, 60, 900, 60, 900]
+];
+
 let isAlarmDismissed = false;
+let latestAlarmPayload = null;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE)));
@@ -42,14 +50,14 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function dismissOnServer() {
+async function dismissOnServer(alarmId = null) {
   try {
     const sub = await self.registration.pushManager.getSubscription();
     if (!sub) return;
     await fetch('./api/push-dismiss', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: sub.toJSON() })
+      body: JSON.stringify({ subscription: sub.toJSON(), alarmId })
     });
   } catch (e) {}
 }
@@ -57,8 +65,9 @@ async function dismissOnServer() {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'STOP_INFINITE_PUSH') {
     isAlarmDismissed = true;
+    const targetAlarmId = event.data.alarmId || (latestAlarmPayload && latestAlarmPayload.alarmId) || null;
     self.registration.getNotifications().then(list => list.forEach(n => n.close()));
-    dismissOnServer();
+    dismissOnServer(targetAlarmId);
   }
 });
 
@@ -68,15 +77,30 @@ self.addEventListener('push', (event) => {
   let payload = {
     type: 'alarm',
     urgentBurstMode: false,
-    title: '⏰ 스마트 시계 알람',
+    title: '⏰ 알람',
     body: '알람이 울립니다!',
-    label: '스마트 시계 알람'
+    label: '알람',
+    name: '알람',
+    group: '기본 그룹',
+    sound: 0,
+    isRepeating: false,
+    snoozeInterval: 5,
+    snoozeCount: 3,
+    remainingSnooze: 3,
+    snoozeLevel: 0
   };
   try {
     if (event.data) payload = Object.assign(payload, event.data.json());
   } catch (error) {
     if (event.data) payload.body = event.data.text();
   }
+  latestAlarmPayload = payload;
+
+  const sLevel = Math.max(0, Number(payload.snoozeLevel) || 0);
+  const sCount = Math.max(1, Number(payload.snoozeCount) || 3);
+  const rSnooze = Number.isFinite(Number(payload.remainingSnooze)) ? Math.max(0, Number(payload.remainingSnooze)) : sCount;
+  const sInterval = Math.max(1, Number(payload.snoozeInterval) || 5);
+  const vibePattern = VIBE_BY_LEVEL[Math.min(sLevel, VIBE_BY_LEVEL.length - 1)];
 
   const params = new URLSearchParams();
   if (payload.type === 'timer') {
@@ -85,16 +109,25 @@ self.addEventListener('push', (event) => {
   } else {
     params.set('triggerAlarm', '1');
     if (payload.alarmId) params.set('alarmId', String(payload.alarmId));
+    if (payload.name) params.set('name', String(payload.name));
+    if (payload.group) params.set('group', String(payload.group));
+    if (payload.time) params.set('time', String(payload.time));
+    if (Number.isFinite(Number(payload.sound))) params.set('sound', String(Number(payload.sound)));
+    params.set('isRepeating', payload.isRepeating ? '1' : '0');
+    params.set('snoozeInterval', String(sInterval));
+    params.set('snoozeCount', String(sCount));
+    params.set('remainingSnooze', String(rSnooze));
+    params.set('snoozeLevel', String(sLevel));
   }
-  params.set('label', payload.label || payload.title || '스마트 시계 알람');
+  params.set('label', payload.label || payload.title || '알람');
   params.set('body', payload.body || '알람이 울립니다!');
   const targetUrl = `./index.html?${params.toString()}`;
 
   const baseOptions = {
-    body: payload.body || '알람이 울립니다!',
+    body: payload.body || `다시 울림 ${sInterval}분 (${rSnooze}/${sCount}회 남음 · 강도 Lv.${sLevel + 1})`,
     icon: './icon-192.png',
     badge: './icon-192.png',
-    vibrate: [800, 150, 800, 150, 800, 150, 800],
+    vibrate: vibePattern,
     requireInteraction: true,
     renotify: true,
     silent: false,
@@ -113,7 +146,7 @@ self.addEventListener('push', (event) => {
   });
 
   const deliverNotifications = async () => {
-    await self.registration.showNotification(payload.title || '⏰ 스마트 시계 알람', baseOptions);
+    await self.registration.showNotification(payload.title || '⏰ 알람', baseOptions);
 
     if (payload.urgentBurstMode) {
       let count = 1;
@@ -122,10 +155,10 @@ self.addEventListener('push', (event) => {
         if (isAlarmDismissed) break;
         count++;
         await self.registration.showNotification(
-          `🚨 (${count}회차 긴급 알림) ${payload.label || '스마트 시계 알람'}`,
+          `🚨 (Lv.${sLevel + 1} · ${count}회차) ${payload.label || '알람'}`,
           Object.assign({}, baseOptions, {
             tag: `smart-clock-urgent-burst-${Date.now()}-${count}`,
-            body: '다른 앱 사용 중 알람이 울리고 있습니다! [✕ 알람 끄기]를 누르기 전까지 무제한 반복됩니다.'
+            body: `다시 울림 ${rSnooze}/${sCount}회 남음 · [✕ 알람 끄기]를 누르기 전까지 반복됩니다.`
           })
         );
       }
@@ -137,6 +170,9 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   const action = event.action;
+  const data = event.notification.data || {};
+  const payload = data.payload || latestAlarmPayload || {};
+  const alarmId = payload.alarmId || null;
   event.notification.close();
 
   if (action === 'dismiss_alarm') {
@@ -144,10 +180,14 @@ self.addEventListener('notificationclick', (event) => {
     event.waitUntil(
       Promise.all([
         self.registration.getNotifications().then(list => list.forEach(n => n.close())),
-        dismissOnServer(),
+        dismissOnServer(alarmId),
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
           for (const client of clientList) {
-            client.postMessage({ type: 'ALARM_DISMISSED_FROM_PUSH' });
+            client.postMessage({
+              type: 'ALARM_DISMISSED_FROM_PUSH',
+              alarmId,
+              payload
+            });
           }
         })
       ])
@@ -156,11 +196,11 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   isAlarmDismissed = true;
-  const targetUrl = (event.notification.data && event.notification.data.url) || './index.html';
+  const targetUrl = data.url || './index.html';
   event.waitUntil(
     Promise.all([
       self.registration.getNotifications().then(list => list.forEach(n => n.close())),
-      dismissOnServer(),
+      dismissOnServer(alarmId),
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
         for (const client of clientList) {
           if ('focus' in client) {

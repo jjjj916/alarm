@@ -34,8 +34,21 @@ module.exports = async function handler(req, res) {
     const previousAlarms = new Map((previous?.alarms || []).map(a => [String(a.id), a]));
     const now = Date.now();
 
-    const alarms = body.alarms.map(sanitizeAlarm).filter(Boolean).map(alarm => {
+    const alarms = body.alarms.map(sanitizeAlarm).filter(Boolean).map((alarm, idx) => {
+      const raw = body.alarms[idx] || {};
       const old = previousAlarms.get(alarm.id);
+      const sCount = Number.isFinite(Number(raw.snoozeCount)) ? Math.max(1, Math.min(20, Number(raw.snoozeCount))) : (alarm.snoozeCount || 3);
+      const sInterval = Number.isFinite(Number(raw.snoozeInterval)) ? Math.max(1, Math.min(60, Number(raw.snoozeInterval))) : (alarm.snoozeInterval || 5);
+      const remainingSnooze = Number.isFinite(Number(raw.remainingSnooze)) ? Math.max(0, Math.min(sCount, Number(raw.remainingSnooze))) : sCount;
+      const snoozeLevel = Number.isFinite(Number(raw.snoozeLevel)) ? Math.max(0, Math.min(10, Number(raw.snoozeLevel))) : 0;
+
+      alarm.snoozeCount = sCount;
+      alarm.snoozeInterval = sInterval;
+      alarm.remainingSnooze = remainingSnooze;
+      alarm.snoozeLevel = snoozeLevel;
+      alarm.nextSnoozeAt = Number.isFinite(Number(raw.nextSnoozeAt)) ? Number(raw.nextSnoozeAt) : (alarm.nextSnoozeAt || null);
+      alarm.nextSnoozeTime = typeof raw.nextSnoozeTime === 'string' && raw.nextSnoozeTime ? raw.nextSnoozeTime : (alarm.nextSnoozeTime || null);
+
       if (alarm.isRepeating) {
         alarm.singleShotAt = null;
         alarm.serverFiredAt = null;

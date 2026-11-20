@@ -102,14 +102,27 @@ module.exports = async function handler(req, res) {
       let changed = false;
 
       if (isUrgent && record.activeRinging) {
+        const ringInfo = record.activeRinging;
+        const sCount = Number(ringInfo.snoozeCount) || 3;
+        const rSnooze = Number.isFinite(Number(ringInfo.remainingSnooze)) ? Number(ringInfo.remainingSnooze) : sCount;
+        const sLevel = Number(ringInfo.snoozeLevel) || 0;
         const delivered = await sendPush(webpush, redis, id, record, {
-          type: record.activeRinging.type || 'alarm',
+          type: ringInfo.type || 'alarm',
           urgentBurstMode: true,
-          title: `🚨 [긴급 알람 계속 울리는 중] ${record.activeRinging.label}`,
-          body: '알람이 꺼지지 않았습니다! 알림의 [✕ 알람 끄기]를 누르기 전까지 무제한 반복됩니다.',
-          label: record.activeRinging.label,
-          alarmId: record.activeRinging.alarmId || '',
-          tag: `smart-clock-urgent-${record.activeRinging.alarmId || 'timer'}-${now}`
+          title: `🚨 [긴급 Lv.${sLevel + 1}] ${ringInfo.label}`,
+          body: `다시 울림 ${rSnooze}/${sCount}회 남음 · 알림의 [✕ 알람 끄기]를 누르기 전까지 반복됩니다.`,
+          label: ringInfo.label,
+          name: ringInfo.name || ringInfo.label,
+          group: ringInfo.group || '알람',
+          time: ringInfo.time || '',
+          sound: Number.isFinite(Number(ringInfo.sound)) ? Number(ringInfo.sound) : 0,
+          isRepeating: Boolean(ringInfo.isRepeating),
+          snoozeInterval: Number(ringInfo.snoozeInterval) || 5,
+          snoozeCount: sCount,
+          remainingSnooze: rSnooze,
+          snoozeLevel: sLevel,
+          alarmId: ringInfo.alarmId || '',
+          tag: `smart-clock-urgent-${ringInfo.alarmId || 'timer'}-${now}`
         }, null);
         if (delivered) sent++;
       }
@@ -118,15 +131,31 @@ module.exports = async function handler(req, res) {
         const due = alarmIsDue(alarm, parts, now, timeZone);
         if (!due) continue;
         const dedupeKey = `smart-clock:sent:${id}:${String(alarm.id)}:${String(due.scheduledAt)}`;
-        const label = alarm.name || '스마트 시계 알람';
+        const name = alarm.name || '알람';
+        const group = alarm.group || '기본 그룹';
+        const label = `[${group}] ${name}`;
+        const sCount = Number(alarm.snoozeCount) || 3;
+        const rSnooze = Number.isFinite(Number(alarm.remainingSnooze)) ? Number(alarm.remainingSnooze) : sCount;
+        const sLevel = Number(alarm.snoozeLevel) || 0;
+        const sInterval = Number(alarm.snoozeInterval) || 5;
+
         const delivered = await sendPush(webpush, redis, id, record, {
           type: 'alarm',
           urgentBurstMode: isUrgent,
-          title: isUrgent ? `🚨 [긴급 알람] ${label}` : `⏰ ${label}`,
-          body: `[${alarm.group || '알람'}] ${due.displayTime} 알람이 울립니다. 터치하여 끄세요.`,
+          title: isUrgent ? `🚨 [Lv.${sLevel + 1}] ${label}` : `⏰ [Lv.${sLevel + 1}] ${label}`,
+          body: `${due.displayTime} 알람 · 다시 울림 ${sInterval}분 (${rSnooze}/${sCount}회 남음)`,
           label,
-          alarmId: String(alarm.id),
+          name,
+          group,
           time: due.displayTime,
+          sound: Number.isFinite(Number(alarm.sound)) ? Number(alarm.sound) : 0,
+          isRepeating: Boolean(alarm.isRepeating),
+          days: Array.isArray(alarm.days) ? alarm.days : [],
+          snoozeInterval: sInterval,
+          snoozeCount: sCount,
+          remainingSnooze: rSnooze,
+          snoozeLevel: sLevel,
+          alarmId: String(alarm.id),
           tag: isUrgent
             ? `smart-clock-urgent-${alarm.id}-${now}`
             : `smart-clock-alarm-${alarm.id}-${String(due.scheduledAt).replace(/[^0-9]/g, '')}`
@@ -139,13 +168,24 @@ module.exports = async function handler(req, res) {
             record.activeRinging = {
               type: 'alarm',
               alarmId: String(alarm.id),
+              name,
+              group,
               label,
+              time: due.displayTime,
+              sound: Number.isFinite(Number(alarm.sound)) ? Number(alarm.sound) : 0,
+              isRepeating: Boolean(alarm.isRepeating),
+              snoozeInterval: sInterval,
+              snoozeCount: sCount,
+              remainingSnooze: rSnooze,
+              snoozeLevel: sLevel,
               startedAt: now
             };
           }
           if (due.kind === 'single') {
             alarm.enabled = false;
             alarm.serverFiredAt = now;
+            alarm.nextSnoozeAt = null;
+            alarm.nextSnoozeTime = null;
           }
           if (due.kind === 'snooze') {
             alarm.nextSnoozeAt = null;
@@ -164,6 +204,8 @@ module.exports = async function handler(req, res) {
           title: '⏳ 타이머 완료',
           body: '설정한 카운트다운 시간이 종료되었습니다.',
           label: '카운트다운 타이머 완료',
+          name: '카운트다운 타이머 완료',
+          group: '타이머',
           totalMs: Number(timer.totalMs) || 0,
           tag: `smart-clock-timer-${timer.endAt}`
         }, dedupeKey);
@@ -173,6 +215,8 @@ module.exports = async function handler(req, res) {
             record.activeRinging = {
               type: 'timer',
               alarmId: 'timer',
+              name: '카운트다운 타이머 완료',
+              group: '타이머',
               label: '카운트다운 타이머 완료',
               startedAt: now
             };
