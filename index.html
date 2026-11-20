@@ -795,26 +795,12 @@
       masterEl.pause();
       masterEl.currentTime = 0;
 
-      const hasActiveSchedule = alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
-      if (isBgAudioRunning && !bgAudioManuallyDisabled && hasActiveSchedule) {
-        masterEl.src = getSilentBlobUrl();
-        masterEl.volume = 1.0;
-        masterEl.loop = true;
-        updateMediaSessionMetadata(false);
-        const p = masterEl.play();
-        if (p && typeof p.then === 'function') {
-          p.finally(() => { isStoppingAudio = false; });
-        } else {
-          isStoppingAudio = false;
-        }
-      } else {
-        isBgAudioRunning = false;
-        masterEl.removeAttribute('src');
-        masterEl.load();
-        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
-        updateBgAudioButtonUI();
-        isStoppingAudio = false;
-      }
+      masterEl.removeAttribute('src');
+      masterEl.load();
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
+      isBgAudioRunning = !bgAudioManuallyDisabled && (alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running'));
+      updateBgAudioButtonUI();
+      isStoppingAudio = false;
     }
 
     function updateBgAudioButtonUI() {
@@ -835,31 +821,24 @@
       const hasActiveSchedule = alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
       if (!hasActiveSchedule) return;
 
+      // 다음 알람음 Blob만 미리 메모리에 준비하고, 대기 중 오디오 포커스는 점유하지 않음 (유튜브 재생 방해 방지)
       const upcoming = getUpcomingAlarmForBackground();
       if (upcoming) {
         getRingBlobUrlForSound(getDisplayedAlarmSoundIndex(upcoming), Number(upcoming.snoozeLevel) || 0);
       }
 
-      if (isBgAudioRunning && !masterEl.paused) {
-        updateMediaSessionMetadata(false);
-        return;
+      if (!masterEl.paused && !isRinging && !isTimerRinging) {
+        isStoppingAudio = true;
+        masterEl.pause();
+        masterEl.removeAttribute('src');
+        masterEl.load();
+        isStoppingAudio = false;
       }
-
-      masterEl.src = getSilentBlobUrl();
-      masterEl.volume = 1.0;
-      masterEl.loop = true;
-
-      const playPromise = masterEl.play();
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          isBgAudioRunning = true;
-          updateBgAudioButtonUI();
-          updateMediaSessionMetadata(false);
-          if ('mediaSession' in navigator) {
-            navigator.mediaSession.playbackState = 'playing';
-          }
-        }).catch(() => {});
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'none';
       }
+      isBgAudioRunning = true;
+      updateBgAudioButtonUI();
     }
 
     masterEl.addEventListener('timeupdate', () => {
@@ -887,12 +866,6 @@
       if (isRinging || isTimerRinging) {
         setTimeout(() => {
           if (!isStoppingAudio && (isRinging || isTimerRinging)) {
-            masterEl.play().catch(() => {});
-          }
-        }, 120);
-      } else if (!bgAudioManuallyDisabled && alarms.some(a => a.enabled)) {
-        setTimeout(() => {
-          if (!isStoppingAudio && !isRinging && !isTimerRinging && !bgAudioManuallyDisabled && alarms.some(a => a.enabled)) {
             masterEl.play().catch(() => {});
           }
         }, 120);
