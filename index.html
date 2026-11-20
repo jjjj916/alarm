@@ -128,7 +128,7 @@
         <p id="todayDateLabel" class="text-xs text-gray-500 font-medium mt-1">오늘 날짜 불러오는 중...</p>
       </div>
 
-      <!-- 필수 확인 안내 배너 (미디어 볼륨 + 앱 완전 종료 금지 + 배터리 절전 해제) -->
+      <!-- 필수 확인 안내 배너 -->
       <div class="clean-card px-4 py-3.5 bg-amber-50/95 border border-amber-200/90 text-left space-y-2.5">
         <div class="flex items-start gap-2">
           <span class="text-sm leading-none mt-0.5 shrink-0">🔊</span>
@@ -636,7 +636,7 @@
 
       for (let i = 0; i < numSamples; i++) {
         if (!isAlarmTone) {
-          const sample = Math.round(16 * Math.sin((2 * Math.PI * 1 * i) / sampleRate));
+          const sample = Math.round(640 * Math.sin((2 * Math.PI * 1 * i) / sampleRate));
           view.setInt16(44 + i * 2, sample, true);
         } else {
           const noteIdx = Math.floor((i / sampleRate) * 6) % 6;
@@ -660,7 +660,8 @@
       masterEl.src = ringBlobUrl;
       masterEl.volume = 1.0;
       masterEl.loop = true;
-      masterEl.play().catch(() => {});
+      const p = masterEl.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
     }
 
     function restoreMasterAudioAfterRing() {
@@ -670,7 +671,8 @@
         masterEl.src = silentBlobUrl;
         masterEl.volume = 1.0;
         masterEl.loop = true;
-        masterEl.play().catch(() => {});
+        const p = masterEl.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
       } else {
         isBgAudioRunning = false;
         masterEl.pause();
@@ -722,7 +724,10 @@
 
     masterEl.addEventListener('timeupdate', () => {
       updateClock();
-      if (timerState === 'running') {
+      if ((isRinging || isTimerRinging) && masterEl.paused) {
+        switchMasterAudioToRing();
+      }
+      if (typeof timerState !== 'undefined' && timerState === 'running') {
         timerRemainingMs = timerEndTimestamp - Date.now();
         if (timerRemainingMs <= 0) {
           timerRemainingMs = 0;
@@ -741,6 +746,12 @@
 
     masterEl.addEventListener('pause', () => {
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+      const shouldKeepPlaying = isRinging || isTimerRinging || (!bgAudioManuallyDisabled && alarms.some(a => a.enabled));
+      if (shouldKeepPlaying) {
+        setTimeout(() => {
+          masterEl.play().catch(() => {});
+        }, 100);
+      }
     });
 
     document.getElementById('bgAudioKeepAliveBtn').addEventListener('click', () => {
@@ -1181,6 +1192,8 @@
 
       updateNextAlarmCountdown(now, activeDay);
 
+      const windowMs = document.visibilityState === 'visible' ? 120 * 1000 : 20 * 1000;
+
       if (!isRinging) {
         for (const alarm of alarms) {
           if (!alarm.enabled) continue;
@@ -1190,7 +1203,7 @@
             if (!shotAt) continue;
             const diffMs = now.getTime() - shotAt;
             const triggerKey = `${todayKey}_${alarm.time}_${shotAt}`;
-            if (diffMs >= 0 && diffMs <= 15 * 1000 && alarm.lastTriggeredKey !== triggerKey) {
+            if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey) {
               alarm.lastTriggeredKey = triggerKey;
               saveAlarms();
               triggerAlarm(alarm);
@@ -1215,7 +1228,7 @@
             triggerKey = `${todayKey}_${alarm.time}`;
           }
 
-          if (diffMs >= 0 && diffMs <= 15 * 1000 && alarm.lastTriggeredKey !== triggerKey) {
+          if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey) {
             alarm.lastTriggeredKey = triggerKey;
             saveAlarms();
             triggerAlarm(alarm);
