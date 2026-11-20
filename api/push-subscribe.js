@@ -66,12 +66,16 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    const clearRinging = Boolean(body.clearRinging);
+    const activeRinging = clearRinging ? null : (previous?.activeRinging || null);
+
     const record = {
       subscription,
       timeZone,
       alarms,
       timer,
       urgentBurstMode: Boolean(body.urgentBurstMode),
+      activeRinging,
       updatedAt: now
     };
     await redis.set(key, record);

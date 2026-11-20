@@ -10,6 +10,7 @@ function localDateKey(parts) {
 }
 
 const DELIVERY_GRACE_MS = 90 * 1000;
+const MAX_INFINITE_RING_MS = 30 * 60 * 1000; // 안전장치: 최대 30분간 연속 발송
 
 function alarmIsDue(alarm, parts, nowMs, timeZone) {
   if (!alarm.enabled) return null;
@@ -49,8 +50,10 @@ function alarmIsDue(alarm, parts, nowMs, timeZone) {
 }
 
 async function sendPush(webpush, redis, id, record, payload, dedupeKey) {
-  const reserved = await redis.set(dedupeKey, '1', { nx: true, ex: 14 * 86400 });
-  if (reserved !== 'OK') return false;
+  if (dedupeKey) {
+    const reserved = await redis.set(dedupeKey, '1', { nx: true, ex: 14 * 86400 });
+    if (reserved !== 'OK') return false;
+  }
   try {
     await webpush.sendNotification(record.subscription, JSON.stringify(payload), {
       TTL: 90,
@@ -58,7 +61,7 @@ async function sendPush(webpush, redis, id, record, payload, dedupeKey) {
     });
     return true;
   } catch (error) {
-    await redis.del(dedupeKey).catch(() => {});
+    if (dedupeKey) await redis.del(dedupeKey).catch(() => {});
     const status = error.statusCode || error.status;
     if (status === 404 || status === 410) {
       await redis.srem(SUBSCRIPTIONS_SET, id);
@@ -99,26 +102,56 @@ module.exports = async function handler(req, res) {
       const isUrgent = Boolean(record.urgentBurstMode);
       let changed = false;
 
+      // 1. 이미 울리고 있는 무한 연타 알람이 있으면 끄기 전까지 매분 재발송
+      if (isUrgent && record.activeRinging) {
+        const elapsed = now - Number(record.activeRinging.startedAt || now);
+        if (elapsed <= MAX_INFINITE_RING_MS) {
+          const delivered = await sendPush(webpush, redis, id, record, {
+            type: record.activeRinging.type || 'alarm',
+            urgentBurstMode: true,
+            title: `🚨 [알람 울리는 중] ${record.activeRinging.label}`,
+            body: '알람이 꺼지지 않았습니다! 알림의 [알람 끄기] 버튼을 누르세요.',
+            label: record.activeRinging.label,
+            alarmId: record.activeRinging.alarmId || '',
+            tag: `smart-clock-infinite-${record.activeRinging.alarmId || 'timer'}`
+          }, null);
+          if (delivered) sent++;
+        } else {
+          record.activeRinging = null;
+          changed = true;
+        }
+      }
+
+      // 2. 새로 도래한 알람 확인
       for (const alarm of (record.alarms || [])) {
         const due = alarmIsDue(alarm, parts, now, timeZone);
         if (!due) continue;
         const dedupeKey = `smart-clock:sent:${id}:${String(alarm.id)}:${String(due.scheduledAt)}`;
+        const label = alarm.name || '스마트 시계 알람';
         const delivered = await sendPush(webpush, redis, id, record, {
           type: 'alarm',
           urgentBurstMode: isUrgent,
-          title: isUrgent ? `🚨 [긴급 알람] ${alarm.name || '스마트 시계 알람'}` : `⏰ ${alarm.name || '스마트 시계 알람'}`,
-          body: `[${alarm.group || '알람'}] ${due.displayTime} 알람이 울립니다. 터치하여 끄세요.`,
-          label: alarm.name || '스마트 시계 알람',
+          title: isUrgent ? `🚨 [긴급 알람] ${label}` : `⏰ ${label}`,
+          body: `[${alarm.group || '알람'}] ${due.displayTime} 알람이 울립니다. [알람 끄기]를 누르기 전까지 반복됩니다.`,
+          label,
           alarmId: String(alarm.id),
           time: due.displayTime,
           tag: isUrgent
-            ? `smart-clock-urgent-${alarm.id}-${now}`
+            ? `smart-clock-infinite-${alarm.id}`
             : `smart-clock-alarm-${alarm.id}-${String(due.scheduledAt).replace(/[^0-9]/g, '')}`
         }, dedupeKey);
 
         if (delivered) {
           sent++;
           alarm.serverLastSentAt = now;
+          if (isUrgent) {
+            record.activeRinging = {
+              type: 'alarm',
+              alarmId: String(alarm.id),
+              label,
+              startedAt: now
+            };
+          }
           if (due.kind === 'single') {
             alarm.enabled = false;
             alarm.serverFiredAt = now;
@@ -131,6 +164,7 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      // 3. 타이머 완료 확인
       if (record.timer && Number(record.timer.endAt) <= now) {
         const timer = record.timer;
         const dedupeKey = `smart-clock:timer-sent:${id}:${timer.endAt}`;
@@ -145,6 +179,14 @@ module.exports = async function handler(req, res) {
         }, dedupeKey);
         if (delivered) {
           sent++;
+          if (isUrgent) {
+            record.activeRinging = {
+              type: 'timer',
+              alarmId: 'timer',
+              label: '카운트다운 타이머 완료',
+              startedAt: now
+            };
+          }
           record.timer = null;
           changed = true;
         }
