@@ -1,16 +1,17 @@
-name: Dispatch Smart Clock Push Alarms
+name: Smart Clock Push Dispatch
 
 on:
   schedule:
     - cron: '* * * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 jobs:
-  dispatch:
+  dispatch-push:
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 2
+
     steps:
-      - name: Call push-dispatch endpoint
+      - name: Call Vercel Push Dispatch
         env:
           DISPATCH_URL: ${{ secrets.PUSH_DISPATCH_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
