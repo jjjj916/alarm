@@ -30,5 +30,4 @@ jobs:
               "$DISPATCH_URL"
           fi
           echo ""
-          fi
           echo "✅ Cron 호출 성공"
