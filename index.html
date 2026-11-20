@@ -1245,7 +1245,14 @@
       if (!wakeLock) wakeLockRequested = false;
     });
 
+    function ensureNotificationPermissionForVibration() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
+    }
+
     function saveAlarms(clearRinging = false) {
+      ensureNotificationPermissionForVibration();
       ensureServerScheduleFields();
       localStorage.setItem('saved_alarms', JSON.stringify(alarms));
       updateMediaSessionMetadata(isRinging || isTimerRinging);
@@ -1811,6 +1818,25 @@
       if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
     });
 
+    function triggerBackgroundVibration(payload) {
+      if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
+      navigator.serviceWorker.ready.then((reg) => {
+        if (reg.active) {
+          reg.active.postMessage({ type: 'TRIGGER_BG_VIBRATION', payload });
+        }
+      }).catch(() => {});
+    }
+
+    function stopBackgroundVibration(alarmId = null, scheduleKey = null) {
+      if (!('serviceWorker' in navigator)) return;
+      navigator.serviceWorker.ready.then((reg) => {
+        if (reg.active) {
+          reg.active.postMessage({ type: 'STOP_INFINITE_PUSH', alarmId, scheduleKey });
+        }
+      }).catch(() => {});
+    }
+
     function triggerAlarm(alarm) {
       if (alarm.randomDaily && !alarm.nextSnoozeTime) {
         const ringingNow = getSynchronizedNow();
@@ -1859,6 +1885,14 @@
         if ('vibrate' in navigator) navigator.vibrate(vibePattern);
       }, repeatMs);
       if ('vibrate' in navigator) navigator.vibrate(vibePattern);
+      triggerBackgroundVibration({
+        alarmId: String(alarm.id),
+        title: `⏰ [${alarm.group || '기본 그룹'}] ${alarm.name || '알람'}`,
+        label: `[${alarm.group || '기본 그룹'}] ${alarm.name || '알람'}`,
+        body: `${alarm.nextSnoozeTime || alarm.time} 알람 · [✕ 알람 끄기]를 눌러 종료하세요.`,
+        snoozeLevel: level,
+        scheduleKey: alarm.lastTriggeredKey || ''
+      });
     }
 
     function escalateAlarmSound(alarm) {
@@ -1916,6 +1950,7 @@
         syncCurrentPushState(true, targetId, resolvedScheduleKey);
       }
 
+      stopBackgroundVibration(targetId, resolvedScheduleKey);
       stopAndResetMasterAudio();
     }
 
@@ -2075,6 +2110,14 @@
         if ('vibrate' in navigator) navigator.vibrate([500, 150, 500]);
       }, 800);
       if ('vibrate' in navigator) navigator.vibrate([500, 150, 500]);
+      triggerBackgroundVibration({
+        alarmId: 'timer',
+        title: '⏳ 타이머 완료',
+        label: '카운트다운 타이머 완료',
+        body: '설정한 타이머 시간이 종료되었습니다 · [✕ 알람 끄기]를 눌러 종료하세요.',
+        snoozeLevel: 2,
+        scheduleKey: ''
+      });
     }
     function resetTimerToIdle() {
       timerState = 'idle'; clearInterval(timerInterval); syncCurrentPushState();
