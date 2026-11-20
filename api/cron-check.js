@@ -1,79 +1,165 @@
-import webpush from 'web-push';
+'use strict';
 
-export default async function handler(req, res) {
-  const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  if (!redisUrl || !redisToken || !publicKey || !privateKey) return res.status(500).json({ error: '환경 변수 누락' });
+const {
+  getRedis, SUBSCRIPTIONS_SET, recordKey, configureWebPush,
+  getZonedParts, zonedWallTimeToUtc, validTimeZone, isCronAuthorized
+} = require('../lib/server');
 
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:admin@example.com', publicKey, privateKey);
+function localDateKey(parts) {
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+}
+
+const DELIVERY_GRACE_MS = 90 * 1000;
+
+function alarmIsDue(alarm, parts, nowMs, timeZone) {
+  if (!alarm.enabled) return null;
+
+  if (Number.isFinite(Number(alarm.nextSnoozeAt))) {
+    const dueAt = Number(alarm.nextSnoozeAt);
+    if (dueAt <= nowMs && nowMs - dueAt <= DELIVERY_GRACE_MS) {
+      return { kind: 'snooze', scheduledAt: dueAt, displayTime: alarm.nextSnoozeTime || alarm.time };
+    }
+    if (dueAt > nowMs) return null;
+  }
+
+  if (alarm.nextSnoozeTime && !Number.isFinite(Number(alarm.nextSnoozeAt))) {
+    if (parts.hour === Number(alarm.nextSnoozeTime.slice(0, 2)) &&
+        parts.minute === Number(alarm.nextSnoozeTime.slice(3, 5))) {
+      return { kind: 'snooze', scheduledAt: `${localDateKey(parts)}T${alarm.nextSnoozeTime}`, displayTime: alarm.nextSnoozeTime };
+    }
+  }
+
+  if (alarm.isRepeating) {
+    const [hour, minute] = alarm.time.split(':').map(Number);
+    if (!(alarm.days || []).includes(parts.weekday)) return null;
+    const scheduledAt = zonedWallTimeToUtc({
+      year: parts.year, month: parts.month, day: parts.day, hour, minute
+    }, timeZone);
+    if (nowMs >= scheduledAt && nowMs - scheduledAt <= DELIVERY_GRACE_MS) {
+      return { kind: 'repeat', scheduledAt, displayTime: alarm.time };
+    }
+    return null;
+  }
+
+  const singleShotAt = Number(alarm.singleShotAt);
+  if (Number.isFinite(singleShotAt) && singleShotAt > 0 && nowMs >= singleShotAt && nowMs - singleShotAt <= DELIVERY_GRACE_MS) {
+    return { kind: 'single', scheduledAt: singleShotAt, displayTime: alarm.time };
+  }
+  return null;
+}
+
+async function sendPush(webpush, redis, id, record, payload, dedupeKey) {
+  const reserved = await redis.set(dedupeKey, '1', { nx: true, ex: 14 * 86400 });
+  if (reserved !== 'OK') return false;
   try {
-    const membersRes = await fetch(`${redisUrl}/smembers/push_subscribers`, { headers: { Authorization: `Bearer ${redisToken}` } });
-    const keys = (await membersRes.json()).result || [];
-    let sentCount = 0;
+    await webpush.sendNotification(record.subscription, JSON.stringify(payload), {
+      TTL: 90,
+      urgency: 'high'
+    });
+    return true;
+  } catch (error) {
+    await redis.del(dedupeKey).catch(() => {});
+    const status = error.statusCode || error.status;
+    if (status === 404 || status === 410) {
+      await redis.srem(SUBSCRIPTIONS_SET, id);
+      await redis.del(recordKey(id));
+    }
+    console.error('web push delivery failed:', status || '', error.message || error);
+    return false;
+  }
+}
 
-    for (const key of keys) {
-      const subRes = await fetch(`${redisUrl}/get/${encodeURIComponent(key)}`, { headers: { Authorization: `Bearer ${redisToken}` } });
-      const subData = await subRes.json();
-      if (!subData.result) continue;
-      const record = JSON.parse(subData.result);
-      const { subscription, alarms, timer, timeZone } = record;
-      if (!subscription) continue;
+module.exports = async function handler(req, res) {
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    res.setHeader('Allow', 'GET, POST');
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+  if (!isCronAuthorized(req)) return res.status(401).json({ error: 'Unauthorized' });
 
-      let recordChanged = false;
-      const now = new Date();
+  try {
+    const redis = getRedis();
+    const webpush = configureWebPush();
+    const ids = await redis.smembers(SUBSCRIPTIONS_SET);
+    const now = Date.now();
+    let sent = 0;
+    let checked = 0;
+    let expired = 0;
 
-      if (timer && Number(timer.endAt) > 0 && now.getTime() >= Number(timer.endAt)) {
-        try {
-          await webpush.sendNotification(subscription, JSON.stringify({
-            type: 'timer', totalMs: timer.totalMs || 0, title: '⏳ 스마트 시계 타이머 종료',
-            body: '설정한 타이머 시간이 완료되었습니다!', label: '타이머 종료', tag: `smart-clock-timer-${timer.endAt}`
-          }));
-          sentCount++;
-        } catch (e) {}
-        record.timer = null;
-        recordChanged = true;
+    for (const id of ids) {
+      const key = recordKey(id);
+      const record = await redis.get(key);
+      if (!record || !record.subscription) {
+        await redis.srem(SUBSCRIPTIONS_SET, id);
+        expired++;
+        continue;
       }
+      checked++;
+      const timeZone = validTimeZone(record.timeZone) ? record.timeZone : 'Asia/Seoul';
+      const parts = getZonedParts(new Date(now), timeZone);
+      const isUrgent = Boolean(record.urgentBurstMode);
+      let changed = false;
 
-      if (Array.isArray(alarms)) {
-        const formatter = new Intl.DateTimeFormat('en-US', { timeZone: timeZone || 'Asia/Seoul', hour12: false, weekday: 'short', hour: '2-digit', minute: '2-digit' });
-        const parts = formatter.formatToParts(now);
-        const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-        const currentDay = dayMap[parts.find((p) => p.type === 'weekday')?.value];
-        const hourStr = parts.find((p) => p.type === 'hour')?.value;
-        const currentHM = `${hourStr === '24' ? '00' : hourStr}:${parts.find((p) => p.type === 'minute')?.value}`;
+      for (const alarm of (record.alarms || [])) {
+        const due = alarmIsDue(alarm, parts, now, timeZone);
+        if (!due) continue;
+        const dedupeKey = `smart-clock:sent:${id}:${String(alarm.id)}:${String(due.scheduledAt)}`;
+        const delivered = await sendPush(webpush, redis, id, record, {
+          type: 'alarm',
+          urgentBurstMode: isUrgent,
+          title: isUrgent ? `🚨 [긴급 알람] ${alarm.name || '스마트 시계 알람'}` : `⏰ ${alarm.name || '스마트 시계 알람'}`,
+          body: `[${alarm.group || '알람'}] ${due.displayTime} 알람이 울립니다. 터치하여 끄세요.`,
+          label: alarm.name || '스마트 시계 알람',
+          alarmId: String(alarm.id),
+          time: due.displayTime,
+          tag: isUrgent
+            ? `smart-clock-urgent-${alarm.id}-${now}`
+            : `smart-clock-alarm-${alarm.id}-${String(due.scheduledAt).replace(/[^0-9]/g, '')}`
+        }, dedupeKey);
 
-        for (const alarm of alarms) {
-          if (!alarm.enabled || !Array.isArray(alarm.days) || !alarm.days.includes(currentDay)) continue;
-          const targetTime = alarm.nextSnoozeTime || alarm.time;
-          if (targetTime === currentHM) {
-            if (alarm.serverLastSentAt && now.getTime() - Number(alarm.serverLastSentAt) < 55000) continue;
-            try {
-              await webpush.sendNotification(subscription, JSON.stringify({
-                type: 'alarm', alarmId: alarm.id, title: `⏰ [${alarm.group || '알람'}] ${alarm.name || '알람'}`,
-                body: `${targetTime} 알람이 울립니다!`, label: `[${alarm.group || '알람'}] ${alarm.name || '알람'}`,
-                tag: `smart-clock-alarm-${alarm.id}-${currentHM}`
-              }));
-              sentCount++;
-              alarm.serverLastSentAt = now.getTime();
-              if (!alarm.isRepeating) { alarm.enabled = false; alarm.serverFiredAt = now.getTime(); }
-              recordChanged = true;
-            } catch (pushErr) {
-              if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
-                await fetch(`${redisUrl}/srem/push_subscribers/${encodeURIComponent(key)}`, { method: 'POST', headers: { Authorization: `Bearer ${redisToken}` } });
-              }
-            }
+        if (delivered) {
+          sent++;
+          alarm.serverLastSentAt = now;
+          if (due.kind === 'single') {
+            alarm.enabled = false;
+            alarm.serverFiredAt = now;
           }
+          if (due.kind === 'snooze') {
+            alarm.nextSnoozeAt = null;
+            alarm.nextSnoozeTime = null;
+          }
+          changed = true;
         }
       }
 
-      if (recordChanged) {
-        await fetch(`${redisUrl}/set/${encodeURIComponent(key)}`, { method: 'POST', headers: { Authorization: `Bearer ${redisToken}` }, body: JSON.stringify(record) });
+      if (record.timer && Number(record.timer.endAt) <= now) {
+        const timer = record.timer;
+        const dedupeKey = `smart-clock:timer-sent:${id}:${timer.endAt}`;
+        const delivered = await sendPush(webpush, redis, id, record, {
+          type: 'timer',
+          urgentBurstMode: isUrgent,
+          title: '⏳ 타이머 완료',
+          body: '설정한 카운트다운 시간이 종료되었습니다.',
+          label: '카운트다운 타이머 완료',
+          totalMs: Number(timer.totalMs) || 0,
+          tag: `smart-clock-timer-${timer.endAt}`
+        }, dedupeKey);
+        if (delivered) {
+          sent++;
+          record.timer = null;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        record.updatedAt = now;
+        await redis.set(key, record);
       }
     }
-    return res.status(200).json({ ok: true, sentCount });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ ok: true, checked, sent, expired, checkedAt: new Date(now).toISOString() });
+  } catch (error) {
+    console.error('cron-check error:', error);
+    return res.status(error.statusCode || 500).json({ error: error.message || '알람 확인 중 오류가 발생했습니다.' });
   }
-}
+};

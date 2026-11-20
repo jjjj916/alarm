@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-clock-v13';
+const CACHE_NAME = 'smart-clock-v16';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -36,9 +36,14 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 self.addEventListener('push', (event) => {
   let payload = {
     type: 'alarm',
+    urgentBurstMode: false,
     title: '⏰ 스마트 시계 알람',
     body: '알람이 울립니다!',
     label: '스마트 시계 알람'
@@ -61,19 +66,41 @@ self.addEventListener('push', (event) => {
   params.set('body', payload.body || '알람이 울립니다!');
   const targetUrl = `./index.html?${params.toString()}`;
 
-  const options = {
+  const baseOptions = {
     body: payload.body || '알람이 울립니다!',
     icon: './icon-192.png',
     badge: './icon-192.png',
-    vibrate: [500, 150, 500, 150, 500],
+    vibrate: [800, 150, 800, 150, 800, 150, 800],
     requireInteraction: true,
     renotify: true,
     silent: false,
     tag: payload.tag || `smart-clock-${payload.type || 'alarm'}-${Date.now()}`,
-    data: { url: targetUrl }
+    data: { url: targetUrl, payload }
   };
 
-  event.waitUntil(self.registration.showNotification(payload.title || '⏰ 스마트 시계 알람', options));
+  const notifyClients = clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    for (const client of clientList) {
+      client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload });
+    }
+  });
+
+  const deliverNotifications = async () => {
+    await self.registration.showNotification(payload.title || '⏰ 스마트 시계 알람', baseOptions);
+    if (payload.urgentBurstMode) {
+      for (let i = 1; i <= 2; i++) {
+        await sleep(4000);
+        await self.registration.showNotification(
+          `🚨 (${i + 1}/3차 긴급 알림) ${payload.label || '스마트 시계 알람'}`,
+          Object.assign({}, baseOptions, {
+            tag: `smart-clock-urgent-burst-${Date.now()}-${i}`,
+            body: '다른 앱 사용 중 알람이 울리고 있습니다! 배너를 터치해 알람을 끄세요.'
+          })
+        );
+      }
+    }
+  };
+
+  event.waitUntil(Promise.all([deliverNotifications(), notifyClients]));
 });
 
 self.addEventListener('notificationclick', (event) => {
