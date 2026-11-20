@@ -105,22 +105,3 @@ module.exports = async function handler(req, res) {
     return res.status(error.statusCode || 500).json({ error: error.message || '푸시 설정 저장에 실패했습니다.' });
   }
 };
-// api/push-subscribe.js 내부에 추가할 QStash 정각 예약 헬퍼 예시
-async function scheduleExactPushWithQStash(targetUrl, cronSecret, triggerAtMs) {
-  const qstashToken = process.env.QSTASH_TOKEN;
-  if (!qstashToken || !triggerAtMs || triggerAtMs <= Date.now()) return;
-
-  // Unix timestamp(초 단위)로 정확한 발송 시각 지정
-  const notBeforeSec = Math.floor(triggerAtMs / 1000);
-
-  await fetch(`https://qstash.upstash.io/v2/publish/${encodeURIComponent(targetUrl)}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${qstashToken}`,
-      'Content-Type': 'application/json',
-      'Upstash-Not-Before': String(notBeforeSec),
-      'Upstash-Forward-Authorization': `Bearer ${cronSecret}`
-    },
-    body: JSON.stringify({ source: 'qstash-exact-alarm' })
-  });
-}
