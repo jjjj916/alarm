@@ -2,9 +2,7 @@ name: Smart Clock Push Cron
 
 on:
   schedule:
-    # 매분 실행 (GitHub 서버 상황에 따라 최소 1~5분 간격으로 트리거됨)
     - cron: '* * * * *'
-  # GitHub Actions 탭에서 수동으로 즉시 실행 테스트할 수 있도록 허용
   workflow_dispatch:
 
 jobs:
@@ -14,9 +12,22 @@ jobs:
 
     steps:
       - name: Call Vercel /api/cron-check
+        env:
+          APP_URL: ${{ secrets.VERCEL_APP_URL }}
+          SECRET_TOKEN: ${{ secrets.CRON_SECRET }}
         run: |
-          RESPONSE=$(curl -sS -w "\n%{http_code}" -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron-check" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          if [ -z "$APP_URL" ]; then
+            echo "❌ VERCEL_APP_URL 시크릿이 비어 있습니다. Settings > Secrets and variables > Actions > Repository secrets에 등록해주세요."
+            exit 1
+          fi
+          if [ -z "$SECRET_TOKEN" ]; then
+            echo "❌ CRON_SECRET 시크릿이 비어 있습니다. Repository secrets에 등록해주세요."
+            exit 1
+          fi
+
+          CLEAN_URL="${APP_URL%/}"
+          RESPONSE=$(curl -sS -w "\n%{http_code}" -X GET "${CLEAN_URL}/api/cron-check" \
+            -H "Authorization: Bearer ${SECRET_TOKEN}" \
             -H "User-Agent: GitHub-Actions-Cron")
           
           HTTP_BODY=$(echo "$RESPONSE" | sed '$d')
