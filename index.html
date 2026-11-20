@@ -1050,7 +1050,7 @@
         if (idMatched || keyMatched || (!targetAlarmId && a.enabled)) {
           updated = true;
           return Object.assign({}, a, {
-            enabled: Boolean(a.isRepeating),
+            enabled: false,
             remainingSnooze: Number(a.snoozeCount) || 3,
             snoozeLevel: 0,
             nextSnoozeTime: null,
@@ -1838,9 +1838,7 @@
       document.getElementById('modalAlarmName').innerText = `[${alarm.group || '기본 그룹'}] ${alarm.name || '알람'}`;
       document.getElementById('modalAlarmTime').innerText = alarm.nextSnoozeTime || alarm.time || '00:00';
       document.getElementById('modalSoundTitle').innerText = `알람음: ${alarm.randomDaily ? `매일 랜덤 · ${soundNames[resolvedSoundIdx]}` : soundNames[resolvedSoundIdx]}`;
-      document.getElementById('modalRepeatInfo').innerText = alarm.isRepeating 
-        ? "🔄 반복 요일 지정됨: 다음 반복 요일에도 자동 ON 유지" 
-        : "💡 단발성 알람: 끄면 자동으로 OFF";
+      document.getElementById('modalRepeatInfo').innerText = "💡 끄기를 누르면 알람 스위치가 OFF로 전환됩니다";
       const sCount = Number(alarm.snoozeCount) || 3;
       const rSnooze = Number.isFinite(Number(alarm.remainingSnooze)) ? Number(alarm.remainingSnooze) : sCount;
       const sInt = Number(alarm.snoozeInterval) || 5;
@@ -1898,7 +1896,7 @@
       if (currentRingingAlarm) {
         const matched = alarms.find(a => String(a.id) === String(currentRingingAlarm.id)) || currentRingingAlarm;
         resolvedScheduleKey = resolvedScheduleKey || matched.lastTriggeredKey || `${todayKey}_${matched.time}`;
-        matched.enabled = Boolean(matched.isRepeating);
+        matched.enabled = false;
         matched.remainingSnooze = Number(matched.snoozeCount) || 3;
         matched.snoozeLevel = 0;
         matched.nextSnoozeTime = null;
