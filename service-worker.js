@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-clock-v24';
+const CACHE_NAME = 'smart-clock-v25';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -18,6 +18,7 @@ const VIBE_BY_LEVEL = [
 
 let isAlarmDismissed = false;
 let latestAlarmPayload = null;
+let dismissedAlarmIds = new Set();
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE)));
@@ -50,14 +51,14 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function dismissOnServer(alarmId = null) {
+async function dismissOnServer(alarmId = null, scheduleKey = null) {
   try {
     const sub = await self.registration.pushManager.getSubscription();
     if (!sub) return;
     await fetch('./api/push-dismiss', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: sub.toJSON(), alarmId })
+      body: JSON.stringify({ subscription: sub.toJSON(), alarmId, scheduleKey })
     });
   } catch (e) {}
 }
@@ -66,14 +67,14 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'STOP_INFINITE_PUSH') {
     isAlarmDismissed = true;
     const targetAlarmId = event.data.alarmId || (latestAlarmPayload && latestAlarmPayload.alarmId) || null;
+    const scheduleKey = event.data.scheduleKey || (latestAlarmPayload && latestAlarmPayload.scheduleKey) || null;
+    if (targetAlarmId) dismissedAlarmIds.add(String(targetAlarmId));
     self.registration.getNotifications().then(list => list.forEach(n => n.close()));
-    dismissOnServer(targetAlarmId);
+    dismissOnServer(targetAlarmId, scheduleKey);
   }
 });
 
 self.addEventListener('push', (event) => {
-  isAlarmDismissed = false;
-
   let payload = {
     type: 'alarm',
     urgentBurstMode: false,
@@ -94,6 +95,12 @@ self.addEventListener('push', (event) => {
   } catch (error) {
     if (event.data) payload.body = event.data.text();
   }
+
+  if (payload.alarmId && dismissedAlarmIds.has(String(payload.alarmId)) && payload.urgentBurstMode) {
+    return;
+  }
+
+  isAlarmDismissed = false;
   latestAlarmPayload = payload;
 
   const sLevel = Math.max(0, Number(payload.snoozeLevel) || 0);
@@ -118,6 +125,7 @@ self.addEventListener('push', (event) => {
     params.set('snoozeCount', String(sCount));
     params.set('remainingSnooze', String(rSnooze));
     params.set('snoozeLevel', String(sLevel));
+    if (payload.scheduleKey) params.set('scheduleKey', String(payload.scheduleKey));
   }
   params.set('label', payload.label || payload.title || '알람');
   params.set('body', payload.body || '알람이 울립니다!');
@@ -173,19 +181,22 @@ self.addEventListener('notificationclick', (event) => {
   const data = event.notification.data || {};
   const payload = data.payload || latestAlarmPayload || {};
   const alarmId = payload.alarmId || null;
+  const scheduleKey = payload.scheduleKey || null;
   event.notification.close();
 
   if (action === 'dismiss_alarm') {
     isAlarmDismissed = true;
+    if (alarmId) dismissedAlarmIds.add(String(alarmId));
     event.waitUntil(
       Promise.all([
         self.registration.getNotifications().then(list => list.forEach(n => n.close())),
-        dismissOnServer(alarmId),
+        dismissOnServer(alarmId, scheduleKey),
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
           for (const client of clientList) {
             client.postMessage({
               type: 'ALARM_DISMISSED_FROM_PUSH',
               alarmId,
+              scheduleKey,
               payload
             });
           }
@@ -196,11 +207,12 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   isAlarmDismissed = true;
+  if (alarmId) dismissedAlarmIds.add(String(alarmId));
   const targetUrl = data.url || './index.html';
   event.waitUntil(
     Promise.all([
       self.registration.getNotifications().then(list => list.forEach(n => n.close())),
-      dismissOnServer(alarmId),
+      dismissOnServer(alarmId, scheduleKey),
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
         for (const client of clientList) {
           if ('focus' in client) {

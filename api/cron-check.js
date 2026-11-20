@@ -13,6 +13,9 @@ const DELIVERY_GRACE_MS = 90 * 1000;
 
 function alarmIsDue(alarm, parts, nowMs, timeZone) {
   if (!alarm.enabled) return null;
+  if (alarm.userDismissedAt && nowMs - Number(alarm.userDismissedAt) < 25 * 1000 && !alarm.nextSnoozeAt) {
+    return null;
+  }
 
   if (Number.isFinite(Number(alarm.nextSnoozeAt))) {
     const dueAt = Number(alarm.nextSnoozeAt);
@@ -35,15 +38,19 @@ function alarmIsDue(alarm, parts, nowMs, timeZone) {
     const scheduledAt = zonedWallTimeToUtc({
       year: parts.year, month: parts.month, day: parts.day, hour, minute
     }, timeZone);
+    const schedKey = `${localDateKey(parts)}_${alarm.time}_${scheduledAt}`;
+    if (alarm.dismissedScheduleKey === schedKey) return null;
     if (nowMs >= scheduledAt && nowMs - scheduledAt <= DELIVERY_GRACE_MS) {
-      return { kind: 'repeat', scheduledAt, displayTime: alarm.time };
+      return { kind: 'repeat', scheduledAt, scheduleKey: schedKey, displayTime: alarm.time };
     }
     return null;
   }
 
   const singleShotAt = Number(alarm.singleShotAt);
+  const schedKey = `single_${alarm.time}_${singleShotAt}`;
+  if (alarm.dismissedScheduleKey === schedKey) return null;
   if (Number.isFinite(singleShotAt) && singleShotAt > 0 && nowMs >= singleShotAt && nowMs - singleShotAt <= DELIVERY_GRACE_MS) {
-    return { kind: 'single', scheduledAt: singleShotAt, displayTime: alarm.time };
+    return { kind: 'single', scheduledAt: singleShotAt, scheduleKey: schedKey, displayTime: alarm.time };
   }
   return null;
 }
@@ -121,6 +128,7 @@ module.exports = async function handler(req, res) {
           snoozeCount: sCount,
           remainingSnooze: rSnooze,
           snoozeLevel: sLevel,
+          scheduleKey: ringInfo.scheduleKey || '',
           alarmId: ringInfo.alarmId || '',
           tag: `smart-clock-urgent-${ringInfo.alarmId || 'timer'}-${now}`
         }, null);
@@ -155,6 +163,7 @@ module.exports = async function handler(req, res) {
           snoozeCount: sCount,
           remainingSnooze: rSnooze,
           snoozeLevel: sLevel,
+          scheduleKey: due.scheduleKey || '',
           alarmId: String(alarm.id),
           tag: isUrgent
             ? `smart-clock-urgent-${alarm.id}-${now}`
@@ -178,6 +187,7 @@ module.exports = async function handler(req, res) {
               snoozeCount: sCount,
               remainingSnooze: rSnooze,
               snoozeLevel: sLevel,
+              scheduleKey: due.scheduleKey || '',
               startedAt: now
             };
           }

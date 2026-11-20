@@ -18,6 +18,8 @@ module.exports = async function handler(req, res) {
     }
 
     const alarmId = body.alarmId ? String(body.alarmId) : null;
+    const scheduleKey = body.scheduleKey ? String(body.scheduleKey) : null;
+    const dismissedAt = Date.now();
     const redis = getRedis();
     const id = subscriptionId(subscription);
     const key = recordKey(id);
@@ -25,27 +27,29 @@ module.exports = async function handler(req, res) {
 
     if (record) {
       record.activeRinging = null;
-      if (alarmId && Array.isArray(record.alarms)) {
+      if (Array.isArray(record.alarms)) {
         record.alarms = record.alarms.map(a => {
-          if (String(a.id) === alarmId) {
+          if (!alarmId || String(a.id) === alarmId) {
             return Object.assign({}, a, {
               enabled: Boolean(a.isRepeating),
               remainingSnooze: Number(a.snoozeCount) || 3,
               snoozeLevel: 0,
               nextSnoozeAt: null,
               nextSnoozeTime: null,
-              serverFiredAt: a.isRepeating ? null : Date.now()
+              userDismissedAt: dismissedAt,
+              dismissedScheduleKey: scheduleKey || a.dismissedScheduleKey || `${a.time}_${a.singleShotAt || ''}`,
+              serverFiredAt: a.isRepeating ? null : dismissedAt
             });
           }
           return a;
         });
       }
-      record.updatedAt = Date.now();
+      record.updatedAt = dismissedAt;
       await redis.set(key, record);
     }
 
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, dismissedAt });
   } catch (error) {
     console.error('push-dismiss error:', error);
     return res.status(500).json({ error: error.message || 'Dismiss failed' });

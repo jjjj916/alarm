@@ -877,12 +877,12 @@
       }
     }
 
-    async function syncCurrentPushState(clearRinging = false, alarmId = null) {
+    async function syncCurrentPushState(clearRinging = false, alarmId = null, scheduleKey = null) {
       if (!('serviceWorker' in navigator)) return;
       try {
         const reg = await navigator.serviceWorker.ready;
         if (clearRinging && reg.active) {
-          reg.active.postMessage({ type: 'STOP_INFINITE_PUSH', alarmId });
+          reg.active.postMessage({ type: 'STOP_INFINITE_PUSH', alarmId, scheduleKey });
         }
         if (pushEnabled) {
           const sub = await reg.pushManager.getSubscription();
@@ -891,9 +891,10 @@
       } catch (error) {}
     }
 
-    function markAlarmCompletedInState(targetAlarmId) {
+    function markAlarmCompletedInState(targetAlarmId, scheduleKey = null) {
       if (!targetAlarmId) return false;
       let updated = false;
+      const nowMs = Date.now();
       alarms = alarms.map(a => {
         if (String(a.id) === String(targetAlarmId)) {
           updated = true;
@@ -903,7 +904,9 @@
             snoozeLevel: 0,
             nextSnoozeTime: null,
             nextSnoozeAt: null,
-            serverFiredAt: a.isRepeating ? null : Date.now()
+            userDismissedAt: nowMs,
+            dismissedScheduleKey: scheduleKey || a.lastTriggeredKey || a.dismissedScheduleKey || null,
+            serverFiredAt: a.isRepeating ? null : nowMs
           });
         }
         return a;
@@ -1227,13 +1230,16 @@
       if (!isRinging) {
         for (const alarm of alarms) {
           if (!alarm.enabled) continue;
+          if (alarm.userDismissedAt && Date.now() - Number(alarm.userDismissedAt) < 25 * 1000 && !alarm.nextSnoozeAt) {
+            continue;
+          }
 
           if (!alarm.isRepeating && !alarm.nextSnoozeAt) {
             const shotAt = Number(alarm.singleShotAt);
             if (!shotAt) continue;
             const diffMs = now.getTime() - shotAt;
             const triggerKey = `${todayKey}_${alarm.time}_${shotAt}`;
-            if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey) {
+            if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey && alarm.dismissedScheduleKey !== triggerKey) {
               alarm.lastTriggeredKey = triggerKey;
               saveAlarms();
               triggerAlarm(alarm);
@@ -1258,7 +1264,7 @@
             triggerKey = `${todayKey}_${alarm.time}`;
           }
 
-          if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey) {
+          if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey && alarm.dismissedScheduleKey !== triggerKey) {
             alarm.lastTriggeredKey = triggerKey;
             saveAlarms();
             triggerAlarm(alarm);
@@ -1312,6 +1318,8 @@
         lastTriggeredKey: null,
         singleShotAt,
         serverFiredAt: null,
+        userDismissedAt: null,
+        dismissedScheduleKey: null,
         nextSnoozeAt: null,
         enabled: true
       });
@@ -1369,7 +1377,13 @@
             a.remainingSnooze = Number(a.snoozeCount) || 3;
             a.nextSnoozeTime = null;
             a.nextSnoozeAt = null;
+            a.userDismissedAt = Date.now();
+            a.dismissedScheduleKey = a.lastTriggeredKey || null;
           } else {
+            a.snoozeLevel = 0;
+            a.remainingSnooze = Number(a.snoozeCount) || 3;
+            a.userDismissedAt = null;
+            a.dismissedScheduleKey = null;
             if (!a.isRepeating) {
               a.singleShotAt = computeNextSingleShotTimestamp(a.time);
               a.days = [new Date(a.singleShotAt).getDay()];
@@ -1508,6 +1522,8 @@
       alarm.snoozeLevel = 0;
       alarm.remainingSnooze = Number(alarm.snoozeCount) || 3;
       alarm.lastTriggeredKey = null;
+      alarm.userDismissedAt = null;
+      alarm.dismissedScheduleKey = null;
       alarm.singleShotAt = singleShotAt;
       alarm.serverFiredAt = null;
 
@@ -1563,7 +1579,8 @@
         days: selectedDays,
         isRepeating, snoozeInterval, snoozeCount, remainingSnooze: snoozeCount,
         snoozeLevel: 0, nextSnoozeTime: null, nextSnoozeAt: null,
-        singleShotAt, serverFiredAt: null, lastTriggeredKey: null, enabled: true
+        singleShotAt, serverFiredAt: null, userDismissedAt: null,
+        dismissedScheduleKey: null, lastTriggeredKey: null, enabled: true
       });
 
       alarms.sort((a, b) => a.time.localeCompare(b.time));
@@ -1583,9 +1600,13 @@
         alarms[idx].remainingSnooze = Number(alarms[idx].snoozeCount) || 3;
         alarms[idx].nextSnoozeTime = null;
         alarms[idx].nextSnoozeAt = null;
+        alarms[idx].userDismissedAt = Date.now();
+        alarms[idx].dismissedScheduleKey = alarms[idx].lastTriggeredKey || null;
       } else {
         alarms[idx].snoozeLevel = 0;
         alarms[idx].remainingSnooze = Number(alarms[idx].snoozeCount) || 3;
+        alarms[idx].userDismissedAt = null;
+        alarms[idx].dismissedScheduleKey = null;
         if (!alarms[idx].isRepeating) {
           alarms[idx].serverFiredAt = null;
           alarms[idx].singleShotAt = computeNextSingleShotTimestamp(alarms[idx].time);
@@ -1712,28 +1733,35 @@
       }
     }
 
-    function stopAllRingingState(explicitAlarmId = null) {
+    function stopAllRingingState(explicitAlarmId = null, explicitScheduleKey = null) {
       isRinging = false;
       isTimerRinging = false;
       if (alarmInterval) clearInterval(alarmInterval);
+      if ('vibrate' in navigator) navigator.vibrate(0);
+
       const targetId = explicitAlarmId || (currentRingingAlarm && currentRingingAlarm.id) || null;
+      const nowMs = Date.now();
+      let resolvedScheduleKey = explicitScheduleKey || null;
 
       if (currentRingingAlarm) {
         const matched = alarms.find(a => String(a.id) === String(currentRingingAlarm.id)) || currentRingingAlarm;
+        resolvedScheduleKey = resolvedScheduleKey || matched.lastTriggeredKey || `${formatDateKey(getSynchronizedNow())}_${matched.time}`;
         matched.enabled = Boolean(matched.isRepeating);
         matched.remainingSnooze = Number(matched.snoozeCount) || 3;
         matched.snoozeLevel = 0;
         matched.nextSnoozeTime = null;
         matched.nextSnoozeAt = null;
-        if (!matched.isRepeating) matched.serverFiredAt = Date.now();
+        matched.userDismissedAt = nowMs;
+        matched.dismissedScheduleKey = resolvedScheduleKey;
+        if (!matched.isRepeating) matched.serverFiredAt = nowMs;
         escalateAlarmSound(matched);
         saveAlarms(true);
         renderAlarmList();
         updateClock();
         currentRingingAlarm = null;
       } else {
-        if (targetId) markAlarmCompletedInState(targetId);
-        syncCurrentPushState(true, targetId);
+        if (targetId) markAlarmCompletedInState(targetId, resolvedScheduleKey);
+        syncCurrentPushState(true, targetId, resolvedScheduleKey);
       }
       restoreMasterAudioAfterRing();
       document.getElementById('alarmModal').classList.add('hidden');
@@ -1744,6 +1772,7 @@
     document.getElementById('snoozeAlarmBtn').addEventListener('click', () => {
       isRinging = false;
       if (alarmInterval) clearInterval(alarmInterval);
+      if ('vibrate' in navigator) navigator.vibrate(0);
       document.getElementById('alarmModal').classList.add('hidden');
 
       const targetAlarm = currentRingingAlarm
@@ -1757,6 +1786,8 @@
           targetAlarm.remainingSnooze = rSnooze - 1;
           targetAlarm.snoozeLevel = (Number(targetAlarm.snoozeLevel) || 0) + 1;
           targetAlarm.enabled = true;
+          targetAlarm.userDismissedAt = null;
+          targetAlarm.dismissedScheduleKey = null;
           const now = getSynchronizedNow();
           now.setMinutes(now.getMinutes() + (Number(targetAlarm.snoozeInterval) || 5));
           now.setSeconds(0, 0);
@@ -1771,6 +1802,7 @@
           targetAlarm.snoozeLevel = 0;
           targetAlarm.nextSnoozeTime = null;
           targetAlarm.nextSnoozeAt = null;
+          targetAlarm.userDismissedAt = Date.now();
           escalateAlarmSound(targetAlarm);
         }
       }
@@ -1965,13 +1997,19 @@
         snoozeLevel: sLevel,
         nextSnoozeTime: null,
         nextSnoozeAt: null,
-        lastTriggeredKey: null,
+        lastTriggeredKey: payload.scheduleKey || null,
         enabled: isRepeating
       };
     }
 
     function triggerFromPushPayload(payload) {
       if (isRinging || !payload) return;
+      if (payload.alarmId) {
+        const matched = alarms.find((a) => String(a.id) === String(payload.alarmId));
+        if (matched && matched.userDismissedAt && Date.now() - Number(matched.userDismissedAt) < 10 * 1000) {
+          return;
+        }
+      }
       if (payload.type === 'timer') {
         triggerTimerFinished(Number(payload.totalMs) || 0);
         return;
@@ -2001,13 +2039,14 @@
       const snoozeCountParam = params.get('snoozeCount');
       const remainingSnoozeParam = params.get('remainingSnooze');
       const snoozeLevelParam = params.get('snoozeLevel');
+      const scheduleKeyParam = params.get('scheduleKey');
       const labelParam = params.get('label') || '알람';
       window.history.replaceState({}, document.title, window.location.pathname);
 
       const now = getSynchronizedNow();
       const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       if (alarmIdParam && !isRepeatingParam) {
-        markAlarmCompletedInState(alarmIdParam);
+        markAlarmCompletedInState(alarmIdParam, scheduleKeyParam);
       }
 
       if (isRinging) return;
@@ -2022,6 +2061,7 @@
         snoozeCount: snoozeCountParam !== null ? Number(snoozeCountParam) : undefined,
         remainingSnooze: remainingSnoozeParam !== null ? Number(remainingSnoozeParam) : undefined,
         snoozeLevel: snoozeLevelParam !== null ? Number(snoozeLevelParam) : undefined,
+        scheduleKey: scheduleKeyParam,
         label: labelParam
       }, currentHM));
     }
@@ -2035,7 +2075,7 @@
           triggerFromPushPayload(event.data.payload);
         }
         if (event.data && event.data.type === 'ALARM_DISMISSED_FROM_PUSH') {
-          stopAllRingingState(event.data.alarmId || null);
+          stopAllRingingState(event.data.alarmId || null, event.data.scheduleKey || null);
         }
       });
 

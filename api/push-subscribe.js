@@ -33,6 +33,7 @@ module.exports = async function handler(req, res) {
     const previous = await redis.get(key);
     const previousAlarms = new Map((previous?.alarms || []).map(a => [String(a.id), a]));
     const now = Date.now();
+    const clearRinging = Boolean(body.clearRinging);
 
     const alarms = body.alarms.map(sanitizeAlarm).filter(Boolean).map((alarm, idx) => {
       const raw = body.alarms[idx] || {};
@@ -46,8 +47,12 @@ module.exports = async function handler(req, res) {
       alarm.snoozeInterval = sInterval;
       alarm.remainingSnooze = remainingSnooze;
       alarm.snoozeLevel = snoozeLevel;
-      alarm.nextSnoozeAt = Number.isFinite(Number(raw.nextSnoozeAt)) ? Number(raw.nextSnoozeAt) : (alarm.nextSnoozeAt || null);
-      alarm.nextSnoozeTime = typeof raw.nextSnoozeTime === 'string' && raw.nextSnoozeTime ? raw.nextSnoozeTime : (alarm.nextSnoozeTime || null);
+      alarm.nextSnoozeAt = Number.isFinite(Number(raw.nextSnoozeAt)) ? Number(raw.nextSnoozeAt) : null;
+      alarm.nextSnoozeTime = typeof raw.nextSnoozeTime === 'string' && raw.nextSnoozeTime ? raw.nextSnoozeTime : null;
+      alarm.userDismissedAt = Number.isFinite(Number(raw.userDismissedAt)) ? Number(raw.userDismissedAt) : (old?.userDismissedAt || null);
+      alarm.dismissedScheduleKey = typeof raw.dismissedScheduleKey === 'string' && raw.dismissedScheduleKey
+        ? raw.dismissedScheduleKey
+        : (old?.dismissedScheduleKey || null);
 
       if (alarm.isRepeating) {
         alarm.singleShotAt = null;
@@ -59,8 +64,8 @@ module.exports = async function handler(req, res) {
           Number(old.singleShotAt) === Number(alarm.singleShotAt);
         if (sameSingleShot) {
           alarm.singleShotAt = Number(old.singleShotAt);
-          if (old.serverFiredAt) {
-            alarm.serverFiredAt = Number(old.serverFiredAt);
+          if (old.serverFiredAt || old.userDismissedAt) {
+            alarm.serverFiredAt = Number(old.serverFiredAt || old.userDismissedAt);
             alarm.enabled = false;
           }
         } else if (!alarm.singleShotAt) {
@@ -79,7 +84,6 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const clearRinging = Boolean(body.clearRinging);
     const activeRinging = clearRinging ? null : (previous?.activeRinging || null);
 
     const record = {
