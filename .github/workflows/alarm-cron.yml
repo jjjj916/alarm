@@ -30,5 +30,4 @@ jobs:
           if [ "$HTTP_STATUS" -ne 200 ]; then
             echo "❌ Cron 호출 실패 (HTTP $HTTP_STATUS)"
             exit 1
-          fi
           echo "✅ Cron 호출 성공"
