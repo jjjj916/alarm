@@ -25,57 +25,15 @@
       -webkit-tap-highlight-color: transparent;
       user-select: none;
     }
-    input, select {
-      user-select: auto;
-      box-sizing: border-box;
-      max-width: 100%;
-    }
-    select {
-      min-height: 46px;
-    }
-    .clean-card {
-      background-color: #ffffff;
-      border-radius: 26px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
-      overflow: hidden;
-    }
-    .pill-switch {
-      position: relative;
-      display: inline-block;
-      width: 44px;
-      height: 24px;
-    }
-    .pill-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-    .pill-slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #d1d5db;
-      transition: .25s;
-      border-radius: 34px;
-    }
-    .pill-slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .25s;
-      border-radius: 50%;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    }
-    input:checked + .pill-slider {
-      background-color: #0381fe;
-    }
-    input:checked + .pill-slider:before {
-      transform: translateX(20px);
-    }
+    input, select { user-select: auto; box-sizing: border-box; max-width: 100%; }
+    select { min-height: 46px; }
+    .clean-card { background-color: #ffffff; border-radius: 26px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03); overflow: hidden; }
+    .pill-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .pill-switch input { opacity: 0; width: 0; height: 0; }
+    .pill-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #d1d5db; transition: .25s; border-radius: 34px; }
+    .pill-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .25s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    input:checked + .pill-slider { background-color: #0381fe; }
+    input:checked + .pill-slider:before { transform: translateX(20px); }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center px-4">
@@ -83,7 +41,6 @@
   <audio id="masterAudioEngine" playsinline webkit-playsinline loop preload="auto"></audio>
 
   <div class="max-w-lg w-full space-y-4 my-1">
-    
     <!-- 상단 통합 유틸리티 바 -->
     <div class="flex justify-between items-center px-1 pt-1 gap-1.5 flex-wrap">
       <div class="flex items-center gap-1.5">
@@ -95,7 +52,7 @@
           🔔 푸시 알림: OFF
         </button>
         <button id="testPushBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
-          📡 푸시 확인
+          📡 푸시 테스트
         </button>
         <button id="urgentBurstBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🚨 무제한 긴급알림: OFF
@@ -123,7 +80,7 @@
       </div>
     </div>
 
-    <!-- 탭 1: 알람 & 서버 시간 동기화 -->
+    <!-- 탭 1: 알람 -->
     <div id="tab-alarm" class="space-y-4">
       <div class="text-center py-5 px-4">
         <p id="nextAlarmCountdown" class="text-lg font-bold text-gray-800 tracking-tight mb-1">모든 알람이 꺼져 있습니다</p>
@@ -131,7 +88,7 @@
         <p id="todayDateLabel" class="text-xs text-gray-500 font-medium mt-1">오늘 날짜 불러오는 중...</p>
       </div>
 
-      <!-- 📌 알람 정상 작동을 위한 필수 수칙 안내문 카드 -->
+      <!-- 필수 수칙 안내 -->
       <div class="clean-card p-4 bg-amber-50/95 border border-amber-200/90 text-left">
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
@@ -142,88 +99,41 @@
             접기 ▲
           </button>
         </div>
-
         <div id="essentialGuideBody" class="mt-3 pt-3 border-t border-amber-200/70 space-y-2.5 text-[11px] text-amber-950 leading-relaxed">
           <div class="flex items-start gap-2">
             <span class="font-extrabold text-indigo-700 shrink-0">1. 미디어 볼륨 조절</span>
-            <p>이 앱의 알람 소리는 전화 벨소리가 아닌 <b>유튜브·음악과 동일한 [미디어 볼륨]</b>으로 조절됩니다. 기기 측면 볼륨 버튼 또는 제어 센터에서 <b>미디어 음량</b>을 충분히 높여두세요.</p>
+            <p>이 앱의 알람 소리는 전화 벨소리가 아닌 <b>유튜브·음악과 동일한 [미디어 볼륨]</b>으로 조절됩니다. 측면 볼륨 버튼에서 <b>미디어 음량</b>을 높여두세요.</p>
           </div>
-
           <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
-            <span class="font-extrabold text-rose-600 shrink-0">2. 앱 완전 종료 금지</span>
-            <p>최근 앱 목록에서 브라우저(또는 홈 화면 앱)를 <b>위로 밀어 강제 종료하지 마세요.</b> 홈 화면으로 나가거나 다른 앱으로 전환만 해야 백그라운드 알람이 유지됩니다.</p>
-          </div>
-
-          <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
-            <span class="font-extrabold text-[#0381fe] shrink-0">3. 상단 2개 버튼 ON</span>
+            <span class="font-extrabold text-[#0381fe] shrink-0">2. 상단 3개 버튼 활용</span>
             <p>
-              • <b>화면 꺼짐 대비:</b> <span class="underline decoration-amber-400 font-bold">[🔔 푸시 알림: ON]</span>을 켜두면 화면이 잠겨도 정각에 서버 푸시와 진동이 울립니다.<br>
-              • <b>유튜브 시청 대비:</b> <span class="underline decoration-amber-400 font-bold">[🎧 오디오 유지: ON]</span> 상태에서 다른 앱으로 이동해야 알람 시각에 사운드 주도권을 가져옵니다.
+              • <b>잠금화면 푸시:</b> <span class="font-bold">[🔔 푸시 알림: ON]</span><br>
+              • <b>연속 반복 푸시:</b> <span class="font-bold">[🚨 무제한 긴급알림: ON]</span> (끄기 누를 때까지 15초 간격 반복 발송)<br>
+              • <b>백그라운드 소리:</b> <span class="font-bold">[🎧 오디오 유지: ON]</span> 상태에서 홈 화면으로 나가야 잠금화면에서도 알람음이 울립니다.
             </p>
           </div>
-
-          <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
-            <span class="font-extrabold text-emerald-700 shrink-0">4. 갤럭시(Android)</span>
-            <p>배터리 절전으로 알람이 밀리지 않도록 <b>[설정 &gt; 애플리케이션 &gt; 사용 중인 브라우저(Chrome/삼성 인터넷) &gt; 배터리 &gt; 제한 없음]</b>으로 설정해주세요.</p>
-          </div>
-
-          <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
-            <span class="font-extrabold text-purple-700 shrink-0">5. 아이폰/아이패드</span>
-            <p>반드시 Safari 공유 버튼에서 <b>[홈 화면에 추가]</b>로 설치한 아이콘으로 실행해야 잠금화면 푸시가 도착합니다. 또한 측면 <b>무음 모드(진동 모드)</b>가 켜져 있으면 알람음이 무음 처리될 수 있으니 벨소리 모드를 확인하세요.</p>
-          </div>
-
-          <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
-            <span class="font-extrabold text-rose-700 shrink-0">6. 꼭 일어나야 할 때</span>
-            <p>상단의 <span class="underline decoration-amber-400 font-bold">[🚨 무제한 긴급알림: ON]</span>을 켜두면 알림 배너의 <b>[✕ 알람 끄기]</b>를 누르기 전까지 서버 긴급 푸시와 진동이 계속 반복됩니다.</p>
-          </div>
         </div>
       </div>
 
-      <!-- 웹사이트 서버 시간 동기화 카드 -->
-      <div class="clean-card p-5 text-left border border-transparent focus-within:border-cyan-300 transition-all">
-        <div class="flex justify-between items-center mb-2.5">
-          <h2 class="text-sm font-bold text-cyan-600 flex items-center gap-1">
-            🌐 웹사이트 서버 시간 동기화
-          </h2>
-          <button id="resetLocalTimeBtn" class="text-[11px] font-bold text-gray-400 hover:text-gray-600 underline hidden">내 기기 시간으로 복귀</button>
-        </div>
-        
-        <div class="flex gap-2">
-          <input type="text" id="targetUrlInput" maxlength="150" placeholder="예: example.com 또는 수강신청·예매 사이트 주소" class="flex-1 min-w-0 bg-[#f2f4f7] text-gray-900 text-xs font-medium p-3 rounded-2xl border border-transparent focus:border-cyan-500 focus:bg-white focus:outline-none">
-          <button id="fetchServerTimeBtn" class="px-4 py-3 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-300 text-white font-bold rounded-2xl text-xs transition whitespace-nowrap shadow-md shadow-cyan-600/10">
-            시간 맞추기
-          </button>
-        </div>
-        
-        <div class="mt-2.5 space-y-0.5">
-          <p id="serverStatusMsg" class="text-[11px] text-gray-500 leading-normal">주소를 입력하면 해당 서버의 표준시로 시계와 알람이 동기화됩니다.</p>
-          <p id="offsetInfo" class="text-[11px] font-bold text-cyan-600 hidden">내 기기와의 시간차: 0.00초</p>
-        </div>
-      </div>
-
-      <!-- 원터치 5분 단위 퀵 알람 카드 -->
+      <!-- 원터치 5분 단위 퀵 알람 -->
       <div class="clean-card p-5">
         <div class="flex justify-between items-center mb-3">
-          <h2 class="text-sm font-bold text-gray-800">⚡ 빠른 알람 (5분 단위)</h2>
+          <h2 class="text-sm font-bold text-gray-800">⚡ 빠른 알람</h2>
           <span class="text-[11px] text-gray-400 font-medium">터치 즉시 등록</span>
         </div>
         <div class="grid grid-cols-4 gap-2">
+          <button onclick="addQuickTimer(1, '1분 테스트 알람')" class="py-2.5 bg-amber-50 hover:bg-amber-100 rounded-2xl text-xs font-bold text-amber-700 transition">+1분</button>
           <button onclick="addQuickTimer(5, '5분 알람')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+5분</button>
           <button onclick="addQuickTimer(10, '10분 알람')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+10분</button>
           <button onclick="addQuickTimer(15, '15분 알람')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+15분</button>
           <button onclick="addQuickTimer(20, '20분 알람')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+20분</button>
-          <button onclick="addQuickTimer(25, '25분 알람')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+25분</button>
           <button onclick="addQuickTimer(30, '30분 알람')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+30분</button>
-          <button onclick="addQuickTimer(35, '35분 알람')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+35분</button>
-          <button onclick="addQuickTimer(40, '40분 알람')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+40분</button>
           <button onclick="addQuickTimer(45, '45분 알람')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+45분</button>
-          <button onclick="addQuickTimer(50, '50분 알람')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+50분</button>
-          <button onclick="addQuickTimer(55, '55분 알람')" class="py-2.5 bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] rounded-2xl text-xs font-bold text-gray-700 transition">+55분</button>
           <button onclick="addQuickTimer(60, '1시간 알람')" class="py-2.5 bg-blue-50 hover:bg-blue-100 rounded-2xl text-xs font-bold text-[#0381fe] transition">+1시간</button>
         </div>
       </div>
       
-      <!-- 새 알람 추가 카드 -->
+      <!-- 새 알람 추가 -->
       <div class="clean-card p-5 text-left space-y-4">
         <div class="flex justify-between items-center">
           <h2 class="text-sm font-bold text-gray-800">➕ 새 알람 추가</h2>
@@ -286,50 +196,21 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3 pt-1">
-          <div class="min-w-0">
-            <label class="block text-[11px] font-semibold text-gray-500 mb-1">다시 울림 간격</label>
-            <select id="snoozeIntervalSelect" class="w-full min-w-0 bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none mb-1">
-              <option value="3">3분</option>
-              <option value="5" selected>5분</option>
-              <option value="10">10분</option>
-              <option value="custom">✏️ 직접 입력</option>
-            </select>
-            <input type="number" id="customSnoozeInterval" placeholder="간격(분)" class="w-full bg-white text-xs p-2 rounded-xl border border-[#0381fe] text-gray-900 hidden" min="1" max="60">
-          </div>
-          <div class="min-w-0">
-            <label class="block text-[11px] font-semibold text-gray-500 mb-1">반복 횟수</label>
-            <select id="snoozeCountSelect" class="w-full min-w-0 bg-[#f2f4f7] text-gray-800 text-xs font-semibold p-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none mb-1">
-              <option value="1">1회</option>
-              <option value="3" selected>3회</option>
-              <option value="5">5회</option>
-              <option value="custom">✏️ 직접 입력</option>
-            </select>
-            <input type="number" id="customSnoozeCount" placeholder="횟수(회)" class="w-full bg-white text-xs p-2 rounded-xl border border-[#0381fe] text-gray-900 hidden" min="1" max="20">
-          </div>
-        </div>
-
         <button id="addAlarmBtn" class="w-full py-3 bg-[#0381fe] hover:bg-[#026de0] text-white font-bold rounded-full text-sm transition shadow-md shadow-blue-500/20">
           저장
         </button>
       </div>
 
-      <!-- 그룹별 일괄 ON/OFF 제어 카드 -->
-      <div id="groupControlWrapper" class="clean-card p-4 text-left hidden">
-        <div class="text-xs font-bold text-gray-700 mb-2.5">🗂️ 그룹 일괄 제어</div>
-        <div id="groupToggleList" class="flex flex-wrap gap-2"></div>
-      </div>
-
       <!-- 등록된 알람 목록 -->
       <div class="space-y-2.5 pt-1 pb-8">
         <div class="flex justify-between items-center px-2">
-          <h2 class="text-xs font-bold text-gray-500">내 알람 목록 <span class="text-[10px] text-blue-500 font-normal">(카드를 누르면 수정됩니다)</span></h2>
+          <h2 class="text-xs font-bold text-gray-500">내 알람 목록</h2>
         </div>
         <div id="alarmList" class="space-y-2.5"></div>
       </div>
     </div>
 
-    <!-- 탭 2: 정밀 스톱워치 영역 -->
+    <!-- 탭 2: 스톱워치 -->
     <div id="tab-stopwatch" class="hidden space-y-4 pb-8">
       <div class="clean-card p-8 text-center">
         <span class="px-3 py-1 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">⏱️ 스톱워치</span>
@@ -343,154 +224,59 @@
         </div>
       </div>
       <div id="swLapsCard" class="clean-card p-5 hidden">
-        <div class="flex justify-between text-[11px] font-bold text-gray-400 pb-2 border-b border-gray-100 px-2">
-          <span>구간</span><span>구간 시간</span><span>전체 시간</span>
-        </div>
         <div id="swLapsList" class="max-h-64 overflow-y-auto divide-y divide-gray-100 mt-1"></div>
       </div>
     </div>
 
-    <!-- 탭 3: 카운트다운 타이머 영역 -->
+    <!-- 탭 3: 타이머 -->
     <div id="tab-timer" class="hidden space-y-4 pb-8">
       <div class="clean-card p-6 text-center">
         <span class="px-3 py-1 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">⏳ 타이머</span>
         <div id="timerSetupView" class="my-6 space-y-5">
           <div class="flex justify-center items-center gap-2">
             <div>
-              <input type="number" id="timerInputH" value="0" min="0" max="99" class="w-20 text-center text-4xl font-light font-mono bg-[#f2f4f7] rounded-2xl py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0381fe]">
+              <input type="number" id="timerInputH" value="0" min="0" max="99" class="w-20 text-center text-4xl font-light font-mono bg-[#f2f4f7] rounded-2xl py-3 text-gray-900">
               <div class="text-[11px] text-gray-400 font-bold mt-1">시간</div>
             </div>
             <span class="text-3xl font-light text-gray-400 pb-4">:</span>
             <div>
-              <input type="number" id="timerInputM" value="10" min="0" max="59" class="w-20 text-center text-4xl font-light font-mono bg-[#f2f4f7] rounded-2xl py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0381fe]">
+              <input type="number" id="timerInputM" value="10" min="0" max="59" class="w-20 text-center text-4xl font-light font-mono bg-[#f2f4f7] rounded-2xl py-3 text-gray-900">
               <div class="text-[11px] text-gray-400 font-bold mt-1">분</div>
             </div>
             <span class="text-3xl font-light text-gray-400 pb-4">:</span>
             <div>
-              <input type="number" id="timerInputS" value="0" min="0" max="59" class="w-20 text-center text-4xl font-light font-mono bg-[#f2f4f7] rounded-2xl py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0381fe]">
+              <input type="number" id="timerInputS" value="0" min="0" max="59" class="w-20 text-center text-4xl font-light font-mono bg-[#f2f4f7] rounded-2xl py-3 text-gray-900">
               <div class="text-[11px] text-gray-400 font-bold mt-1">초</div>
             </div>
           </div>
-          <div class="flex justify-center gap-2 flex-wrap">
-            <button onclick="setTimerPreset(0, 1, 0)" class="px-3.5 py-1.5 rounded-full bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] text-xs font-bold text-gray-600 transition">1분</button>
-            <button onclick="setTimerPreset(0, 3, 0)" class="px-3.5 py-1.5 rounded-full bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] text-xs font-bold text-gray-600 transition">3분</button>
-            <button onclick="setTimerPreset(0, 5, 0)" class="px-3.5 py-1.5 rounded-full bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] text-xs font-bold text-gray-600 transition">5분</button>
-            <button onclick="setTimerPreset(0, 10, 0)" class="px-3.5 py-1.5 rounded-full bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] text-xs font-bold text-gray-600 transition">10분</button>
-            <button onclick="setTimerPreset(0, 30, 0)" class="px-3.5 py-1.5 rounded-full bg-[#f2f4f7] hover:bg-blue-50 hover:text-[#0381fe] text-xs font-bold text-gray-600 transition">30분</button>
-          </div>
         </div>
         <div id="timerRunningView" class="hidden my-6 flex flex-col items-center">
-          <div class="relative w-56 h-56 flex items-center justify-center">
-            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="45" stroke="#f2f4f7" stroke-width="6" fill="none" />
-              <circle id="timerProgressCircle" cx="50" cy="50" r="45" stroke="#0381fe" stroke-width="6" fill="none" stroke-linecap="round" stroke-dasharray="282.74" stroke-dashoffset="0" class="transition-all duration-200" />
-            </svg>
-            <div class="absolute inset-0 flex flex-col items-center justify-center">
-              <div id="timerCountdownDisplay" class="text-4xl font-light font-mono text-gray-900">00:10:00</div>
-              <div id="timerEndTimeLabel" class="text-[11px] text-gray-400 font-semibold mt-1">🔔 종료 예정 --:--</div>
-            </div>
-          </div>
+          <div id="timerCountdownDisplay" class="text-4xl font-light font-mono text-gray-900">00:10:00</div>
         </div>
         <div class="flex justify-center gap-4 mt-2">
-          <button id="timerCancelBtn" class="hidden w-24 py-3.5 rounded-full bg-[#f2f4f7] hover:bg-gray-200 text-gray-700 font-bold text-sm transition">취소</button>
-          <button id="timerStartPauseBtn" class="w-32 py-3.5 rounded-full bg-[#0381fe] hover:bg-[#026de0] text-white font-bold text-sm transition shadow-md shadow-blue-500/25">시작</button>
+          <button id="timerCancelBtn" class="hidden w-24 py-3.5 rounded-full bg-[#f2f4f7] text-gray-700 font-bold text-sm">취소</button>
+          <button id="timerStartPauseBtn" class="w-32 py-3.5 rounded-full bg-[#0381fe] text-white font-bold text-sm">시작</button>
         </div>
       </div>
-    </div>
-
-    <div class="text-center text-[10px] text-gray-400 py-2">
-      <a href="./privacy.html" class="underline underline-offset-2">개인정보 처리 안내</a>
-      <span class="mx-2">·</span>
-      <a href="./terms.html" class="underline underline-offset-2">이용 안내</a>
     </div>
   </div>
 
   <!-- 하단 고정 탭 바 -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/80 z-40 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]" style="padding-bottom: env(safe-area-inset-bottom);">
+  <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/80 z-40" style="padding-bottom: env(safe-area-inset-bottom);">
     <div class="max-w-lg mx-auto flex justify-around items-center h-16 px-4">
-      <button onclick="switchTab('alarm')" id="nav-alarm" class="flex-1 flex flex-col items-center justify-center py-1 text-[#0381fe] font-bold transition">
-        <span class="text-lg leading-none mb-1">🔔</span>
-        <span class="text-xs">알람</span>
+      <button onclick="switchTab('alarm')" id="nav-alarm" class="flex-1 flex flex-col items-center justify-center py-1 text-[#0381fe] font-bold">
+        <span class="text-lg leading-none mb-1">🔔</span><span class="text-xs">알람</span>
       </button>
-      <button onclick="switchTab('stopwatch')" id="nav-stopwatch" class="flex-1 flex flex-col items-center justify-center py-1 text-gray-400 hover:text-gray-600 font-medium transition">
-        <span class="text-lg leading-none mb-1">⏱️</span>
-        <span class="text-xs">스톱워치</span>
+      <button onclick="switchTab('stopwatch')" id="nav-stopwatch" class="flex-1 flex flex-col items-center justify-center py-1 text-gray-400 font-medium">
+        <span class="text-lg leading-none mb-1">⏱️</span><span class="text-xs">스톱워치</span>
       </button>
-      <button onclick="switchTab('timer')" id="nav-timer" class="flex-1 flex flex-col items-center justify-center py-1 text-gray-400 hover:text-gray-600 font-medium transition">
-        <span class="text-lg leading-none mb-1">⏳</span>
-        <span class="text-xs">타이머</span>
+      <button onclick="switchTab('timer')" id="nav-timer" class="flex-1 flex flex-col items-center justify-center py-1 text-gray-400 font-medium">
+        <span class="text-lg leading-none mb-1">⏳</span><span class="text-xs">타이머</span>
       </button>
     </div>
   </nav>
 
-  <!-- 알람 편집 모달 -->
-  <div id="editModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
-    <div class="clean-card w-full max-w-md p-6 bg-white space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
-      <div class="flex justify-between items-center pb-2 border-b border-gray-100">
-        <h3 class="text-sm font-bold text-gray-900">✏️ 알람 수정하기</h3>
-        <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 text-sm font-bold">✕ 닫기</button>
-      </div>
-      <input type="hidden" id="editAlarmId">
-      <div class="space-y-3">
-        <div>
-          <label class="block text-[11px] font-semibold text-gray-500 mb-1">시간</label>
-          <div class="grid grid-cols-3 gap-2">
-            <select id="editAlarmAmPm" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 font-bold px-3 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-sm">
-              <option value="AM">오전</option>
-              <option value="PM">오후</option>
-            </select>
-            <select id="editAlarmHour" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 font-bold px-3 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-sm font-mono"></select>
-            <select id="editAlarmMinute" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 font-bold px-3 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none text-sm font-mono"></select>
-          </div>
-        </div>
-        <div>
-          <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람음</label>
-          <select id="editAlarmSound" class="w-full min-w-0 bg-[#f2f4f7] text-gray-800 text-xs font-semibold px-3.5 py-2.5 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
-            <option value="0">✨ 1. 스파클 라이징 팝</option>
-            <option value="1">🌅 2. 선라이즈 오케스트라</option>
-            <option value="2">👾 3. 네온 아케이드 8비트</option>
-            <option value="3">🍃 4. 브라이트 윈드 차임</option>
-            <option value="4">🔔 5. 크리스탈 하모닉 벨</option>
-            <option value="5">☕ 6. 릴랙싱 피아노 스케일</option>
-            <option value="6">⚡ 7. 일렉트로 피치 하모니</option>
-            <option value="7">🎷 8. 재지 모닝 브라스</option>
-            <option value="8">🎸 9. 어쿠스틱 스트럼</option>
-            <option value="9">🔮 10. 사이버 펄스 리버브</option>
-            <option value="10">🌿 11. 트로피컬 우쿨렐레</option>
-            <option value="11">🎉 12. 세레모니 베이스</option>
-          </select>
-        </div>
-      </div>
-      <div>
-        <label class="block text-[11px] font-semibold text-gray-500 mb-2">반복 요일</label>
-        <div class="flex justify-between items-center px-1" id="editDayPicker">
-          <button type="button" data-day="0" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-rose-500 text-xs font-bold transition flex items-center justify-center">일</button>
-          <button type="button" data-day="1" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">월</button>
-          <button type="button" data-day="2" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">화</button>
-          <button type="button" data-day="3" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">수</button>
-          <button type="button" data-day="4" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">목</button>
-          <button type="button" data-day="5" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold transition flex items-center justify-center">금</button>
-          <button type="button" data-day="6" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-blue-500 text-xs font-bold transition flex items-center justify-center">토</button>
-        </div>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div class="min-w-0">
-          <label class="block text-[11px] font-semibold text-gray-500 mb-1">알람 이름</label>
-          <input type="text" id="editAlarmName" maxlength="30" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 text-xs font-medium p-3 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
-        </div>
-        <div class="min-w-0">
-          <label class="block text-[11px] font-semibold text-gray-500 mb-1">그룹 이름</label>
-          <input type="text" id="editAlarmGroup" maxlength="20" class="w-full min-w-0 bg-[#f2f4f7] text-gray-900 text-xs font-medium p-3 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
-        </div>
-      </div>
-      <div class="flex gap-2 pt-2">
-        <button onclick="closeEditModal()" class="flex-1 py-3 bg-[#f2f4f7] hover:bg-gray-200 text-gray-700 font-bold rounded-full text-xs transition">취소</button>
-        <button id="saveEditedAlarmBtn" class="flex-1 py-3 bg-[#0381fe] hover:bg-[#026de0] text-white font-bold rounded-full text-xs transition shadow-md shadow-blue-500/20">수정 완료</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 알람 & 타이머 공용 풀스크린 울림 모달 -->
+  <!-- 알람 울림 풀스크린 모달 -->
   <div id="alarmModal" class="fixed inset-0 bg-[#f6f7f9]/95 backdrop-blur-lg flex flex-col items-center justify-between p-8 hidden z-50">
     <div class="mt-12 text-center">
       <div id="modalIntensityBadge" class="inline-block px-3 py-1 rounded-full text-xs font-extrabold bg-blue-100 text-[#0381fe] mb-3">
@@ -500,12 +286,11 @@
       <p id="modalAlarmTime" class="text-6xl font-light text-gray-900 font-mono tracking-tight my-2">00:00</p>
       <h2 id="modalAlarmName" class="text-xl font-bold text-gray-800 mt-2">기상 알람</h2>
       <p id="modalSoundTitle" class="text-xs text-gray-500 mt-1">알람음 재생 중...</p>
-      <p id="modalRepeatInfo" class="text-xs text-[#0381fe] font-semibold mt-2">💡 끄기를 누르면 알람 스위치가 OFF로 전환됩니다</p>
-      <p id="modalSnoozeInfo" class="text-xs text-gray-400 mt-1">다시 울림 정보</p>
+      <p id="modalRepeatInfo" class="text-xs text-[#0381fe] font-semibold mt-2">💡 끄기를 누르면 알람과 긴급 푸시가 즉시 종료됩니다</p>
     </div>
     <div class="w-full max-w-xs space-y-3 mb-10">
       <button id="snoozeAlarmBtn" type="button" class="w-full py-4 bg-white hover:bg-gray-50 text-gray-800 font-bold rounded-full text-sm transition shadow-md border border-gray-200">
-        😴 다시 울림 (다음 울림 강도 상승)
+        😴 5분 뒤 다시 울림
       </button>
       <button id="stopAlarmBtn" type="button" class="w-full py-4 bg-[#0381fe] hover:bg-[#026de0] text-white font-extrabold rounded-full text-base transition shadow-lg shadow-blue-500/30">
         ✕ 끄기
@@ -542,33 +327,17 @@
 
     function get24HourTimeFromSelects(ampmId, hourId, minId) {
       const ampm = document.getElementById(ampmId).value;
-      let h12 = parseInt(document.getElementById(hourId).value, 10);
+      const h12 = parseInt(document.getElementById(hourId).value, 10);
       const minStr = document.getElementById(minId).value;
       let h24 = h12 % 12;
       if (ampm === 'PM') h24 += 12;
       return `${String(h24).padStart(2, '0')}:${minStr}`;
     }
 
-    function setSelectsFrom24HourTime(time24, ampmId, hourId, minId) {
-      const [hStr, mStr] = (time24 || '08:00').split(':');
-      const h24 = parseInt(hStr, 10);
-      const ampm = h24 >= 12 ? 'PM' : 'AM';
-      const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-      document.getElementById(ampmId).value = ampm;
-      document.getElementById(hourId).value = String(h12);
-      document.getElementById(minId).value = mStr;
-    }
-
     initTimeSelectOptions('alarmHour', 'alarmMinute', '8', '00');
-    initTimeSelectOptions('editAlarmHour', 'editAlarmMinute', '8', '00');
 
     function escapeHTML(str) {
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     let featureBannerTimer = null;
@@ -582,20 +351,16 @@
       if (featureBannerTimer) clearTimeout(featureBannerTimer);
       featureBannerTimer = setTimeout(() => banner.classList.add('hidden'), 6500);
     }
-
     window.hideFeatureInfoBanner = function() {
       const banner = document.getElementById('featureInfoBanner');
       if (banner) banner.classList.add('hidden');
-      if (featureBannerTimer) clearTimeout(featureBannerTimer);
     };
 
     let alarms = [];
     try {
       const parsed = JSON.parse(localStorage.getItem('saved_alarms') || '[]');
       if (Array.isArray(parsed)) alarms = parsed;
-    } catch {
-      alarms = [];
-    }
+    } catch { alarms = []; }
 
     let urgentBurstMode = localStorage.getItem('urgent_burst_mode') === 'true';
     let vibeInterval = null;
@@ -630,10 +395,18 @@
       { freqs: [392.00, 523.25, 659.25, 783.99, 1046.50], wave: 'triangle' }
     ];
 
+    const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
+    const soundNames = [
+      '✨ 1. 스파클 라이징 팝', '🌅 2. 선라이즈 오케스트라', '👾 3. 네온 아케이드 8비트',
+      '🍃 4. 브라이트 윈드 차임', '🔔 5. 크리스탈 하모닉 벨', '☕ 6. 릴랙싱 피아노 스케일',
+      '⚡ 7. 일렉트로 피치 하모니', '🎷 8. 재지 모닝 브라스', '🎸 9. 어쿠스틱 스트럼',
+      '🔮 10. 사이버 펄스 리버브', '🌿 11. 트로피컬 우쿨렐레', '🎉 12. 세레모니 베이스'
+    ];
+
     function sampleWave(waveType, phase) {
       const p = phase - Math.floor(phase);
-      if (waveType === 'square') return p < 0.5 ? 0.72 : -0.72;
-      if (waveType === 'sawtooth') return (2 * p - 1) * 0.78;
+      if (waveType === 'square') return p < 0.5 ? 0.75 : -0.75;
+      if (waveType === 'sawtooth') return (2 * p - 1) * 0.80;
       if (waveType === 'triangle') return (1 - 4 * Math.abs(Math.round(p - 0.25) - (p - 0.25))) * 0.92;
       return Math.sin(2 * Math.PI * p);
     }
@@ -645,20 +418,12 @@
       function writeStr(offset, str) {
         for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
       }
-      writeStr(0, 'RIFF');
-      view.setUint32(4, 36 + dataBytes, true);
-      writeStr(8, 'WAVE');
-      writeStr(12, 'fmt ');
-      view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true);
-      view.setUint16(22, 1, true);
-      view.setUint32(24, sampleRate, true);
-      view.setUint32(28, sampleRate * 2, true);
-      view.setUint16(32, 2, true);
-      view.setUint16(34, 16, true);
-      writeStr(36, 'data');
-      view.setUint32(40, dataBytes, true);
-
+      writeStr(0, 'RIFF'); view.setUint32(4, 36 + dataBytes, true);
+      writeStr(8, 'WAVE'); writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+      writeStr(36, 'data'); view.setUint32(40, dataBytes, true);
       for (let i = 0; i < numSamples; i++) {
         const s = Math.max(-1, Math.min(1, renderSampleFn(i, i / sampleRate)));
         view.setInt16(44 + i * 2, Math.round(s * 32767), true);
@@ -685,7 +450,7 @@
       const stepDelay = Math.max(0.11 - lv * 0.02, 0.05);
       const noteDur = 0.45;
       const cycleDur = Math.max(1.0 - lv * 0.13, 0.60);
-      const peakAmp = Math.min(0.45 + lv * 0.16, 0.94);
+      const peakAmp = Math.min(0.55 + lv * 0.15, 0.96);
 
       const sampleRate = 22050;
       const numSamples = Math.round(sampleRate * cycleDur);
@@ -695,9 +460,7 @@
           const start = n * stepDelay;
           const localT = t - start;
           if (localT >= 0 && localT <= noteDur) {
-            const env = localT < 0.03
-              ? (localT / 0.03)
-              : Math.pow(0.001, (localT - 0.03) / (noteDur - 0.03));
+            const env = localT < 0.03 ? (localT / 0.03) : Math.pow(0.001, (localT - 0.03) / (noteDur - 0.03));
             mix += sampleWave(waveType, freqs[n] * pitchMult * localT) * env * peakAmp;
           }
         }
@@ -707,39 +470,11 @@
       return url;
     }
 
-    function updateUrgentBurstUI() {
-      const btn = document.getElementById('urgentBurstBtn');
-      if (!btn) return;
-      if (urgentBurstMode) {
-        btn.innerText = '🚨 무제한 긴급알림: ON';
-        btn.className = 'px-2.5 py-1.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-full text-[11px] font-bold shadow-sm transition';
-      } else {
-        btn.innerText = '🚨 무제한 긴급알림: OFF';
-        btn.className = 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition';
-      }
-    }
-    updateUrgentBurstUI();
-
-    document.getElementById('urgentBurstBtn').addEventListener('click', () => {
-      urgentBurstMode = !urgentBurstMode;
-      localStorage.setItem('urgent_burst_mode', String(urgentBurstMode));
-      updateUrgentBurstUI();
-      syncCurrentPushState();
-      if (urgentBurstMode) {
-        if ('vibrate' in navigator) navigator.vibrate([400, 100, 400]);
-        showFeatureInfoBanner('🚨', '무제한 긴급 알림 모드가 켜졌습니다', '알림 배너의 <b>[✕ 알람 끄기]</b>를 누르기 전까지 서버 긴급 푸시와 진동이 반복됩니다.');
-      } else {
-        showFeatureInfoBanner('🚨', '무제한 긴급 알림 모드가 꺼졌습니다', '기본 단일 푸시 알림 방식으로 동작합니다.');
-      }
-    });
-
     function unlockWebAudioContext() {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return null;
       if (!previewAudioCtx) previewAudioCtx = new Ctx();
-      if (previewAudioCtx.state === 'suspended') {
-        previewAudioCtx.resume().catch(() => {});
-      }
+      if (previewAudioCtx.state === 'suspended') previewAudioCtx.resume().catch(() => {});
       return previewAudioCtx;
     }
 
@@ -749,88 +484,38 @@
       unlockWebAudioContext();
     }
 
-    function getUpcomingAlarmForBackground() {
-      const enabledAlarms = alarms.filter(a => a.enabled);
-      if (enabledAlarms.length === 0) return null;
-      const now = getSynchronizedNow();
-      const activeDay = getActiveDayIndex();
-      let bestAlarm = enabledAlarms[0];
-      let minDiff = Infinity;
-
-      for (const alarm of enabledAlarms) {
-        if (alarm.nextSnoozeAt) {
-          const diff = Number(alarm.nextSnoozeAt) - now.getTime();
-          if (diff >= 0 && diff < minDiff) { minDiff = diff; bestAlarm = alarm; }
-          continue;
-        }
-        if (!alarm.isRepeating && alarm.singleShotAt) {
-          const diff = Number(alarm.singleShotAt) - now.getTime();
-          if (diff >= 0 && diff < minDiff) { minDiff = diff; bestAlarm = alarm; }
-          continue;
-        }
-        const [th, tm] = alarm.time.split(':').map(Number);
-        for (let d = 0; d < 7; d++) {
-          if ((alarm.days || []).includes((activeDay + d) % 7)) {
-            const cand = new Date(now);
-            cand.setDate(now.getDate() + d);
-            cand.setHours(th, tm, 0, 0);
-            const diff = cand.getTime() - now.getTime();
-            if (diff >= 0 && diff < minDiff) { minDiff = diff; bestAlarm = alarm; }
-          }
-        }
-      }
-      return bestAlarm;
-    }
+    const masterEl = document.getElementById('masterAudioEngine');
 
     function claimAudioFocusForAlarm(alarmObj = null) {
       if (!('mediaSession' in navigator)) return;
-      const target = alarmObj || currentRingingAlarm || getUpcomingAlarmForBackground();
+      const target = alarmObj || currentRingingAlarm;
       const title = target ? `[${target.group || '알람'}] ${target.name || '알람'}` : '⏰ 알람이 울립니다';
-      const soundIdx = target ? getDisplayedAlarmSoundIndex(target) : 0;
-
       navigator.mediaSession.metadata = new MediaMetadata({
         title,
-        artist: `알람 울리는 중 · ${soundNames[soundIdx] || '기본 알람음'}`,
+        artist: '알람 울리는 중 · Smart Clock',
         album: 'Smart Clock'
       });
       navigator.mediaSession.playbackState = 'playing';
-
       try {
-        navigator.mediaSession.setActionHandler('play', () => {
-          if (isRinging || isTimerRinging) masterEl.play().catch(() => {});
-        });
+        navigator.mediaSession.setActionHandler('play', () => { if (isRinging || isTimerRinging) masterEl.play().catch(() => {}); });
         navigator.mediaSession.setActionHandler('pause', () => stopAllRingingState());
         navigator.mediaSession.setActionHandler('stop', () => stopAllRingingState());
       } catch (e) {}
     }
 
-    function releaseAlarmAudioFocus() {
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = 'none';
-      }
-    }
-
-    const masterEl = document.getElementById('masterAudioEngine');
-
     function startWebAudioLoop(soundIdx = 0, level = 0) {
       stopWebAudioLoop();
       unlockWebAudioContext();
       const cycleMs = Math.max(1000 - level * 130, 600);
-      playPreviewSound(soundIdx, Math.min(0.45 + level * 0.15, 0.95));
+      playPreviewSound(soundIdx, Math.min(0.5 + level * 0.15, 0.96));
       webAudioLoopTimer = setInterval(() => {
-        if (!isRinging && !isTimerRinging) {
-          stopWebAudioLoop();
-          return;
-        }
-        playPreviewSound(soundIdx, Math.min(0.45 + level * 0.15, 0.95));
+        if (!isRinging && !isTimerRinging) { stopWebAudioLoop(); return; }
+        playPreviewSound(soundIdx, Math.min(0.5 + level * 0.15, 0.96));
       }, cycleMs);
     }
 
     function stopWebAudioLoop() {
-      if (webAudioLoopTimer) {
-        clearInterval(webAudioLoopTimer);
-        webAudioLoopTimer = null;
-      }
+      if (webAudioLoopTimer) { clearInterval(webAudioLoopTimer); webAudioLoopTimer = null; }
     }
 
     function seizeAudioFocusAndPlay(soundIdx = 0, level = 0) {
@@ -839,25 +524,19 @@
       isStoppingAudio = true;
 
       const ctx = unlockWebAudioContext();
-      if (ctx && ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
-      }
+      if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+
       masterEl.muted = false;
       masterEl.src = ringUrl;
       masterEl.volume = 1.0;
       masterEl.loop = true;
-
       claimAudioFocusForAlarm(currentRingingAlarm);
 
       const p = masterEl.play();
       if (p && typeof p.then === 'function') {
-        p.then(() => {
-          claimAudioFocusForAlarm(currentRingingAlarm);
-        }).catch(() => {
-          startWebAudioLoop(soundIdx, level);
-        }).finally(() => {
-          isStoppingAudio = false;
-        });
+        p.then(() => claimAudioFocusForAlarm(currentRingingAlarm))
+         .catch(() => startWebAudioLoop(soundIdx, level))
+         .finally(() => { isStoppingAudio = false; });
       } else {
         isStoppingAudio = false;
       }
@@ -871,52 +550,34 @@
       masterEl.currentTime = 0;
       masterEl.removeAttribute('src');
       masterEl.load();
-      releaseAlarmAudioFocus();
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
       isBgAudioRunning = false;
       updateBgAudioButtonUI();
       isStoppingAudio = false;
-
-      setTimeout(() => {
-        ensureAutoBgKeepAlive();
-      }, 200);
+      setTimeout(() => ensureAutoBgKeepAlive(), 250);
     }
 
     function updateBgAudioButtonUI() {
       const btn = document.getElementById('bgAudioKeepAliveBtn');
       if (!btn) return;
       const isActuallyOn = Boolean(isBgAudioRunning && !masterEl.paused && masterEl.src);
-      if (isActuallyOn) {
-        btn.innerText = '🎧 오디오 유지: ON';
-        btn.className = 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
-      } else {
-        btn.innerText = '🎧 오디오 유지: OFF';
-        btn.className = 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition';
-      }
+      btn.innerText = isActuallyOn ? '🎧 오디오 유지: ON' : '🎧 오디오 유지: OFF';
+      btn.className = isActuallyOn
+        ? 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition'
+        : 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition';
     }
 
     async function ensureAutoBgKeepAlive(force = false) {
       if (isStoppingAudio || isRinging || isTimerRinging) return false;
       if (bgAudioManuallyDisabled && !force) return false;
-      const hasActiveSchedule = alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
+      const hasActiveSchedule = alarms.some(a => a.enabled);
       if (!hasActiveSchedule && !bgAudioManualKeepAlive && !force) {
-        if (!masterEl.paused) {
-          isStoppingAudio = true;
-          masterEl.pause();
-          masterEl.removeAttribute('src');
-          masterEl.load();
-          isStoppingAudio = false;
-        }
         isBgAudioRunning = false;
         updateBgAudioButtonUI();
         return false;
       }
 
       unlockWebAudioContext();
-      const upcoming = getUpcomingAlarmForBackground();
-      if (upcoming) {
-        getRingBlobUrlForSound(getDisplayedAlarmSoundIndex(upcoming), Number(upcoming.snoozeLevel) || 0);
-      }
-
       if (masterEl.paused || !masterEl.src) {
         masterEl.src = getSilentKeepAliveUrl();
         masterEl.volume = 0.01;
@@ -931,41 +592,11 @@
           updateBgAudioButtonUI();
           return false;
         }
-      } else {
-        isBgAudioRunning = true;
-        updateBgAudioButtonUI();
-        return true;
       }
+      isBgAudioRunning = true;
+      updateBgAudioButtonUI();
+      return true;
     }
-
-    masterEl.addEventListener('play', () => {
-      if (isRinging || isTimerRinging) {
-        claimAudioFocusForAlarm(currentRingingAlarm);
-      } else {
-        isBgAudioRunning = true;
-        updateBgAudioButtonUI();
-      }
-    });
-
-    masterEl.addEventListener('pause', () => {
-      if (isStoppingAudio) return;
-      if (isRinging || isTimerRinging) {
-        setTimeout(() => {
-          if (!isStoppingAudio && (isRinging || isTimerRinging)) {
-            claimAudioFocusForAlarm(currentRingingAlarm);
-            masterEl.play().catch(() => {});
-          }
-        }, 120);
-      } else {
-        isBgAudioRunning = false;
-        updateBgAudioButtonUI();
-        if (!bgAudioManuallyDisabled && (bgAudioManualKeepAlive || alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running'))) {
-          setTimeout(() => {
-            ensureAutoBgKeepAlive();
-          }, 350);
-        }
-      }
-    });
 
     document.getElementById('bgAudioKeepAliveBtn').addEventListener('click', async () => {
       initMasterAudioUrls();
@@ -974,65 +605,43 @@
         bgAudioManuallyDisabled = false;
         bgAudioManualKeepAlive = true;
         localStorage.setItem('bg_audio_manual_keep_alive', 'true');
-        const started = await ensureAutoBgKeepAlive(true);
-        if (started) {
-          showFeatureInfoBanner('🎧', '백그라운드 오디오 세션 유지가 켜졌습니다', '유튜브 등 다른 앱을 보는 동안에도 알람 시각에 브라우저 사운드 주도권을 가져옵니다.');
-        } else {
-          bgAudioManualKeepAlive = false;
-          localStorage.setItem('bg_audio_manual_keep_alive', 'false');
-          showFeatureInfoBanner('⚠️', '오디오 권한 활성화 실패', '화면 빈 곳을 한 번 터치한 뒤 다시 버튼을 눌러주세요.');
-        }
+        const ok = await ensureAutoBgKeepAlive(true);
+        if (ok) showFeatureInfoBanner('🎧', '백그라운드 오디오 유지 ON', '화면이 잠기거나 유튜브를 보는 중에도 푸시 수신 즉시 알람음이 재생됩니다.');
       } else {
         bgAudioManuallyDisabled = true;
         bgAudioManualKeepAlive = false;
         localStorage.setItem('bg_audio_manual_keep_alive', 'false');
-        isBgAudioRunning = false;
         isStoppingAudio = true;
         masterEl.pause();
         masterEl.removeAttribute('src');
         masterEl.load();
         isStoppingAudio = false;
+        isBgAudioRunning = false;
         updateBgAudioButtonUI();
-        showFeatureInfoBanner('🎧', '백그라운드 오디오 유지가 꺼졌습니다', '다른 앱을 볼 때는 알람 소리가 차단될 수 있습니다.');
       }
     });
 
-    let timeOffsetMs = 0;
-    let syncedDomain = null;
-    let lastFetchTimestamp = 0;
-
-    const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
-    const soundNames = [
-      '✨ 1. 스파클 라이징 팝', '🌅 2. 선라이즈 오케스트라', '👾 3. 네온 아케이드 8비트',
-      '🍃 4. 브라이트 윈드 차임', '🔔 5. 크리스탈 하모닉 벨', '☕ 6. 릴랙싱 피아노 스케일',
-      '⚡ 7. 일렉트로 피치 하모니', '🎷 8. 재지 모닝 브라스', '🎸 9. 어쿠스틱 스트럼',
-      '🔮 10. 사이버 펄스 리버브', '🌿 11. 트로피컬 우쿨렐레', '🎉 12. 세레모니 베이스'
-    ];
-
-    function dailyRandomSoundIndex(alarmId, date = new Date()) {
-      const keyFor = (d) => `${alarmId}|${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const hash = (value) => {
-        let h = 2166136261;
-        for (let i = 0; i < value.length; i++) {
-          h ^= value.charCodeAt(i);
-          h = Math.imul(h, 16777619);
-        }
-        return (h >>> 0) % 12;
-      };
-      const today = hash(keyFor(date));
-      const yesterday = new Date(date);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const previous = hash(keyFor(yesterday));
-      return today === previous ? (today + 1) % 12 : today;
+    function updateUrgentBurstUI() {
+      const btn = document.getElementById('urgentBurstBtn');
+      if (!btn) return;
+      btn.innerText = urgentBurstMode ? '🚨 무제한 긴급알림: ON' : '🚨 무제한 긴급알림: OFF';
+      btn.className = urgentBurstMode
+        ? 'px-2.5 py-1.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-full text-[11px] font-bold shadow-sm transition'
+        : 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition';
     }
+    updateUrgentBurstUI();
 
-    const escalatedVibePresets = [
-      [400, 150, 400],
-      [550, 120, 550, 120, 550],
-      [750, 100, 750, 100, 750, 100, 750],
-      [1000, 80, 1000, 80, 1000, 80, 1000]
-    ];
-    const intenseSounds = [2, 6, 9, 11];
+    document.getElementById('urgentBurstBtn').addEventListener('click', () => {
+      urgentBurstMode = !urgentBurstMode;
+      localStorage.setItem('urgent_burst_mode', String(urgentBurstMode));
+      updateUrgentBurstUI();
+      syncCurrentPushState();
+      if (urgentBurstMode) {
+        showFeatureInfoBanner('🚨', '무제한 긴급 알림 ON', '알람 시각이 되면 <b>[✕ 알람 끄기]</b>를 누르기 전까지 서버가 15초마다 반복 푸시를 발송합니다.');
+      } else {
+        showFeatureInfoBanner('🚨', '무제한 긴급 알림 OFF', '설정한 시각에 1회 푸시만 발송합니다.');
+      }
+    });
 
     function urlBase64ToUint8Array(base64String) {
       const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -1043,17 +652,14 @@
 
     function updatePushButtonUI() {
       const btn = document.getElementById('pushSubscribeBtn');
-      if (pushEnabled && Notification.permission === 'granted') {
-        btn.innerText = '🔔 푸시 알림: ON';
-        btn.className = 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
-      } else {
-        btn.innerText = '🔔 푸시 알림: OFF';
-        btn.className = 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition';
-      }
+      btn.innerText = (pushEnabled && Notification.permission === 'granted') ? '🔔 푸시 알림: ON' : '🔔 푸시 알림: OFF';
+      btn.className = (pushEnabled && Notification.permission === 'granted')
+        ? 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition'
+        : 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition';
     }
 
     function computeNextSingleShotTimestamp(timeStr, dayIndex) {
-      const now = getSynchronizedNow();
+      const now = new Date();
       const [hour, minute] = String(timeStr || '08:00').split(':').map(Number);
       const target = new Date(now);
       target.setHours(hour || 0, minute || 0, 0, 0);
@@ -1067,13 +673,8 @@
     }
 
     function ensureServerScheduleFields() {
-      const now = getSynchronizedNow();
+      const now = new Date();
       for (const alarm of alarms) {
-        alarm.snoozeInterval = Number(alarm.snoozeInterval) || 5;
-        alarm.snoozeCount = Number(alarm.snoozeCount) || 3;
-        alarm.remainingSnooze = Number.isFinite(Number(alarm.remainingSnooze)) ? Number(alarm.remainingSnooze) : alarm.snoozeCount;
-        alarm.snoozeLevel = Number(alarm.snoozeLevel) || 0;
-
         if (alarm.isRepeating) {
           alarm.singleShotAt = null;
           continue;
@@ -1088,24 +689,16 @@
       if (!subscription) return null;
       ensureServerScheduleFields();
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul';
-      const timer = (typeof timerState !== 'undefined' && timerState === 'running')
-        ? { endAt: timerEndTimestamp, totalMs: timerTotalMs }
-        : null;
       try {
         const response = await fetch('/api/push-subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subscription, alarms, timeZone: tz, timer, urgentBurstMode, clearRinging })
+          body: JSON.stringify({ subscription, alarms, timeZone: tz, urgentBurstMode, clearRinging })
         });
         const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          window.lastPushSyncError = `HTTP ${response.status}: ${data.error || '서버 내부 오류'}`;
-          return null;
-        }
-        window.lastPushSyncError = null;
+        if (!response.ok) return null;
         return data;
-      } catch (error) {
-        window.lastPushSyncError = error.message || '네트워크 오류';
+      } catch {
         return null;
       }
     }
@@ -1118,74 +711,27 @@
           reg.active.postMessage({ type: 'STOP_INFINITE_PUSH', alarmId, scheduleKey });
         }
         let sub = await reg.pushManager.getSubscription();
-        if (!sub && Notification.permission === 'granted') {
-          sub = await subscribeToPushNotifications(false);
-        }
+        if (!sub && Notification.permission === 'granted') sub = await subscribeToPushNotifications(false);
         if (sub) {
           const saved = await syncAlarmsToPushServer(sub, clearRinging);
           pushEnabled = Boolean(saved);
           updatePushButtonUI();
           return saved;
         }
-      } catch (error) {}
+      } catch {}
       return null;
     }
 
-    function markAlarmCompletedInState(targetAlarmId, scheduleKey = null) {
-      const nowMs = Date.now();
-      const todayKey = formatDateKey(getSynchronizedNow());
-      let updated = false;
-      alarms = alarms.map(a => {
-        const idMatched = targetAlarmId && String(a.id) === String(targetAlarmId);
-        const keyMatched = scheduleKey && (a.lastTriggeredKey === scheduleKey || `${todayKey}_${a.time}` === scheduleKey);
-        if (idMatched || keyMatched || (!targetAlarmId && a.enabled)) {
-          updated = true;
-          return Object.assign({}, a, {
-            enabled: false,
-            remainingSnooze: Number(a.snoozeCount) || 3,
-            snoozeLevel: 0,
-            nextSnoozeTime: null,
-            nextSnoozeAt: null,
-            userDismissedAt: nowMs,
-            lastTriggeredKey: scheduleKey || a.lastTriggeredKey || `${todayKey}_${a.time}`,
-            dismissedScheduleKey: scheduleKey || a.lastTriggeredKey || `${todayKey}_${a.time}`,
-            serverFiredAt: nowMs
-          });
-        }
-        return a;
-      });
-      if (updated) {
-        localStorage.setItem('saved_alarms', JSON.stringify(alarms));
-        renderAlarmList();
-        updateClock();
-      }
-      return updated;
-    }
-
     async function subscribeToPushNotifications(requestPerm = true) {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-        if (requestPerm) {
-          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-          alert(isIOS
-            ? '아이폰/아이패드(iOS)에서는 Safari 공유 버튼 > [홈 화면에 추가]로 설치한 앱에서만 잠금화면 서버 푸시 알람을 받을 수 있습니다.'
-            : '이 브라우저에서는 Web Push 알림을 지원하지 않습니다.');
-        }
-        return null;
-      }
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return null;
       let permission = Notification.permission;
-      if (permission === 'default' && requestPerm) {
-        permission = await Notification.requestPermission();
-      }
-      if (permission !== 'granted') {
-        if (requestPerm) alert('브라우저 알림 권한이 차단되어 있습니다. 사이트 설정에서 알림을 허용해주세요.');
-        return null;
-      }
+      if (permission === 'default' && requestPerm) permission = await Notification.requestPermission();
+      if (permission !== 'granted') return null;
+
       const cfgRes = await fetch('/api/push-config').catch(() => null);
       const cfg = cfgRes && cfgRes.ok ? await cfgRes.json() : null;
-      if (!cfg || !cfg.enabled || !cfg.vapidPublicKey) {
-        if (requestPerm) alert('서버 푸시 설정(/api/push-config)이 비활성 상태입니다. Vercel 환경 변수를 확인해주세요.');
-        return null;
-      }
+      if (!cfg || !cfg.enabled || !cfg.vapidPublicKey) return null;
+
       const registration = await navigator.serviceWorker.ready;
       let subscription = await registration.pushManager.getSubscription();
       if (!subscription) {
@@ -1195,376 +741,87 @@
         });
       }
       const saved = await syncAlarmsToPushServer(subscription);
-      if (!saved) {
-        if (requestPerm) alert(`서버(Redis)에 푸시 구독과 알람 목록을 저장하지 못했습니다.
-원인: ${window.lastPushSyncError || '알 수 없는 오류'}`);
-        return null;
-      }
-      pushEnabled = true;
+      pushEnabled = Boolean(saved);
       updatePushButtonUI();
-      return subscription;
-    }
-
-    async function unsubscribeFromPushNotifications() {
-      if (!('serviceWorker' in navigator)) return false;
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      if (!subscription) {
-        pushEnabled = false;
-        updatePushButtonUI();
-        return true;
-      }
-      await fetch('/api/push-unsubscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: subscription.toJSON() })
-      }).catch(() => {});
-      await subscription.unsubscribe();
-      pushEnabled = false;
-      updatePushButtonUI();
-      return true;
+      return saved ? subscription : null;
     }
 
     document.getElementById('pushSubscribeBtn').addEventListener('click', async () => {
-      try {
-        const registration = await navigator.serviceWorker.ready;
-        const existingSubscription = await registration.pushManager.getSubscription();
-        if (existingSubscription && pushEnabled) {
-          if (!confirm('이 기기의 서버 푸시 알림을 끄고 서버에 저장된 알람 정보를 삭제할까요?')) return;
-          await unsubscribeFromPushNotifications();
-          showFeatureInfoBanner('🔔', '서버 푸시 알림이 해제되었습니다', '이제 화면이 꺼져 있을 때는 서버 푸시가 발송되지 않습니다.');
-          return;
-        }
-        const sub = await subscribeToPushNotifications(true);
-        if (sub) {
-          showFeatureInfoBanner('🔔', '서버 푸시 알림이 활성화되었습니다', `현재 등록된 알람 ${alarms.length}개가 서버에 동기화되었습니다. 화면이 꺼져도 설정한 시각 정각에 푸시가 발송됩니다.`);
-        }
-      } catch (error) {
-        alert(error.message || '푸시 설정을 변경하지 못했습니다.');
+      initMasterAudioUrls();
+      await ensureAutoBgKeepAlive(true);
+      const sub = await subscribeToPushNotifications(true);
+      if (sub) {
+        showFeatureInfoBanner('🔔', '푸시 알림 등록 완료', '설정한 시각 정각에 서버에서 푸시가 발송됩니다.');
       }
     });
 
     document.getElementById('testPushBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('testPushBtn');
-      btn.disabled = true;
-      btn.innerText = '📡 확인 중...';
-      try {
-        let sub = null;
-        if ('serviceWorker' in navigator) {
-          const reg = await navigator.serviceWorker.ready;
-          sub = await reg.pushManager.getSubscription();
-        }
-        if (!sub || !pushEnabled) {
-          sub = await subscribeToPushNotifications(true);
-        }
-        if (!sub) return;
-
-        const synced = await syncAlarmsToPushServer(sub);
-        if (!synced) {
-          alert(`서버 동기화에 실패했습니다.
-원인: ${window.lastPushSyncError || '알 수 없는 오류'}`);
-          return;
-        }
-        const qstashBadge = synced.qstashScheduled
-          ? ` · <b>QStash 정각 예약 활성</b> (${new Date(synced.nextExactTriggerAt).toLocaleTimeString('ko-KR')})`
-          : '';
-        showFeatureInfoBanner(
-          '✅',
-          '푸시 구독 및 서버 동기화 정상 확인 완료',
-          `기기 푸시 토큰이 서버에 정상 등록되어 있습니다. (활성 알람 ${alarms.filter(a => a.enabled).length}개 동기화됨${qstashBadge})`
-        );
-      } finally {
-        btn.disabled = false;
-        btn.innerText = '📡 푸시 확인';
+      initMasterAudioUrls();
+      await ensureAutoBgKeepAlive(true);
+      const sub = await subscribeToPushNotifications(true);
+      if (!sub) return alert('푸시 알림 권한을 먼저 허용해주세요.');
+      const res = await fetch('/api/push-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub.toJSON() })
+      }).catch(() => null);
+      if (res && res.ok) {
+        showFeatureInfoBanner('📡', '테스트 푸시 발송 완료', '잠시 후 푸시 배너와 함께 알람음이 울립니다.');
+      } else {
+        await syncAlarmsToPushServer(sub);
+        showFeatureInfoBanner('✅', '서버 동기화 완료', '등록된 알람이 서버에 정상 동기화되었습니다.');
       }
     });
-
-    window.switchTab = function(tabName) {
-      ['alarm', 'stopwatch', 'timer'].forEach(t => {
-        document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tabName);
-        const navBtn = document.getElementById(`nav-${t}`);
-        navBtn.className = t === tabName
-          ? 'flex-1 flex flex-col items-center justify-center py-1 text-[#0381fe] font-bold transition'
-          : 'flex-1 flex flex-col items-center justify-center py-1 text-gray-400 hover:text-gray-600 font-medium transition';
-      });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    document.getElementById('fetchServerTimeBtn').addEventListener('click', async () => {
-      const nowMs = Date.now();
-      if (nowMs - lastFetchTimestamp < 2000) return alert('잠시 후 다시 시도해주세요.');
-      const urlInput = document.getElementById('targetUrlInput').value.trim();
-      const statusMsg = document.getElementById('serverStatusMsg');
-      const fetchBtn = document.getElementById('fetchServerTimeBtn');
-      if (!urlInput) return alert('시간을 가져올 웹사이트 주소를 입력해주세요.');
-
-      lastFetchTimestamp = nowMs;
-      fetchBtn.disabled = true;
-      setTimeout(() => { fetchBtn.disabled = false; }, 2000);
-      statusMsg.innerText = '⏳ 해당 사이트의 실제 서버 시간을 파악하고 있습니다...';
-      statusMsg.className = 'text-[11px] text-cyan-600 font-semibold animate-pulse';
-
-      try {
-        const reqStart = Date.now();
-        const res = await fetch(`/api/server-time?url=${encodeURIComponent(urlInput)}`);
-        const reqEnd = Date.now();
-        const data = await res.json();
-        if (!res.ok) {
-          statusMsg.innerText = `❌ 연결 실패: ${data.error || '요청 거부'}`;
-          statusMsg.className = 'text-[11px] text-rose-500 font-medium';
-          return;
-        }
-        const clientFetchDelay = Math.round((reqEnd - reqStart) / 2);
-        timeOffsetMs = (data.serverTimestamp + clientFetchDelay) - Date.now();
-        syncedDomain = new URL(data.targetUrl).hostname;
-        document.getElementById('clock').classList.remove('text-gray-900');
-        document.getElementById('clock').classList.add('text-cyan-600', 'font-semibold');
-        const diffSec = (timeOffsetMs / 1000).toFixed(2);
-        const offsetEl = document.getElementById('offsetInfo');
-        offsetEl.innerText = `내 기기 시계와의 오차: ${timeOffsetMs >= 0 ? '+' : ''}${diffSec}초 (통신 지연 ${data.rtt}ms)`;
-        offsetEl.classList.remove('hidden');
-        document.getElementById('resetLocalTimeBtn').classList.remove('hidden');
-        statusMsg.innerText = `🌐 ${syncedDomain} 서버 시간 동기화 완료`;
-        statusMsg.className = 'text-[11px] text-[#0381fe] font-bold';
-      } catch (err) {
-        statusMsg.innerText = '❌ 서버와 통신하는 중 네트워크에 문제가 발생했습니다.';
-        statusMsg.className = 'text-[11px] text-rose-500';
-      }
-    });
-
-    document.getElementById('resetLocalTimeBtn').addEventListener('click', () => {
-      timeOffsetMs = 0;
-      syncedDomain = null;
-      document.getElementById('clock').className = 'text-5xl font-light text-gray-900 tracking-tight font-mono my-1 transition-colors duration-300';
-      document.getElementById('offsetInfo').classList.add('hidden');
-      document.getElementById('resetLocalTimeBtn').classList.add('hidden');
-      document.getElementById('serverStatusMsg').innerText = '내 기기 시간 기준으로 원래대로 복귀했습니다.';
-      document.getElementById('serverStatusMsg').className = 'text-[11px] text-gray-500';
-    });
-
-    const wakeLockBtn = document.getElementById('wakeLockBtn');
-    function updateWakeLockButton(active) {
-      wakeLockBtn.innerText = active ? '💡 화면 켜짐: ON' : '💤 화면 켜짐: OFF';
-      wakeLockBtn.className = active
-        ? 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition'
-        : 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition';
-    }
-    async function acquireWakeLock() {
-      if (!wakeLockRequested || document.visibilityState !== 'visible' || !('wakeLock' in navigator)) return;
-      try {
-        if (!wakeLock) {
-          wakeLock = await navigator.wakeLock.request('screen');
-          wakeLock.addEventListener('release', () => {
-            wakeLock = null;
-            updateWakeLockButton(false);
-            if (wakeLockRequested && document.visibilityState === 'visible') setTimeout(() => acquireWakeLock(), 250);
-          }, { once: true });
-        }
-        updateWakeLockButton(true);
-      } catch (err) {
-        updateWakeLockButton(false);
-      }
-    }
-    wakeLockBtn.addEventListener('click', async () => {
-      if (!('wakeLock' in navigator)) return alert('이 브라우저에서는 화면 켜짐 유지 기능을 지원하지 않습니다.');
-      if (wakeLockRequested) {
-        wakeLockRequested = false;
-        if (wakeLock) await wakeLock.release().catch(() => {});
-        wakeLock = null;
-        updateWakeLockButton(false);
-        return;
-      }
-      wakeLockRequested = true;
-      await acquireWakeLock();
-      if (!wakeLock) wakeLockRequested = false;
-    });
-
-    async function ensureNotificationAndPushSync(clearRinging = false) {
-      if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
-      if (Notification.permission === 'default') {
-        const perm = await Notification.requestPermission().catch(() => 'default');
-        if (perm === 'granted') {
-          await subscribeToPushNotifications(false);
-          return;
-        }
-      }
-      if (Notification.permission === 'granted') {
-        const reg = await navigator.serviceWorker.ready;
-        let sub = await reg.pushManager.getSubscription();
-        if (!sub) {
-          sub = await subscribeToPushNotifications(false);
-        } else {
-          const saved = await syncAlarmsToPushServer(sub, clearRinging);
-          pushEnabled = Boolean(saved);
-          updatePushButtonUI();
-        }
-      }
-    }
 
     function saveAlarms(clearRinging = false) {
       ensureServerScheduleFields();
       localStorage.setItem('saved_alarms', JSON.stringify(alarms));
-      ensureAutoBgKeepAlive();
-      ensureNotificationAndPushSync(clearRinging);
-    }
-
-    document.getElementById('snoozeIntervalSelect').addEventListener('change', (e) => {
-      document.getElementById('customSnoozeInterval').classList.toggle('hidden', e.target.value !== 'custom');
-    });
-    document.getElementById('snoozeCountSelect').addEventListener('change', (e) => {
-      document.getElementById('customSnoozeCount').classList.toggle('hidden', e.target.value !== 'custom');
-    });
-
-    document.querySelectorAll('.day-btn, .edit-day-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const isSelected = btn.classList.contains('selected-day');
-        if (isSelected) {
-          btn.classList.remove('selected-day', 'bg-[#0381fe]', 'text-white', 'shadow-sm');
-          btn.classList.add('bg-[#f2f4f7]');
-          const d = btn.getAttribute('data-day');
-          if (d === '0') btn.classList.add('text-rose-500');
-          else if (d === '6') btn.classList.add('text-blue-500');
-          else btn.classList.add('text-gray-600');
-        } else {
-          btn.classList.remove('bg-[#f2f4f7]', 'text-rose-500', 'text-blue-500', 'text-gray-600');
-          btn.classList.add('selected-day', 'bg-[#0381fe]', 'text-white', 'shadow-sm');
-        }
-      });
-    });
-
-    function getSynchronizedNow() {
-      return new Date(Date.now() + timeOffsetMs);
-    }
-
-    function getActiveDayIndex() {
-      return getSynchronizedNow().getDay();
+      ensureAutoBgKeepAlive(true);
+      syncCurrentPushState(clearRinging);
     }
 
     function formatDateKey(d) {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
 
-    function getDisplayedAlarmSoundIndex(alarm) {
-      if (!alarm.randomDaily) return (Number(alarm.sound) || 0) % 12;
-      if (isRinging && currentRingingAlarm && String(currentRingingAlarm.id) === String(alarm.id)) {
-        return (Number(alarm.sound) || 0) % 12;
-      }
-      const now = getSynchronizedNow();
-      const todayKey = formatDateKey(now);
-      const lastTriggeredDate = String(alarm.lastTriggeredKey || '').split('_')[0];
-      const displayDate = new Date(now);
-      if (alarm.isRepeating && lastTriggeredDate === todayKey && !alarm.nextSnoozeTime) {
-        displayDate.setDate(displayDate.getDate() + 1);
-      }
-      return dailyRandomSoundIndex(alarm.id, displayDate);
-    }
-
-    function updateNextAlarmCountdown(now, activeDay) {
-      const countdownEl = document.getElementById('nextAlarmCountdown');
-      const enabledAlarms = alarms.filter(a => a.enabled);
-      if (enabledAlarms.length === 0) {
-        countdownEl.innerText = syncedDomain ? `[${syncedDomain}] 서버 시간 기준 · 대기중` : '모든 알람이 꺼져 있습니다';
-        return;
-      }
-
-      let minDiffMs = Infinity;
-      enabledAlarms.forEach(alarm => {
-        if (!alarm.isRepeating && alarm.singleShotAt && !alarm.nextSnoozeAt) {
-          const diff = Number(alarm.singleShotAt) - now.getTime();
-          if (diff > 0 && diff < minDiffMs) minDiffMs = diff;
-          return;
-        }
-        const targetTimeStr = alarm.nextSnoozeTime || alarm.time;
-        const [th, tm] = targetTimeStr.split(':').map(Number);
-
-        for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-          const checkDay = (activeDay + dayOffset) % 7;
-          if (alarm.days.includes(checkDay)) {
-            const candidate = new Date(now);
-            candidate.setDate(now.getDate() + dayOffset);
-            candidate.setHours(th, tm, 0, 0);
-            const diff = candidate.getTime() - now.getTime();
-            if (diff > 0 && diff < minDiffMs) minDiffMs = diff;
-          }
-        }
-      });
-
-      if (minDiffMs === Infinity) {
-        countdownEl.innerText = '예정된 알람이 없습니다';
-        return;
-      }
-
-      const totalMins = Math.ceil(minDiffMs / 60000);
-      const days = Math.floor(totalMins / (60 * 24));
-      const hours = Math.floor((totalMins % (60 * 24)) / 60);
-      const mins = totalMins % 60;
-
-      let parts = [];
-      if (days > 0) parts.push(`${days}일`);
-      if (hours > 0) parts.push(`${hours}시간`);
-      if (mins > 0 || parts.length === 0) parts.push(`${mins}분`);
-
-      const prefixLabel = syncedDomain ? `[${syncedDomain}] 기준 ` : '';
-      countdownEl.innerText = `${prefixLabel}다음 알람까지 ${parts.join(' ')} 남음`;
-    }
-
     function updateClock() {
-      const now = getSynchronizedNow();
+      const now = new Date();
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
       const seconds = String(now.getSeconds()).padStart(2, '0');
-      const activeDay = getActiveDayIndex();
+      const activeDay = now.getDay();
       const todayKey = formatDateKey(now);
 
       document.getElementById('clock').innerText = `${hours}:${minutes}:${seconds}`;
       document.getElementById('activeDayDisplay').innerText = `📅 ${daysMap[activeDay]}요일`;
       document.getElementById('todayDateLabel').innerText = `${now.getMonth() + 1}월 ${now.getDate()}일 (${daysMap[now.getDay()]})`;
 
-      updateNextAlarmCountdown(now, activeDay);
+      const enabledAlarms = alarms.filter(a => a.enabled);
+      document.getElementById('nextAlarmCountdown').innerText = enabledAlarms.length > 0
+        ? `활성 알람 ${enabledAlarms.length}개 대기 중`
+        : '모든 알람이 꺼져 있습니다';
 
-      if (Date.now() - lastStoppedAlarmStamp < 3000) return;
+      if (Date.now() - lastStoppedAlarmStamp < 3000 || isRinging) return;
 
-      const windowMs = document.visibilityState === 'visible' ? 120 * 1000 : 20 * 1000;
-
-      if (!isRinging) {
-        for (const alarm of alarms) {
-          if (!alarm.enabled) continue;
-          if (alarm.userDismissedAt && Date.now() - Number(alarm.userDismissedAt) < 120 * 1000 && !alarm.nextSnoozeAt) {
-            continue;
+      for (const alarm of alarms) {
+        if (!alarm.enabled) continue;
+        if (!alarm.isRepeating && alarm.singleShotAt) {
+          const diff = now.getTime() - Number(alarm.singleShotAt);
+          const key = `${todayKey}_${alarm.time}_${alarm.singleShotAt}`;
+          if (diff >= 0 && diff <= 60000 && alarm.lastTriggeredKey !== key) {
+            alarm.lastTriggeredKey = key;
+            saveAlarms();
+            triggerAlarm(alarm);
+            break;
           }
-
-          if (!alarm.isRepeating && !alarm.nextSnoozeAt) {
-            const shotAt = Number(alarm.singleShotAt);
-            if (!shotAt) continue;
-            const diffMs = now.getTime() - shotAt;
-            const triggerKey = `${todayKey}_${alarm.time}_${shotAt}`;
-            if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey && alarm.dismissedScheduleKey !== triggerKey) {
-              alarm.lastTriggeredKey = triggerKey;
-              saveAlarms();
-              triggerAlarm(alarm);
-              break;
-            }
-            continue;
-          }
-
-          if (!alarm.nextSnoozeAt && !alarm.days.includes(activeDay)) continue;
-
-          let diffMs = -1;
-          let triggerKey = '';
-
-          if (alarm.nextSnoozeAt) {
-            diffMs = now.getTime() - Number(alarm.nextSnoozeAt);
-            triggerKey = `${todayKey}_snooze_${alarm.nextSnoozeAt}`;
-          } else {
-            const [th, tm] = alarm.time.split(':').map(Number);
-            const targetDate = new Date(now);
-            targetDate.setHours(th, tm, 0, 0);
-            diffMs = now.getTime() - targetDate.getTime();
-            triggerKey = `${todayKey}_${alarm.time}`;
-          }
-
-          if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey && alarm.dismissedScheduleKey !== triggerKey) {
-            alarm.lastTriggeredKey = triggerKey;
+        } else if (alarm.isRepeating && (alarm.days || []).includes(activeDay)) {
+          const [th, tm] = alarm.time.split(':').map(Number);
+          const cand = new Date(now);
+          cand.setHours(th, tm, 0, 0);
+          const diff = now.getTime() - cand.getTime();
+          const key = `${todayKey}_${alarm.time}`;
+          if (diff >= 0 && diff <= 60000 && alarm.lastTriggeredKey !== key) {
+            alarm.lastTriggeredKey = key;
             saveAlarms();
             triggerAlarm(alarm);
             break;
@@ -1572,343 +829,76 @@
         }
       }
     }
-
     setInterval(updateClock, 250);
     updateClock();
 
-    function recoverBackgroundAudioSession() {
-      if (isStoppingAudio) return;
-      if (isRinging || isTimerRinging) {
-        if (masterEl.paused) {
-          claimAudioFocusForAlarm(currentRingingAlarm);
-          masterEl.play().catch(() => {});
-        }
-        return;
-      }
-      if (bgAudioManuallyDisabled) return;
-      const shouldKeep = bgAudioManualKeepAlive || alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
-      if (shouldKeep && (masterEl.paused || !masterEl.src || !isBgAudioRunning)) {
-        ensureAutoBgKeepAlive();
-      }
-    }
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        if (wakeLockRequested && !wakeLock) acquireWakeLock();
-        recoverBackgroundAudioSession();
-        updateClock();
-      } else {
-        recoverBackgroundAudioSession();
-      }
-    });
-    window.addEventListener('focus', () => {
-      recoverBackgroundAudioSession();
-      updateClock();
-    });
-    window.addEventListener('pageshow', () => {
-      recoverBackgroundAudioSession();
-      updateClock();
-    });
-
-    document.addEventListener('pointerdown', () => {
-      recoverBackgroundAudioSession();
-    }, { passive: true });
-
-    setInterval(() => {
-      recoverBackgroundAudioSession();
-    }, 3000);
-
     window.addQuickTimer = function(minutesToAdd, label) {
       initMasterAudioUrls();
-      const now = getSynchronizedNow();
+      bgAudioManuallyDisabled = false;
+      const now = new Date();
       now.setMinutes(now.getMinutes() + minutesToAdd);
       now.setSeconds(0, 0);
       const singleShotAt = now.getTime();
       const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      const sound = Math.floor(Math.random() * 12);
 
       alarms.push({
         id: Date.now(),
         name: label,
         group: '빠른 알람',
         time: timeStr,
-        sound: sound,
-        randomDaily: true,
+        sound: Math.floor(Math.random() * 12),
         days: [now.getDay()],
         isRepeating: false,
-        snoozeInterval: 3,
-        snoozeCount: 2,
-        remainingSnooze: 2,
-        snoozeLevel: 0,
-        nextSnoozeTime: null,
-        lastTriggeredKey: null,
         singleShotAt,
-        serverFiredAt: null,
-        userDismissedAt: null,
-        dismissedScheduleKey: null,
-        nextSnoozeAt: null,
+        lastTriggeredKey: null,
         enabled: true
       });
-
       alarms.sort((a, b) => a.time.localeCompare(b.time));
       saveAlarms();
       renderAlarmList();
       updateClock();
+      showFeatureInfoBanner('⏰', `${timeStr} 알람 등록됨`, '백그라운드 오디오와 서버 푸시가 자동 활성화되었습니다.');
     };
 
-    function renderGroupControls() {
-      const wrapper = document.getElementById('groupControlWrapper');
-      const listEl = document.getElementById('groupToggleList');
-      if (alarms.length === 0) {
-        wrapper.classList.add('hidden');
-        return;
-      }
-      wrapper.classList.remove('hidden');
-
-      const groups = [...new Set(alarms.map(a => a.group))];
-      listEl.innerHTML = groups.map(groupName => {
-        const groupAlarms = alarms.filter(a => a.group === groupName);
-        const activeCount = groupAlarms.filter(a => a.enabled).length;
-        const isAllOrAnyOn = activeCount > 0;
-        const safeGroup = escapeHTML(groupName);
-        return `
-          <button type="button" data-group-name="${safeGroup}" 
-            class="group-toggle-btn px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
-              isAllOrAnyOn ? 'bg-[#0381fe] text-white shadow-sm' : 'bg-[#f2f4f7] text-gray-500 hover:bg-gray-200'
-            }">
-            <span>${safeGroup}</span>
-            <span class="text-[10px] opacity-85">(${activeCount}/${groupAlarms.length})</span>
-          </button>
-        `;
-      }).join('');
-    }
-
-    document.getElementById('groupToggleList').addEventListener('click', (e) => {
-      const btn = e.target.closest('.group-toggle-btn');
-      if (!btn) return;
-      toggleGroup(btn.getAttribute('data-group-name'));
-    });
-
-    window.toggleGroup = function(groupName) {
-      const groupAlarms = alarms.filter(a => a.group === groupName);
-      const anyEnabled = groupAlarms.some(a => a.enabled);
-      const nextState = !anyEnabled;
-      const todayKey = formatDateKey(getSynchronizedNow());
-
-      alarms.forEach(a => {
-        if (a.group === groupName) {
-          a.enabled = nextState;
-          if (!nextState) {
-            a.snoozeLevel = 0;
-            a.remainingSnooze = Number(a.snoozeCount) || 3;
-            a.nextSnoozeTime = null;
-            a.nextSnoozeAt = null;
-            a.userDismissedAt = Date.now();
-            a.dismissedScheduleKey = a.lastTriggeredKey || null;
-          } else {
-            a.snoozeLevel = 0;
-            a.remainingSnooze = Number(a.snoozeCount) || 3;
-            a.userDismissedAt = null;
-            a.dismissedScheduleKey = null;
-            if (!a.isRepeating) {
-              a.singleShotAt = computeNextSingleShotTimestamp(a.time);
-              a.days = [new Date(a.singleShotAt).getDay()];
-              a.serverFiredAt = null;
-            } else {
-              a.lastTriggeredKey = `${todayKey}_${a.time}`;
-            }
-          }
-        }
-      });
-
-      saveAlarms();
-      renderAlarmList();
-      updateClock();
-    };
-
-    function formatAmPmTime(time24) {
-      const [hStr, mStr] = time24.split(':');
-      let h = parseInt(hStr, 10);
-      const ampm = h >= 12 ? '오후' : '오전';
-      const h12 = h % 12 === 0 ? 12 : h % 12;
-      return { ampm, time12: `${String(h12).padStart(2, '0')}:${mStr}` };
-    }
-
-    function renderAlarmList() {
-      renderGroupControls();
-      const listEl = document.getElementById('alarmList');
-      if (alarms.length === 0) {
-        listEl.innerHTML = '<div class="clean-card p-8 text-xs text-gray-400 text-center">알람이 없습니다. 위에서 새 알람을 추가해보세요.</div>';
-        return;
-      }
-
-      listEl.innerHTML = alarms.map((alarm, idx) => {
-        const selectedDaysText = alarm.isRepeating ? alarm.days.map(d => daysMap[d]).join(' ') : '한 번만 울림';
-        const { ampm, time12 } = formatAmPmTime(alarm.nextSnoozeTime || alarm.time);
-        const snoozeTag = alarm.nextSnoozeTime ? `<span class="text-[11px] font-bold text-amber-600 ml-1">😴 다시 울림</span>` : '';
-        const levelTag = (alarm.snoozeLevel && alarm.snoozeLevel > 0)
-          ? `<span class="text-[10px] px-2 py-0.5 bg-rose-50 text-rose-600 rounded-full font-bold">🔥 강도 Lv.${alarm.snoozeLevel + 1}</span>`
-          : '';
-        const safeGroup = escapeHTML(alarm.group);
-        const safeName = escapeHTML(alarm.name);
-
-        return `
-          <div class="clean-card p-5 flex justify-between items-center transition cursor-pointer hover:bg-blue-50/30 ${alarm.enabled ? 'opacity-100' : 'opacity-65'}" onclick="openEditModal(${idx}, event)">
-            <div class="text-left flex-1 min-w-0 pr-2">
-              <div class="flex items-center gap-1.5 mb-1 flex-wrap">
-                <span class="text-[11px] px-2 py-0.5 bg-blue-50 text-[#0381fe] rounded-full font-bold">${safeGroup}</span>
-                <span class="text-xs text-gray-600 font-semibold truncate">${safeName}</span>
-                ${levelTag}
-              </div>
-              <div class="flex items-baseline gap-1.5">
-                <span class="text-sm font-bold ${alarm.enabled ? 'text-gray-700' : 'text-gray-400'}">${ampm}</span>
-                <span class="text-3xl font-light tracking-tight font-mono ${alarm.enabled ? 'text-gray-900' : 'text-gray-400'}">${escapeHTML(time12)}</span>
-                ${snoozeTag}
-              </div>
-              <div class="text-[11px] text-gray-400 mt-1 font-medium truncate">
-                <span class="${alarm.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${selectedDaysText}</span> · ${alarm.randomDaily ? `매일 랜덤 · ${soundNames[getDisplayedAlarmSoundIndex(alarm)]}` : soundNames[alarm.sound % 12]}
-              </div>
-            </div>
-            <div class="flex items-center gap-3 shrink-0" onclick="event.stopPropagation();">
-              <label class="pill-switch">
-                <input type="checkbox" ${alarm.enabled ? 'checked' : ''} onchange="toggleAlarm(${idx})">
-                <span class="pill-slider"></span>
-              </label>
-              <button onclick="deleteAlarm(${idx})" title="삭제" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-rose-50 text-gray-400 hover:text-rose-500 flex items-center justify-center text-xs font-bold transition">
-                ✕
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    window.openEditModal = function(idx, event) {
-      if (event) event.stopPropagation();
-      const alarm = alarms[idx];
-      if (!alarm) return;
-      document.getElementById('editAlarmId').value = idx;
-      setSelectsFrom24HourTime(alarm.time, 'editAlarmAmPm', 'editAlarmHour', 'editAlarmMinute');
-      document.getElementById('editAlarmSound').value = alarm.sound;
-      document.getElementById('editAlarmName').value = alarm.name;
-      document.getElementById('editAlarmGroup').value = alarm.group;
-
-      document.querySelectorAll('.edit-day-btn').forEach(btn => {
-        const day = parseInt(btn.getAttribute('data-day'), 10);
-        if (alarm.days.includes(day)) {
-          btn.className = 'edit-day-btn w-9 h-9 rounded-full bg-[#0381fe] text-white text-xs font-bold transition flex items-center justify-center selected-day shadow-sm';
+    document.querySelectorAll('.day-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const isSelected = btn.classList.contains('selected-day');
+        if (isSelected) {
+          btn.classList.remove('selected-day', 'bg-[#0381fe]', 'text-white');
+          btn.classList.add('bg-[#f2f4f7]', 'text-gray-600');
         } else {
-          btn.className = 'edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-xs font-bold transition flex items-center justify-center';
-          if (day === 0) btn.classList.add('text-rose-500');
-          else if (day === 6) btn.classList.add('text-blue-500');
-          else btn.classList.add('text-gray-600');
+          btn.classList.remove('bg-[#f2f4f7]', 'text-gray-600');
+          btn.classList.add('selected-day', 'bg-[#0381fe]', 'text-white');
         }
       });
-      document.getElementById('editModal').classList.remove('hidden');
-    };
-
-    window.closeEditModal = function() {
-      document.getElementById('editModal').classList.add('hidden');
-    };
-
-    document.getElementById('saveEditedAlarmBtn').addEventListener('click', () => {
-      const idx = parseInt(document.getElementById('editAlarmId').value, 10);
-      const alarm = alarms[idx];
-      if (!alarm) return;
-
-      const newTime = get24HourTimeFromSelects('editAlarmAmPm', 'editAlarmHour', 'editAlarmMinute');
-      const newName = document.getElementById('editAlarmName').value.trim().slice(0, 30) || '알람';
-      const newGroup = document.getElementById('editAlarmGroup').value.trim().slice(0, 20) || '기본 그룹';
-      const newSound = parseInt(document.getElementById('editAlarmSound').value, 10);
-
-      let selectedDays = [];
-      document.querySelectorAll('.edit-day-btn').forEach(btn => {
-        if (btn.classList.contains('selected-day')) {
-          selectedDays.push(parseInt(btn.getAttribute('data-day'), 10));
-        }
-      });
-
-      let isRepeating = true;
-      let singleShotAt = null;
-      if (selectedDays.length === 0) {
-        isRepeating = false;
-        singleShotAt = computeNextSingleShotTimestamp(newTime);
-        selectedDays.push(new Date(singleShotAt).getDay());
-      }
-
-      alarm.time = newTime;
-      alarm.name = newName;
-      alarm.group = newGroup;
-      alarm.randomDaily = false;
-      alarm.sound = newSound;
-      alarm.days = selectedDays;
-      alarm.isRepeating = isRepeating;
-      alarm.nextSnoozeTime = null;
-      alarm.nextSnoozeAt = null;
-      alarm.snoozeLevel = 0;
-      alarm.remainingSnooze = Number(alarm.snoozeCount) || 3;
-      alarm.lastTriggeredKey = null;
-      alarm.userDismissedAt = null;
-      alarm.dismissedScheduleKey = null;
-      alarm.singleShotAt = singleShotAt;
-      alarm.serverFiredAt = null;
-
-      alarms.sort((a, b) => a.time.localeCompare(b.time));
-      saveAlarms();
-      renderAlarmList();
-      updateClock();
-      closeEditModal();
     });
 
     document.getElementById('addAlarmBtn').addEventListener('click', () => {
       initMasterAudioUrls();
-      const name = document.getElementById('alarmName').value.trim().slice(0, 30) || '알람';
-      const group = document.getElementById('alarmGroup').value.trim().slice(0, 20) || '기본 그룹';
+      bgAudioManuallyDisabled = false;
+      const name = document.getElementById('alarmName').value.trim() || '알람';
+      const group = document.getElementById('alarmGroup').value.trim() || '기본 그룹';
       const time = get24HourTimeFromSelects('alarmAmPm', 'alarmHour', 'alarmMinute');
       const soundVal = document.getElementById('alarmSound').value;
+      const sound = soundVal === 'random' ? Math.floor(Math.random() * 12) : parseInt(soundVal, 10);
 
-      let snoozeInterval = 5;
-      const intervalVal = document.getElementById('snoozeIntervalSelect').value;
-      if (intervalVal === 'custom') {
-        snoozeInterval = parseInt(document.getElementById('customSnoozeInterval').value, 10);
-        if (!snoozeInterval || snoozeInterval <= 0 || snoozeInterval > 60) return alert('1~60분 사이의 올바른 간격을 입력해주세요.');
-      } else {
-        snoozeInterval = parseInt(intervalVal, 10);
-      }
-
-      let snoozeCount = 3;
-      const countVal = document.getElementById('snoozeCountSelect').value;
-      if (countVal === 'custom') {
-        snoozeCount = parseInt(document.getElementById('customSnoozeCount').value, 10);
-        if (!snoozeCount || snoozeCount <= 0 || snoozeCount > 20) return alert('1~20회 사이의 올바른 횟수를 입력해주세요.');
-      } else {
-        snoozeCount = parseInt(countVal, 10);
-      }
-
-      let sound = soundVal === 'random' ? Math.floor(Math.random() * 12) : parseInt(soundVal, 10);
       let selectedDays = [];
       document.querySelectorAll('.day-btn').forEach(btn => {
         if (btn.classList.contains('selected-day')) selectedDays.push(parseInt(btn.getAttribute('data-day'), 10));
       });
 
-      let isRepeating = true;
+      let isRepeating = selectedDays.length > 0;
       let singleShotAt = null;
-      if (selectedDays.length === 0) {
-        isRepeating = false;
+      if (!isRepeating) {
         singleShotAt = computeNextSingleShotTimestamp(time);
-        selectedDays.push(new Date(singleShotAt).getDay());
+        selectedDays = [new Date(singleShotAt).getDay()];
       }
 
       alarms.push({
         id: Date.now(), name, group, time, sound,
-        randomDaily: soundVal === 'random',
-        days: selectedDays,
-        isRepeating, snoozeInterval, snoozeCount, remainingSnooze: snoozeCount,
-        snoozeLevel: 0, nextSnoozeTime: null, nextSnoozeAt: null,
-        singleShotAt, serverFiredAt: null, userDismissedAt: null,
-        dismissedScheduleKey: null, lastTriggeredKey: null, enabled: true
+        days: selectedDays, isRepeating, singleShotAt,
+        lastTriggeredKey: null, enabled: true
       });
-
       alarms.sort((a, b) => a.time.localeCompare(b.time));
       saveAlarms();
       renderAlarmList();
@@ -1916,48 +906,61 @@
       document.getElementById('alarmName').value = '';
     });
 
+    function renderAlarmList() {
+      const listEl = document.getElementById('alarmList');
+      if (alarms.length === 0) {
+        listEl.innerHTML = '<div class="clean-card p-8 text-xs text-gray-400 text-center">알람이 없습니다.</div>';
+        return;
+      }
+      listEl.innerHTML = alarms.map((alarm, idx) => {
+        const [hStr, mStr] = alarm.time.split(':');
+        const h = parseInt(hStr, 10);
+        const ampm = h >= 12 ? '오후' : '오전';
+        const h12 = h % 12 === 0 ? 12 : h % 12;
+        const time12 = `${String(h12).padStart(2, '0')}:${mStr}`;
+        return `
+          <div class="clean-card p-5 flex justify-between items-center ${alarm.enabled ? 'opacity-100' : 'opacity-60'}">
+            <div class="text-left flex-1 min-w-0 pr-2">
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="text-[11px] px-2 py-0.5 bg-blue-50 text-[#0381fe] rounded-full font-bold">${escapeHTML(alarm.group)}</span>
+                <span class="text-xs text-gray-600 font-semibold truncate">${escapeHTML(alarm.name)}</span>
+              </div>
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-sm font-bold text-gray-700">${ampm}</span>
+                <span class="text-3xl font-light font-mono text-gray-900">${time12}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <label class="pill-switch">
+                <input type="checkbox" ${alarm.enabled ? 'checked' : ''} onchange="toggleAlarm(${idx})">
+                <span class="pill-slider"></span>
+              </label>
+              <button onclick="deleteAlarm(${idx})" class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 hover:text-rose-500 text-xs font-bold">✕</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
     window.toggleAlarm = function(idx) {
       alarms[idx].enabled = !alarms[idx].enabled;
-      const now = getSynchronizedNow();
-      const todayKey = formatDateKey(now);
-
-      if (!alarms[idx].enabled) {
-        alarms[idx].snoozeLevel = 0;
-        alarms[idx].remainingSnooze = Number(alarms[idx].snoozeCount) || 3;
-        alarms[idx].nextSnoozeTime = null;
-        alarms[idx].nextSnoozeAt = null;
-        alarms[idx].userDismissedAt = Date.now();
-        alarms[idx].dismissedScheduleKey = alarms[idx].lastTriggeredKey || null;
-      } else {
-        alarms[idx].snoozeLevel = 0;
-        alarms[idx].remainingSnooze = Number(alarms[idx].snoozeCount) || 3;
-        alarms[idx].userDismissedAt = null;
-        alarms[idx].dismissedScheduleKey = null;
-        if (!alarms[idx].isRepeating) {
-          alarms[idx].serverFiredAt = null;
-          alarms[idx].singleShotAt = computeNextSingleShotTimestamp(alarms[idx].time);
-          alarms[idx].days = [new Date(alarms[idx].singleShotAt).getDay()];
-          alarms[idx].lastTriggeredKey = null;
-        } else {
-          const [th, tm] = alarms[idx].time.split(':').map(Number);
-          const candidate = new Date(now);
-          candidate.setHours(th, tm, 0, 0);
-          alarms[idx].lastTriggeredKey = (now.getTime() > candidate.getTime()) ? `${todayKey}_${alarms[idx].time}` : null;
-        }
+      if (alarms[idx].enabled && !alarms[idx].isRepeating) {
+        alarms[idx].singleShotAt = computeNextSingleShotTimestamp(alarms[idx].time);
+        alarms[idx].lastTriggeredKey = null;
       }
-      saveAlarms();
+      saveAlarms(!alarms[idx].enabled);
       renderAlarmList();
       updateClock();
     };
 
     window.deleteAlarm = function(idx) {
       alarms.splice(idx, 1);
-      saveAlarms();
+      saveAlarms(true);
       renderAlarmList();
       updateClock();
     };
 
-    function playPreviewSound(soundIdx, gainPeak = 0.35) {
+    function playPreviewSound(soundIdx, gainPeak = 0.45) {
       const ctx = unlockWebAudioContext();
       if (!ctx) return;
       const now = ctx.currentTime;
@@ -1980,480 +983,100 @@
 
     document.getElementById('previewSelectedSoundBtn').addEventListener('click', () => {
       const val = document.getElementById('alarmSound').value;
-      const soundIdx = val === 'random' ? Math.floor(Math.random() * 12) : parseInt(val, 10);
-      playPreviewSound(soundIdx);
-      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+      playPreviewSound(val === 'random' ? Math.floor(Math.random() * 12) : parseInt(val, 10));
     });
 
-    function triggerBackgroundVibration(payload) {
-      if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
-      if (Notification.permission !== 'granted') return;
-      navigator.serviceWorker.ready.then((reg) => {
-        if (reg.active) {
-          reg.active.postMessage({ type: 'TRIGGER_BG_VIBRATION', payload });
-        }
-      }).catch(() => {});
-    }
-
-    function stopBackgroundVibration(alarmId = null, scheduleKey = null) {
-      if (!('serviceWorker' in navigator)) return;
-      navigator.serviceWorker.ready.then((reg) => {
-        if (reg.active) {
-          reg.active.postMessage({ type: 'STOP_INFINITE_PUSH', alarmId, scheduleKey });
-        }
-      }).catch(() => {});
-    }
-
     function triggerAlarm(alarm) {
-      if (alarm.randomDaily && !alarm.nextSnoozeTime) {
-        const ringingNow = getSynchronizedNow();
-        alarm.sound = dailyRandomSoundIndex(alarm.id, ringingNow);
-        saveAlarms();
-      }
       isRinging = true;
-      isTimerRinging = false;
       currentRingingAlarm = alarm;
-      const level = Number(alarm.snoozeLevel) || 0;
-      const resolvedSoundIdx = getDisplayedAlarmSoundIndex(alarm);
-      const vibePattern = escalatedVibePresets[Math.min(level, escalatedVibePresets.length - 1)];
+      const soundIdx = (Number(alarm.sound) || 0) % 12;
 
-      const levelLabels = [
-        { text: '🔊 강도 Lv.1 (기본)', cls: 'bg-blue-100 text-[#0381fe]' },
-        { text: '⚡ 강도 Lv.2 (상향됨)', cls: 'bg-amber-100 text-amber-700' },
-        { text: '🔥 강도 Lv.3 (강력 경고)', cls: 'bg-orange-100 text-orange-700' },
-        { text: '🚨 강도 Lv.4 (최대 출력)', cls: 'bg-rose-100 text-rose-700' }
-      ];
-      const badgeInfo = levelLabels[Math.min(level, levelLabels.length - 1)];
-      const badgeEl = document.getElementById('modalIntensityBadge');
-      badgeEl.innerText = badgeInfo.text;
-      badgeEl.className = `inline-block px-3 py-1 rounded-full text-xs font-extrabold mb-3 ${badgeInfo.cls}`;
-
-      document.getElementById('modalAlarmName').innerText = `[${alarm.group || '기본 그룹'}] ${alarm.name || '알람'}`;
-      document.getElementById('modalAlarmTime').innerText = alarm.nextSnoozeTime || alarm.time || '00:00';
-      document.getElementById('modalSoundTitle').innerText = `알람음: ${alarm.randomDaily ? `매일 랜덤 · ${soundNames[resolvedSoundIdx]}` : soundNames[resolvedSoundIdx]}`;
-      document.getElementById('modalRepeatInfo').innerText = "💡 끄기를 누르면 알람 스위치가 OFF로 전환됩니다";
-      const sCount = Number(alarm.snoozeCount) || 3;
-      const rSnooze = Number.isFinite(Number(alarm.remainingSnooze)) ? Number(alarm.remainingSnooze) : sCount;
-      const sInt = Number(alarm.snoozeInterval) || 5;
-      document.getElementById('modalSnoozeInfo').innerText = `다시 울림: ${sInt}분 간격 (${rSnooze}/${sCount}회 남음)`;
-      document.getElementById('snoozeAlarmBtn').classList.remove('hidden');
+      document.getElementById('modalAlarmName').innerText = `[${alarm.group || '알람'}] ${alarm.name || '알람'}`;
+      document.getElementById('modalAlarmTime').innerText = alarm.time || '00:00';
+      document.getElementById('modalSoundTitle').innerText = `알람음: ${soundNames[soundIdx]}`;
       document.getElementById('alarmModal').classList.remove('hidden');
 
-      if (vibeInterval) {
-        clearInterval(vibeInterval);
-        vibeInterval = null;
-      }
-
-      seizeAudioFocusAndPlay(resolvedSoundIdx, level);
-      const repeatMs = Math.max(1000 - level * 130, 600);
+      seizeAudioFocusAndPlay(soundIdx, 1);
+      if (vibeInterval) clearInterval(vibeInterval);
       vibeInterval = setInterval(() => {
-        if (!isRinging) return;
-        if ('vibrate' in navigator) navigator.vibrate(vibePattern);
-      }, repeatMs);
-      if ('vibrate' in navigator) navigator.vibrate(vibePattern);
-
-      triggerBackgroundVibration({
-        alarmId: String(alarm.id),
-        title: `⏰ [${alarm.group || '기본 그룹'}] ${alarm.name || '알람'}`,
-        label: `[${alarm.group || '기본 그룹'}] ${alarm.name || '알람'}`,
-        body: `${alarm.nextSnoozeTime || alarm.time} 알람 · [✕ 알람 끄기]를 눌러 종료하세요.`,
-        snoozeLevel: level,
-        scheduleKey: alarm.lastTriggeredKey || ''
-      });
-    }
-
-    function escalateAlarmSound(alarm) {
-      if (!alarm) return;
-      const level = alarm.snoozeLevel || 0;
-      if (level >= 1) {
-        let nextSound;
-        do { nextSound = intenseSounds[Math.floor(Math.random() * intenseSounds.length)]; } while (nextSound === alarm.sound && intenseSounds.length > 1);
-        alarm.sound = nextSound;
-      } else {
-        let newSound;
-        do { newSound = Math.floor(Math.random() * 12); } while (newSound === alarm.sound);
-        alarm.sound = newSound;
-      }
+        if (isRinging && 'vibrate' in navigator) navigator.vibrate([500, 150, 500]);
+      }, 900);
+      if ('vibrate' in navigator) navigator.vibrate([500, 150, 500]);
     }
 
     function stopAllRingingState(explicitAlarmId = null, explicitScheduleKey = null) {
       lastStoppedAlarmStamp = Date.now();
       isRinging = false;
       isTimerRinging = false;
-
-      if (vibeInterval) {
-        clearInterval(vibeInterval);
-        vibeInterval = null;
-      }
+      if (vibeInterval) { clearInterval(vibeInterval); vibeInterval = null; }
       if ('vibrate' in navigator) navigator.vibrate(0);
-
       document.getElementById('alarmModal').classList.add('hidden');
 
       const targetId = explicitAlarmId || (currentRingingAlarm && currentRingingAlarm.id) || null;
-      const nowMs = Date.now();
-      const todayKey = formatDateKey(getSynchronizedNow());
-      let resolvedScheduleKey = explicitScheduleKey || null;
-
-      if (currentRingingAlarm) {
-        const matched = alarms.find(a => String(a.id) === String(currentRingingAlarm.id)) || currentRingingAlarm;
-        resolvedScheduleKey = resolvedScheduleKey || matched.lastTriggeredKey || `${todayKey}_${matched.time}`;
-        matched.enabled = false;
-        matched.remainingSnooze = Number(matched.snoozeCount) || 3;
-        matched.snoozeLevel = 0;
-        matched.nextSnoozeTime = null;
-        matched.nextSnoozeAt = null;
-        matched.userDismissedAt = nowMs;
-        matched.lastTriggeredKey = resolvedScheduleKey;
-        matched.dismissedScheduleKey = resolvedScheduleKey;
-        matched.serverFiredAt = nowMs;
-        escalateAlarmSound(matched);
-        currentRingingAlarm = null;
-        saveAlarms(true);
-        syncCurrentPushState(true, matched.id, resolvedScheduleKey);
-        renderAlarmList();
-        updateClock();
-      } else {
-        markAlarmCompletedInState(targetId, resolvedScheduleKey);
-        syncCurrentPushState(true, targetId, resolvedScheduleKey);
-      }
-
-      stopBackgroundVibration(targetId, resolvedScheduleKey);
-      stopAndResetMasterAudio();
-    }
-
-    document.getElementById('stopAlarmBtn').addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      stopAllRingingState();
-    });
-
-    document.getElementById('snoozeAlarmBtn').addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      lastStoppedAlarmStamp = Date.now();
-      isRinging = false;
-      if (vibeInterval) {
-        clearInterval(vibeInterval);
-        vibeInterval = null;
-      }
-      if ('vibrate' in navigator) navigator.vibrate(0);
-      document.getElementById('alarmModal').classList.add('hidden');
-
-      const targetAlarm = currentRingingAlarm
-        ? (alarms.find(a => String(a.id) === String(currentRingingAlarm.id)) || currentRingingAlarm)
-        : null;
-
-      if (targetAlarm) {
-        const sCount = Number(targetAlarm.snoozeCount) || 3;
-        const rSnooze = Number.isFinite(Number(targetAlarm.remainingSnooze)) ? Number(targetAlarm.remainingSnooze) : sCount;
-        if (rSnooze > 0) {
-          targetAlarm.remainingSnooze = rSnooze - 1;
-          targetAlarm.snoozeLevel = (Number(targetAlarm.snoozeLevel) || 0) + 1;
-          targetAlarm.enabled = true;
-          targetAlarm.userDismissedAt = null;
-          targetAlarm.dismissedScheduleKey = null;
-          const now = getSynchronizedNow();
-          now.setMinutes(now.getMinutes() + (Number(targetAlarm.snoozeInterval) || 5));
-          now.setSeconds(0, 0);
-          targetAlarm.nextSnoozeTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-          targetAlarm.nextSnoozeAt = now.getTime();
-          targetAlarm.lastTriggeredKey = null;
-          escalateAlarmSound(targetAlarm);
-        } else {
-          alert('남은 다시 울림 횟수가 소진되었습니다.');
-          targetAlarm.enabled = false;
-          targetAlarm.remainingSnooze = sCount;
-          targetAlarm.snoozeLevel = 0;
-          targetAlarm.nextSnoozeTime = null;
-          targetAlarm.nextSnoozeAt = null;
-          targetAlarm.userDismissedAt = Date.now();
-          escalateAlarmSound(targetAlarm);
+      alarms = alarms.map(a => {
+        if ((targetId && String(a.id) === String(targetId)) || !targetId) {
+          return Object.assign({}, a, { enabled: a.isRepeating ? a.enabled : false });
         }
-      }
+        return a;
+      });
       currentRingingAlarm = null;
-      saveAlarms(true);
-      syncCurrentPushState(true, targetAlarm ? targetAlarm.id : null, null);
-      stopBackgroundVibration(targetAlarm ? targetAlarm.id : null, null);
+      localStorage.setItem('saved_alarms', JSON.stringify(alarms));
+      syncCurrentPushState(true, targetId, explicitScheduleKey);
       stopAndResetMasterAudio();
       renderAlarmList();
       updateClock();
+    }
+
+    document.getElementById('stopAlarmBtn').addEventListener('click', () => stopAllRingingState());
+    document.getElementById('snoozeAlarmBtn').addEventListener('click', () => {
+      const target = currentRingingAlarm;
+      stopAllRingingState();
+      if (target) addQuickTimer(5, `${target.name} (다시 울림)`);
     });
-
-    // 스톱워치
-    let swRunning = false, swStartTime = 0, swElapsedMs = 0, swInterval = null, swLaps = [], swLastLapTotalMs = 0;
-    function formatStopwatchMs(ms) {
-      const totalCentis = Math.floor(ms / 10);
-      const centis = String(totalCentis % 100).padStart(2, '0');
-      const totalSecs = Math.floor(totalCentis / 100);
-      const secs = String(totalSecs % 60).padStart(2, '0');
-      const mins = String(Math.floor(totalSecs / 60) % 60).padStart(2, '0');
-      const hrs = Math.floor(totalSecs / 3600);
-      return hrs > 0 ? `${String(hrs).padStart(2, '0')}:${mins}:${secs}.${centis}` : `${mins}:${secs}.${centis}`;
-    }
-    function renderStopwatchLaps() {
-      const card = document.getElementById('swLapsCard'), list = document.getElementById('swLapsList');
-      if (swLaps.length === 0) { card.classList.add('hidden'); return; }
-      card.classList.remove('hidden');
-      let minLap = Infinity, maxLap = -1;
-      if (swLaps.length >= 2) swLaps.forEach(l => { if (l.lapMs < minLap) minLap = l.lapMs; if (l.lapMs > maxLap) maxLap = l.lapMs; });
-      list.innerHTML = swLaps.slice().reverse().map(l => {
-        let badge = '', rowColor = 'text-gray-700';
-        if (swLaps.length >= 2) {
-          if (l.lapMs === minLap) { badge = '<span class="text-[10px] text-[#0381fe] font-bold ml-1">최단</span>'; rowColor = 'text-[#0381fe] font-bold'; }
-          else if (l.lapMs === maxLap) { badge = '<span class="text-[10px] text-rose-500 font-bold ml-1">최장</span>'; rowColor = 'text-rose-500 font-bold'; }
-        }
-        return `<div class="flex justify-between items-center py-2.5 px-2 text-xs font-mono ${rowColor}"><span>구간 ${String(l.num).padStart(2, '0')}${badge}</span><span>${formatStopwatchMs(l.lapMs)}</span><span class="text-gray-400">${formatStopwatchMs(l.totalMs)}</span></div>`;
-      }).join('');
-    }
-    document.getElementById('swStartStopBtn').addEventListener('click', () => {
-      const startBtn = document.getElementById('swStartStopBtn'), lapBtn = document.getElementById('swLapResetBtn');
-      if (!swRunning) {
-        swRunning = true; swStartTime = performance.now() - swElapsedMs;
-        startBtn.innerText = '중지'; startBtn.className = 'w-28 py-3.5 rounded-full bg-rose-500 hover:bg-rose-600 text-white font-bold text-sm transition shadow-md shadow-rose-500/25';
-        lapBtn.disabled = false; lapBtn.innerText = '구간 기록'; lapBtn.className = 'w-24 py-3.5 rounded-full bg-[#f2f4f7] hover:bg-gray-200 text-gray-800 font-bold text-sm transition';
-        swInterval = setInterval(() => {
-          swElapsedMs = performance.now() - swStartTime;
-          document.getElementById('swMainDisplay').innerText = formatStopwatchMs(swElapsedMs);
-          document.getElementById('swCurrentLapDisplay').innerText = `구간 기록 ${formatStopwatchMs(swElapsedMs - swLastLapTotalMs)}`;
-        }, 16);
-      } else {
-        swRunning = false; clearInterval(swInterval);
-        startBtn.innerText = '계속'; startBtn.className = 'w-28 py-3.5 rounded-full bg-[#0381fe] hover:bg-[#026de0] text-white font-bold text-sm transition shadow-md shadow-blue-500/25';
-        lapBtn.innerText = '초기화';
-      }
-    });
-    document.getElementById('swLapResetBtn').addEventListener('click', () => {
-      const lapBtn = document.getElementById('swLapResetBtn'), startBtn = document.getElementById('swStartStopBtn');
-      if (swRunning) {
-        const lapMs = swElapsedMs - swLastLapTotalMs; swLastLapTotalMs = swElapsedMs;
-        swLaps.push({ num: swLaps.length + 1, lapMs, totalMs: swElapsedMs }); renderStopwatchLaps();
-      } else {
-        swElapsedMs = 0; swLastLapTotalMs = 0; swLaps = [];
-        document.getElementById('swMainDisplay').innerText = '00:00.00';
-        document.getElementById('swCurrentLapDisplay').innerText = '구간 기록 00:00.00';
-        startBtn.innerText = '시작'; lapBtn.innerText = '구간 기록'; lapBtn.disabled = true;
-        lapBtn.className = 'w-24 py-3.5 rounded-full bg-[#f2f4f7] text-gray-400 font-bold text-sm transition disabled:opacity-50';
-        renderStopwatchLaps();
-      }
-    });
-
-    // 타이머
-    let timerState = 'idle', timerTotalMs = 0, timerRemainingMs = 0, timerEndTimestamp = 0, timerInterval = null;
-    const CIRCLE_CIRCUMFERENCE = 282.74;
-    window.setTimerPreset = function(h, m, s) {
-      document.getElementById('timerInputH').value = h;
-      document.getElementById('timerInputM').value = m;
-      document.getElementById('timerInputS').value = s;
-    };
-    function formatTimerMs(ms) {
-      const totalSecs = Math.max(0, Math.ceil(ms / 1000));
-      return `${String(Math.floor(totalSecs / 3600)).padStart(2, '0')}:${String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0')}:${String(totalSecs % 60).padStart(2, '0')}`;
-    }
-    function updateTimerVisuals() {
-      document.getElementById('timerCountdownDisplay').innerText = formatTimerMs(timerRemainingMs);
-      const ratio = timerTotalMs > 0 ? Math.max(0, timerRemainingMs / timerTotalMs) : 0;
-      document.getElementById('timerProgressCircle').style.strokeDashoffset = CIRCLE_CIRCUMFERENCE * (1 - ratio);
-    }
-    function triggerTimerFinished(totalMs = timerTotalMs) {
-      if (Number.isFinite(Number(totalMs)) && Number(totalMs) > 0) timerTotalMs = Number(totalMs);
-      isRinging = true; isTimerRinging = true; currentRingingAlarm = null;
-      const badgeEl = document.getElementById('modalIntensityBadge');
-      badgeEl.innerText = '⏳ 타이머 종료';
-      badgeEl.className = 'inline-block px-3 py-1 rounded-full text-xs font-extrabold mb-3 bg-blue-100 text-[#0381fe]';
-      document.getElementById('modalAlarmName').innerText = '카운트다운 타이머 완료';
-      document.getElementById('modalAlarmTime').innerText = formatTimerMs(timerTotalMs);
-      document.getElementById('modalSoundTitle').innerText = '설정하신 타이머 시간이 종료되었습니다.';
-      document.getElementById('modalRepeatInfo').innerText = '🔔 아래 끄기 버튼을 눌러 알림을 종료하세요';
-      document.getElementById('modalSnoozeInfo').innerText = '';
-      document.getElementById('snoozeAlarmBtn').classList.add('hidden');
-      document.getElementById('alarmModal').classList.remove('hidden');
-      const soundIdx = Math.floor(Math.random() * 12);
-      if (vibeInterval) {
-        clearInterval(vibeInterval);
-        vibeInterval = null;
-      }
-      seizeAudioFocusAndPlay(soundIdx, 2);
-      vibeInterval = setInterval(() => {
-        if (!isTimerRinging) return;
-        if ('vibrate' in navigator) navigator.vibrate([500, 150, 500]);
-      }, 800);
-      if ('vibrate' in navigator) navigator.vibrate([500, 150, 500]);
-      triggerBackgroundVibration({
-        alarmId: 'timer',
-        title: '⏳ 타이머 완료',
-        label: '카운트다운 타이머 완료',
-        body: '설정한 타이머 시간이 종료되었습니다 · [✕ 알람 끄기]를 눌러 종료하세요.',
-        snoozeLevel: 2,
-        scheduleKey: ''
-      });
-    }
-    function resetTimerToIdle() {
-      timerState = 'idle'; clearInterval(timerInterval); syncCurrentPushState();
-      document.getElementById('timerSetupView').classList.remove('hidden');
-      document.getElementById('timerRunningView').classList.add('hidden');
-      document.getElementById('timerCancelBtn').classList.add('hidden');
-      const btn = document.getElementById('timerStartPauseBtn');
-      btn.innerText = '시작'; btn.className = 'w-32 py-3.5 rounded-full bg-[#0381fe] hover:bg-[#026de0] text-white font-bold text-sm transition shadow-md shadow-blue-500/25';
-    }
-    document.getElementById('timerStartPauseBtn').addEventListener('click', () => {
-      initMasterAudioUrls();
-      const btn = document.getElementById('timerStartPauseBtn');
-      if (timerState === 'idle') {
-        const h = parseInt(document.getElementById('timerInputH').value, 10) || 0;
-        const m = parseInt(document.getElementById('timerInputM').value, 10) || 0;
-        const s = parseInt(document.getElementById('timerInputS').value, 10) || 0;
-        timerTotalMs = (h * 3600 + m * 60 + s) * 1000;
-        if (timerTotalMs <= 0) return alert('1초 이상의 타이머 시간을 설정해주세요.');
-        timerRemainingMs = timerTotalMs; timerState = 'running'; timerEndTimestamp = Date.now() + timerRemainingMs;
-        ensureAutoBgKeepAlive();
-        syncCurrentPushState();
-        const endDate = new Date(getSynchronizedNow().getTime() + timerRemainingMs);
-        document.getElementById('timerEndTimeLabel').innerText = `🔔 종료 예정 ${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
-        document.getElementById('timerSetupView').classList.add('hidden');
-        document.getElementById('timerRunningView').classList.remove('hidden');
-        document.getElementById('timerCancelBtn').classList.remove('hidden');
-        btn.innerText = '일시정지'; btn.className = 'w-32 py-3.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition shadow-md shadow-amber-500/25';
-        updateTimerVisuals();
-        timerInterval = setInterval(() => {
-          timerRemainingMs = timerEndTimestamp - Date.now();
-          if (timerRemainingMs <= 0) { timerRemainingMs = 0; updateTimerVisuals(); resetTimerToIdle(); triggerTimerFinished(); }
-          else updateTimerVisuals();
-        }, 100);
-      } else if (timerState === 'running') {
-        timerState = 'paused'; clearInterval(timerInterval); timerRemainingMs = Math.max(0, timerEndTimestamp - Date.now()); syncCurrentPushState();
-        btn.innerText = '계속'; btn.className = 'w-32 py-3.5 rounded-full bg-[#0381fe] hover:bg-[#026de0] text-white font-bold text-sm transition shadow-md shadow-blue-500/25';
-      } else if (timerState === 'paused') {
-        timerState = 'running'; timerEndTimestamp = Date.now() + timerRemainingMs; ensureAutoBgKeepAlive(); syncCurrentPushState();
-        btn.innerText = '일시정지'; btn.className = 'w-32 py-3.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition shadow-md shadow-amber-500/25';
-        timerInterval = setInterval(() => {
-          timerRemainingMs = timerEndTimestamp - Date.now();
-          if (timerRemainingMs <= 0) { timerRemainingMs = 0; updateTimerVisuals(); resetTimerToIdle(); triggerTimerFinished(); }
-          else updateTimerVisuals();
-        }, 100);
-      }
-    });
-    document.getElementById('timerCancelBtn').addEventListener('click', resetTimerToIdle);
-
-    function buildAlarmObjectFromPush(payload, currentHM) {
-      const matched = payload.alarmId ? alarms.find((a) => String(a.id) === String(payload.alarmId)) : null;
-      const isRepeating = matched ? Boolean(matched.isRepeating) : Boolean(payload.isRepeating);
-      const sCount = Number.isFinite(Number(payload.snoozeCount)) ? Number(payload.snoozeCount) : (matched ? (Number(matched.snoozeCount) || 3) : 3);
-      const sInterval = Number.isFinite(Number(payload.snoozeInterval)) ? Number(payload.snoozeInterval) : (matched ? (Number(matched.snoozeInterval) || 5) : 5);
-      const rSnooze = Number.isFinite(Number(payload.remainingSnooze)) ? Number(payload.remainingSnooze) : (matched && Number.isFinite(Number(matched.remainingSnooze)) ? Number(matched.remainingSnooze) : sCount);
-      const sLevel = Number.isFinite(Number(payload.snoozeLevel)) ? Number(payload.snoozeLevel) : (matched ? (Number(matched.snoozeLevel) || 0) : 0);
-      const name = payload.name || (matched && matched.name) || (payload.label || '알람').replace(/^\[.*?\]\s*/, '');
-      const group = payload.group || (matched && matched.group) || '기본 그룹';
-      const time = payload.time || (matched && (matched.nextSnoozeTime || matched.time)) || currentHM;
-      const sound = Number.isFinite(Number(payload.sound)) ? Number(payload.sound) : (matched ? Number(matched.sound) || 0 : 0);
-      const todayKey = formatDateKey(getSynchronizedNow());
-      const resolvedKey = payload.scheduleKey || `${todayKey}_${time}`;
-
-      if (matched) {
-        matched.snoozeCount = sCount;
-        matched.snoozeInterval = sInterval;
-        matched.remainingSnooze = rSnooze;
-        matched.snoozeLevel = sLevel;
-        matched.lastTriggeredKey = resolvedKey;
-        if (!isRepeating) {
-          matched.enabled = false;
-          matched.serverFiredAt = Date.now();
-          matched.nextSnoozeAt = null;
-          matched.nextSnoozeTime = null;
-        }
-        localStorage.setItem('saved_alarms', JSON.stringify(alarms));
-        renderAlarmList();
-        updateClock();
-      }
-
-      return {
-        id: matched ? matched.id : (payload.alarmId || Date.now()),
-        name,
-        group,
-        time,
-        sound,
-        randomDaily: false,
-        days: matched && Array.isArray(matched.days) ? matched.days : [getActiveDayIndex()],
-        isRepeating,
-        snoozeInterval: sInterval,
-        snoozeCount: sCount,
-        remainingSnooze: rSnooze,
-        snoozeLevel: sLevel,
-        nextSnoozeTime: null,
-        nextSnoozeAt: null,
-        lastTriggeredKey: resolvedKey,
-        enabled: false
-      };
-    }
 
     function triggerFromPushPayload(payload) {
       if (!payload) return;
-      if (isRinging || isTimerRinging) {
-        const soundIdx = payload.type === 'timer' ? 0 : (Number(payload.sound) || 0);
-        const level = Number(payload.snoozeLevel) || 0;
-        seizeAudioFocusAndPlay(soundIdx, level);
+      const soundIdx = Number(payload.sound) || 0;
+      if (isRinging) {
+        seizeAudioFocusAndPlay(soundIdx, 2);
         return;
       }
-      if (Date.now() - lastStoppedAlarmStamp < 4000) return;
-      if (payload.alarmId) {
-        const matched = alarms.find((a) => String(a.id) === String(payload.alarmId));
-        if (matched && matched.userDismissedAt && Date.now() - Number(matched.userDismissedAt) < 120 * 1000) {
-          return;
-        }
-      }
-      if (payload.type === 'timer') {
-        triggerTimerFinished(Number(payload.totalMs) || 0);
-        return;
-      }
-      const now = getSynchronizedNow();
-      const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      triggerAlarm(buildAlarmObjectFromPush(payload, currentHM));
+      const now = new Date();
+      const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      triggerAlarm({
+        id: payload.alarmId || Date.now(),
+        name: payload.name || payload.label || '알람',
+        group: payload.group || '푸시 알람',
+        time: payload.time || hm,
+        sound: soundIdx
+      });
     }
 
     function checkPushAlarmTrigger() {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('triggerTimer') === '1') {
-        const timerMs = Number(params.get('timerMs')) || 0;
+      if (params.get('triggerAlarm') === '1') {
+        const payload = {
+          alarmId: params.get('alarmId'),
+          name: params.get('name') || '알람',
+          group: params.get('group') || '푸시 알람',
+          time: params.get('time'),
+          sound: Number(params.get('sound') || 0)
+        };
         window.history.replaceState({}, document.title, window.location.pathname);
-        unlockWebAudioContext();
-        if (!isRinging) triggerTimerFinished(timerMs);
-        return;
+        triggerFromPushPayload(payload);
       }
-      if (params.get('triggerAlarm') !== '1') return;
-
-      const alarmIdParam = params.get('alarmId');
-      const nameParam = params.get('name');
-      const groupParam = params.get('group');
-      const timeParam = params.get('time');
-      const soundParam = params.get('sound');
-      const isRepeatingParam = params.get('isRepeating') === '1';
-      const snoozeIntervalParam = params.get('snoozeInterval');
-      const snoozeCountParam = params.get('snoozeCount');
-      const remainingSnoozeParam = params.get('remainingSnooze');
-      const snoozeLevelParam = params.get('snoozeLevel');
-      const scheduleKeyParam = params.get('scheduleKey');
-      const labelParam = params.get('label') || '알람';
-      window.history.replaceState({}, document.title, window.location.pathname);
-
-      const now = getSynchronizedNow();
-      const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      unlockWebAudioContext();
-
-      if (isRinging) return;
-      triggerAlarm(buildAlarmObjectFromPush({
-        alarmId: alarmIdParam,
-        name: nameParam,
-        group: groupParam,
-        time: timeParam,
-        sound: soundParam !== null ? Number(soundParam) : undefined,
-        isRepeating: isRepeatingParam,
-        snoozeInterval: snoozeIntervalParam !== null ? Number(snoozeIntervalParam) : undefined,
-        snoozeCount: snoozeCountParam !== null ? Number(snoozeCountParam) : undefined,
-        remainingSnooze: remainingSnoozeParam !== null ? Number(remainingSnoozeParam) : undefined,
-        snoozeLevel: snoozeLevelParam !== null ? Number(snoozeLevelParam) : undefined,
-        scheduleKey: scheduleKeyParam,
-        label: labelParam
-      }, currentHM));
     }
+
+    window.switchTab = function(tabName) {
+      ['alarm', 'stopwatch', 'timer'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tabName);
+      });
+    };
+
+    document.addEventListener('pointerdown', () => {
+      if (isRinging && masterEl.paused) seizeAudioFocusAndPlay(currentRingingAlarm ? currentRingingAlarm.sound : 0, 1);
+      else ensureAutoBgKeepAlive();
+    }, { passive: true });
 
     renderAlarmList();
     checkPushAlarmTrigger();
@@ -2470,10 +1093,8 @@
 
       navigator.serviceWorker.register('./service-worker.js').then(async (reg) => {
         if ('Notification' in window && Notification.permission === 'granted') {
-          let sub = await reg.pushManager.getSubscription().catch(() => null);
-          if (!sub) {
-            sub = await subscribeToPushNotifications(false);
-          } else {
+          const sub = await reg.pushManager.getSubscription().catch(() => null);
+          if (sub) {
             const saved = await syncAlarmsToPushServer(sub);
             pushEnabled = Boolean(saved);
             updatePushButtonUI();

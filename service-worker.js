@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'smart-clock-fixed-v20261121-2';
+const CACHE_NAME = 'smart-clock-v20261121-urgent-fix';
 const dismissedTokens = new Set();
 
 function rememberDismissed(alarmId, scheduleKey) {
@@ -15,9 +15,7 @@ function isDismissed(payload) {
   return false;
 }
 
-self.addEventListener('install', (event) => {
-  self.skipWaiting();
-});
+self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
@@ -31,20 +29,15 @@ self.addEventListener('message', (event) => {
   const data = event.data || {};
   if (data.type === 'STOP_INFINITE_PUSH') {
     rememberDismissed(data.alarmId, data.scheduleKey);
-    self.registration.getNotifications().then((list) => {
-      list.forEach((n) => n.close());
-    });
-  } else if (data.type === 'TRIGGER_BG_VIBRATION' && data.payload) {
-    if (isDismissed(data.payload)) return;
-    showAlarmNotification(data.payload);
+    self.registration.getNotifications().then((list) => list.forEach((n) => n.close()));
   }
 });
 
 async function showAlarmNotification(payload) {
   if (isDismissed(payload)) return;
   const title = payload.title || '⏰ 알람';
-  const body = payload.body || '알람 시간이 되었습니다.';
-  const tag = `smart-clock-ring-${payload.alarmId || 'all'}-${Date.now()}`;
+  const body = payload.body || '알람 시간이 되었습니다. 배너를 누르면 알람음이 울립니다.';
+  const tag = `smart-clock-${payload.alarmId || 'ring'}-${Date.now()}`;
 
   await self.registration.showNotification(title, {
     body,
@@ -58,7 +51,7 @@ async function showAlarmNotification(payload) {
     data: payload,
     actions: [
       { action: 'dismiss', title: '✕ 알람 끄기' },
-      { action: 'open', title: '앱에서 끄기' }
+      { action: 'ring', title: '🔊 알람음 켜기' }
     ]
   });
 }
@@ -75,9 +68,30 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil((async () => {
     await showAlarmNotification(payload);
+
+    // 1) 열려 있는 모든 탭(백그라운드 포함)에 즉시 오디오 재생 신호 전송
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of allClients) {
       client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload });
+    }
+
+    // 2) 무제한 긴급알림 모드일 때 15초 뒤 다음 푸시 체인 서버 요청
+    if (payload.urgentBurstMode && !isDismissed(payload)) {
+      await new Promise((r) => setTimeout(r, 15000));
+      if (!isDismissed(payload)) {
+        const sub = await self.registration.pushManager.getSubscription();
+        if (sub) {
+          await fetch('/api/push-check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscription: sub.toJSON(),
+              repeatAlarmId: payload.alarmId || '',
+              scheduleKey: payload.scheduleKey || ''
+            })
+          }).catch(() => {});
+        }
+      }
     }
   })());
 });
@@ -101,14 +115,10 @@ async function dismissAlarmFromWorker(payload) {
       await fetch('/api/push-dismiss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subscription: sub.toJSON(),
-          alarmId,
-          scheduleKey
-        })
+        body: JSON.stringify({ subscription: sub.toJSON(), alarmId, scheduleKey })
       });
     }
-  } catch (e) {}
+  } catch {}
 }
 
 self.addEventListener('notificationclick', (event) => {
@@ -122,15 +132,13 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil((async () => {
     const params = new URLSearchParams({
-      triggerAlarm: payload.type === 'timer' ? '0' : '1',
-      triggerTimer: payload.type === 'timer' ? '1' : '0',
+      triggerAlarm: '1',
       alarmId: payload.alarmId || '',
-      name: payload.name || '',
-      group: payload.group || '',
+      name: payload.name || '알람',
+      group: payload.group || '푸시 알람',
       time: payload.time || '',
       sound: payload.sound !== undefined ? String(payload.sound) : '0',
-      scheduleKey: payload.scheduleKey || '',
-      label: payload.label || '알람'
+      scheduleKey: payload.scheduleKey || ''
     });
     const targetUrl = `/?${params.toString()}`;
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
