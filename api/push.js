@@ -90,17 +90,17 @@ export default async function handler(req, res) {
     }
 
     if (action === 'test') {
-      const { subscription } = body;
+      const { subscription, sound = 0 } = body;
       if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Missing subscription' });
       await webpush.sendNotification(
         subscription,
         JSON.stringify({
           title: '📡 테스트 푸시 알람',
-          body: '푸시 및 알람음 연동이 정상 작동합니다.',
+          body: '설정된 알람음과 동일한 사운드로 작동합니다.',
           alarmId: 'test',
           name: '테스트 알람',
           group: '테스트',
-          sound: 0
+          sound: Number(sound) || 0
         }),
         { urgency: 'high', TTL: 60 }
       );
@@ -126,7 +126,7 @@ export default async function handler(req, res) {
           name: targetAlarm.name || '알람',
           group: targetAlarm.group || '긴급 알람',
           time: targetAlarm.time || '',
-          sound: targetAlarm.sound ?? 2,
+          sound: targetAlarm.sound ?? 0,
           scheduleKey: body.scheduleKey || '',
           urgentBurstMode: true
         }),

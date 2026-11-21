@@ -36,6 +36,7 @@
 </head>
 <body class="min-h-screen flex flex-col items-center px-4">
 
+  <!-- 단일 통합 오디오 엔진 (앱 내 알람 + 백그라운드 푸시 연동 공용) -->
   <audio id="masterAudioEngine" playsinline webkit-playsinline loop preload="auto"></audio>
 
   <div class="max-w-lg w-full space-y-4 my-1">
@@ -94,7 +95,7 @@
     <div class="clean-card p-5 text-left space-y-4">
       <div class="flex justify-between items-center">
         <h2 class="text-sm font-bold text-gray-800">➕ 새 알람 추가</h2>
-        <button id="previewSelectedSoundBtn" class="text-xs font-bold text-[#0381fe]">🔊 알람음 미리듣기</button>
+        <button type="button" id="previewSelectedSoundBtn" class="text-xs font-bold text-[#0381fe]">🔊 알람음 미리듣기</button>
       </div>
       <div class="grid grid-cols-3 gap-2">
         <select id="alarmAmPm" class="w-full bg-[#f2f4f7] font-bold px-3 py-2.5 rounded-2xl text-sm">
@@ -225,14 +226,17 @@
     try { alarms = JSON.parse(localStorage.getItem('saved_alarms') || '[]'); } catch {}
     let urgentBurstMode = localStorage.getItem('urgent_burst_mode') === 'true';
     let isRinging = false, currentRingingAlarm = null, pushEnabled = false, isBgAudioRunning = false;
+    let isPreviewing = false, previewTimeout = null;
     let editingAlarmIndex = null;
     let wakeLock = null, wakeLockRequested = false;
     let lastDismissedStamp = 0;
-    let previewAudioCtx = null, webAudioLoopTimer = null, silentUrl = null;
+    let silentUrl = null;
+    const cachedSoundUrls = {};
     const masterEl = document.getElementById('masterAudioEngine');
     const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
     const soundNames = ['✨ 1. 스파클 라이징 팝', '🌅 2. 선라이즈 오케스트라', '👾 3. 네온 아케이드 8비트', '🍃 4. 브라이트 윈드 차임', '🔔 5. 크리스탈 하모닉 벨', '☕ 6. 릴랙싱 피아노 스케일'];
 
+    // 화면 켜짐 (Wake Lock)
     function updateWakeLockUI(active) {
       const btn = document.getElementById('wakeLockBtn');
       btn.innerText = active ? '☀️ 화면 켜짐: ON' : '💤 화면 켜짐: OFF';
@@ -262,6 +266,7 @@
       }
     });
 
+    // WAV 단일 버퍼 인코더 (이중 AudioContext 충돌 없애고 끊김 없는 고품질 루프 생성)
     function encodeWav(sampleRate, numSamples, fn) {
       const bytes = numSamples * 2, buf = new ArrayBuffer(44 + bytes), v = new DataView(buf);
       const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
@@ -269,28 +274,82 @@
       v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
       v.setUint32(24,sampleRate,true); v.setUint32(28,sampleRate*2,true);
       v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,'data'); v.setUint32(40,bytes,true);
-      for (let i = 0; i < numSamples; i++) v.setInt16(44 + i*2, Math.round(Math.max(-1, Math.min(1, fn(i/sampleRate))) * 32767), true);
+      for (let i = 0; i < numSamples; i++) {
+        const sample = Math.max(-1, Math.min(1, fn(i / sampleRate)));
+        v.setInt16(44 + i * 2, Math.round(sample * 32767), true);
+      }
       return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
     }
 
-    function unlockAudio() {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (Ctx && !previewAudioCtx) previewAudioCtx = new Ctx();
-      if (previewAudioCtx && previewAudioCtx.state === 'suspended') previewAudioCtx.resume().catch(() => {});
-      if (!silentUrl) silentUrl = encodeWav(8000, 16000, t => Math.sin(2 * Math.PI * 30 * t) * 0.0005);
+    // 6가지 고유 멜로디 WAV 생성 (앱 내 알람 + 백그라운드 푸시 도착/미리듣기 모두 동일 사운드 사용)
+    function getUnifiedSoundUrl(soundIdx) {
+      const idx = ((Number(soundIdx) || 0) % 6 + 6) % 6;
+      if (cachedSoundUrls[idx]) return cachedSoundUrls[idx];
+
+      const sr = 22050;
+      const duration = 2.4; // 2.4초 단위 멜로디 루프 (페이드 인/아웃 적용으로 루프 이음새 끊김 제거)
+      const totalSamples = Math.floor(sr * duration);
+
+      const melodies = [
+        // 0: 스파클 라이징 팝 (밝은 아르페지오)
+        [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50],
+        // 1: 선라이즈 오케스트라 (따뜻한 화음 상승)
+        [440.00, 554.37, 659.25, 880.00, 659.25, 880.00],
+        // 2: 네온 아케이드 8비트 (경쾌한 스타카토)
+        [587.33, 783.99, 987.77, 1174.66, 987.77, 1174.66],
+        // 3: 브라이트 윈드 차임 (청아한 벨)
+        [659.25, 830.61, 987.77, 1318.51, 987.77, 1318.51],
+        // 4: 크리스탈 하모닉 벨 (맑은 이중 배음)
+        [783.99, 987.77, 1174.66, 1567.98, 1174.66, 1567.98],
+        // 5: 릴랙싱 피아노 스케일 (부드러운 사인파 코드)
+        [392.00, 493.88, 587.33, 783.99, 587.33, 783.99]
+      ];
+      const notes = melodies[idx];
+      const stepDur = duration / notes.length;
+
+      cachedSoundUrls[idx] = encodeWav(sr, totalSamples, (t) => {
+        const noteIndex = Math.min(notes.length - 1, Math.floor(t / stepDur));
+        const localT = t - noteIndex * stepDur;
+        const freq = notes[noteIndex];
+
+        // 부드러운 엔벨로프 (클릭 잡음 및 끊김 방지)
+        const attack = Math.min(1, localT / 0.02);
+        const release = Math.max(0, 1 - (localT / stepDur) * 0.65);
+        const env = attack * release;
+
+        if (idx === 2) {
+          // 8비트 사각파 믹스
+          const sq = Math.sin(2 * Math.PI * freq * t) >= 0 ? 0.5 : -0.5;
+          return sq * env * 0.75;
+        }
+        const fundamental = Math.sin(2 * Math.PI * freq * t);
+        const harmonic = 0.3 * Math.sin(2 * Math.PI * (freq * 2) * t);
+        return (fundamental + harmonic) * env * 0.72;
+      });
+      return cachedSoundUrls[idx];
     }
 
+    function getSilentUrl() {
+      if (!silentUrl) {
+        silentUrl = encodeWav(8000, 16000, t => Math.sin(2 * Math.PI * 30 * t) * 0.0003);
+      }
+      return silentUrl;
+    }
+
+    // 백그라운드 오디오 세션 유지 (iOS/안드로이드 공용 단일 엔진)
     async function ensureBgAudio() {
-      if (isRinging) return;
-      unlockAudio();
-      if (masterEl.paused || !masterEl.src) {
-        masterEl.src = silentUrl;
+      if (isRinging || isPreviewing) return;
+      const sUrl = getSilentUrl();
+      if (masterEl.paused || masterEl.src !== sUrl) {
+        masterEl.src = sUrl;
         masterEl.volume = 0.01;
         masterEl.loop = true;
         try {
           await masterEl.play();
           isBgAudioRunning = true;
-        } catch { isBgAudioRunning = false; }
+        } catch {
+          isBgAudioRunning = false;
+        }
       }
       const btn = document.getElementById('bgAudioKeepAliveBtn');
       btn.innerText = isBgAudioRunning ? '🎧 오디오 유지: ON' : '🎧 오디오 유지: OFF';
@@ -301,52 +360,83 @@
 
     document.getElementById('bgAudioKeepAliveBtn').addEventListener('click', async () => {
       await ensureBgAudio();
-      if (isBgAudioRunning) showBanner('🎧', '오디오 유지 활성화됨', '백그라운드에서도 푸시 도착 즉시 알람음이 울립니다.');
-    });
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        if (wakeLockRequested && !wakeLock) requestScreenWakeLock();
-        if (isRinging) playRingLoop();
-        else if (isBgAudioRunning) ensureBgAudio();
+      if (isBgAudioRunning) {
+        showBanner('🎧', '오디오 유지 활성화됨', '백그라운드에서도 푸시 도착 시 동일한 알람음이 끊김 없이 재생됩니다.');
       }
     });
 
-    // iOS에서 페이지 진입 시 첫 상호작용이 발생하면 울리고 있는 알람의 오디오를 즉시 활성화
+    // 단일 HTMLAudioElement로 알람음 재생 (이중 setInterval 제거 -> 영상 시청 중 끊김 해결)
+    function playUnifiedRing(soundIdx) {
+      if (previewTimeout) { clearTimeout(previewTimeout); previewTimeout = null; }
+      isPreviewing = false;
+      const url = getUnifiedSoundUrl(soundIdx);
+      if (masterEl.src !== url) {
+        masterEl.src = url;
+      }
+      masterEl.volume = 1.0;
+      masterEl.loop = true;
+      masterEl.currentTime = 0;
+      masterEl.play().catch(() => {});
+    }
+
+    // 미리듣기 버튼 연결 (앱 알람음 & 푸시 알람음 동일 사운드 확인)
+    document.getElementById('previewSelectedSoundBtn').addEventListener('click', () => {
+      if (isRinging) return;
+      const btn = document.getElementById('previewSelectedSoundBtn');
+      if (isPreviewing) {
+        isPreviewing = false;
+        if (previewTimeout) clearTimeout(previewTimeout);
+        masterEl.pause();
+        btn.innerText = '🔊 알람음 미리듣기';
+        ensureBgAudio();
+        return;
+      }
+
+      const val = document.getElementById('alarmSound').value;
+      const idx = val === 'random' ? Math.floor(Math.random() * 6) : parseInt(val, 10);
+      isPreviewing = true;
+      btn.innerText = '⏹ 미리듣기 중지';
+      masterEl.src = getUnifiedSoundUrl(idx);
+      masterEl.volume = 1.0;
+      masterEl.loop = true;
+      masterEl.play().catch(() => {});
+
+      previewTimeout = setTimeout(() => {
+        isPreviewing = false;
+        masterEl.pause();
+        btn.innerText = '🔊 알람음 미리듣기';
+        ensureBgAudio();
+      }, 4800);
+    });
+
+    // 유튜브 시청 후 복귀 또는 iOS/안드로이드 백그라운드 복원 시 즉시 오디오 포커스 획득
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        if (wakeLockRequested && !wakeLock) requestScreenWakeLock();
+        if (isRinging && currentRingingAlarm) {
+          playUnifiedRing(currentRingingAlarm.sound ?? 0);
+        } else if (isBgAudioRunning) {
+          ensureBgAudio();
+        }
+      }
+    });
+
     ['touchstart', 'pointerdown', 'click'].forEach(evt => {
       document.addEventListener(evt, () => {
-        if (isRinging) {
-          unlockAudio();
-          if (masterEl.paused) masterEl.play().catch(() => {});
+        if (isRinging && masterEl.paused) {
+          masterEl.play().catch(() => {});
         }
       }, { passive: true });
     });
 
+    // 영상 앱과 오디오 포커스 충돌로 일시 중지될 경우 1회 부드럽게 재개
     masterEl.addEventListener('pause', () => {
-      if (isRinging) masterEl.play().catch(() => {});
+      if (isRinging) {
+        setTimeout(() => {
+          if (isRinging && masterEl.paused) masterEl.play().catch(() => {});
+        }, 120);
+      }
     });
-
-    function playRingLoop() {
-      unlockAudio();
-      const ringUrl = encodeWav(22050, 18000, t => Math.sin(2 * Math.PI * (t < 0.4 ? 880 : 1174.66) * t) * 0.9);
-      masterEl.src = ringUrl;
-      masterEl.volume = 1.0;
-      masterEl.loop = true;
-      masterEl.play().catch(() => {});
-      if (webAudioLoopTimer) clearInterval(webAudioLoopTimer);
-      webAudioLoopTimer = setInterval(() => {
-        if (!isRinging) return;
-        if (masterEl.paused) masterEl.play().catch(() => {});
-        if (!previewAudioCtx) return;
-        if (previewAudioCtx.state === 'suspended') previewAudioCtx.resume().catch(() => {});
-        const osc = previewAudioCtx.createOscillator(), g = previewAudioCtx.createGain();
-        osc.frequency.value = 987.77;
-        g.gain.setValueAtTime(0.7, previewAudioCtx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, previewAudioCtx.currentTime + 0.4);
-        osc.connect(g); g.connect(previewAudioCtx.destination);
-        osc.start(); osc.stop(previewAudioCtx.currentTime + 0.45);
-      }, 650);
-    }
 
     function updateUrgentUI() {
       const btn = document.getElementById('urgentBurstBtn');
@@ -441,19 +531,21 @@
     document.getElementById('pushSubscribeBtn').addEventListener('click', async () => {
       await ensureBgAudio();
       const sub = await subscribePush();
-      if (sub) showBanner('🔔', '푸시 알림 등록 완료!', '설정한 알람이 서버에 정상 등록되었습니다.');
+      if (sub) showBanner('🔔', '푸시 알림 등록 완료!', '설정한 알람과 사운드 번호가 서버에 동기화되었습니다.');
     });
 
     document.getElementById('testPushBtn').addEventListener('click', async () => {
       await ensureBgAudio();
       const sub = await subscribePush();
       if (!sub) return;
+      const val = document.getElementById('alarmSound').value;
+      const soundIdx = val === 'random' ? 0 : parseInt(val, 10);
       const res = await fetch('/api/push?action=test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub.toJSON() })
+        body: JSON.stringify({ subscription: sub.toJSON(), sound: soundIdx })
       });
-      if (res.ok) showBanner('📡', '테스트 푸시 발송됨', '잠시 후 푸시 배너와 알람음이 울립니다.');
+      if (res.ok) showBanner('📡', '테스트 푸시 발송됨', '잠시 후 푸시 배너와 동일한 멜로디 알람음이 울립니다.');
     });
 
     function saveAlarms(clearRinging = false, dismissedAlarmId = null) {
@@ -469,14 +561,16 @@
       const hour24 = String(now.getHours()).padStart(2,'0');
       const minute = String(now.getMinutes()).padStart(2,'0');
       const timeStr = `${hour24}:${minute}`;
+      const val = document.getElementById('alarmSound').value;
+      const sound = val === 'random' ? Math.floor(Math.random() * 6) : parseInt(val, 10);
       
       alarms.push({
-        id: Date.now(), name: label, group: '빠른 알람', time: timeStr, sound: 0,
+        id: Date.now(), name: label, group: '빠른 알람', time: timeStr, sound,
         days: [now.getDay()], isRepeating: false, singleShotAt: now.getTime(), enabled: true
       });
       saveAlarms();
       renderList();
-      showBanner('⏰', `${timeStr} 알람 등록됨`, '카드를 누르면 시간과 설정을 바로 수정할 수 있습니다.');
+      showBanner('⏰', `${timeStr} 알람 등록됨`, `${soundNames[sound]} 사운드로 동기화되었습니다.`);
     };
 
     document.querySelectorAll('.day-btn').forEach(btn => {
@@ -651,6 +745,7 @@
       if (!bypassCooldown && Date.now() - lastDismissedStamp < 90000) return;
       isRinging = true;
       currentRingingAlarm = alarm;
+      const soundIdx = (Number(alarm.sound) || 0) % 6;
       const timeVal = alarm.time || new Date().toTimeString().slice(0, 5);
       const [hStr, mStr] = timeVal.split(':');
       const h24 = parseInt(hStr, 10);
@@ -659,15 +754,16 @@
 
       document.getElementById('modalAlarmName').innerText = `[${alarm.group || '알람'}] ${alarm.name || '알람'}`;
       document.getElementById('modalAlarmTime').innerText = `${ampm} ${String(h12).padStart(2, '0')}:${mStr}`;
+      document.getElementById('modalSoundTitle').innerText = `${soundNames[soundIdx]} 재생 중...`;
       document.getElementById('alarmModal').classList.remove('hidden');
-      playRingLoop();
+
+      playUnifiedRing(soundIdx);
     }
 
     function stopEverything(explicitId = null) {
       lastDismissedStamp = Date.now();
       const targetId = explicitId || (currentRingingAlarm && currentRingingAlarm.id) || null;
       isRinging = false;
-      if (webAudioLoopTimer) clearInterval(webAudioLoopTimer);
 
       masterEl.pause();
       masterEl.currentTime = 0;
@@ -727,7 +823,7 @@
 
     renderList();
 
-    // 단축어(?ring=1) 또는 푸시 배너(?triggerAlarm=1) 진입 시 즉시 연속 알람음 시작
+    // 단축어(?ring=1) 또는 푸시 배너 클릭(?triggerAlarm=1) 진입 시 동일한 알람음으로 즉시 실행
     (function handleShortcutUrlTrigger() {
       const params = new URLSearchParams(window.location.search);
       const ringParam = params.get('ring') || params.get('triggerAlarm');
@@ -736,13 +832,12 @@
         const defaultHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         const alarmPayload = {
           id: params.get('alarmId') || `shortcut_${Date.now()}`,
-          name: params.get('name') || '단축어 알람',
-          group: params.get('group') || 'iOS 자동화',
+          name: params.get('name') || '알람',
+          group: params.get('group') || '알람',
           time: params.get('time') || defaultHM,
           sound: parseInt(params.get('sound') || '0', 10)
         };
 
-        // 주소창에서 파라미터 제거 (새로고침 시 중복 울림 방지)
         if (window.history && window.history.replaceState) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
