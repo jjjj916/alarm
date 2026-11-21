@@ -30,11 +30,14 @@ struct SmartClockWebView: UIViewRepresentable {
                   action == "syncState",
                   let payload = body["payload"] as? [String: Any] else { return }
             Task { @MainActor in
+                var ready = false
                 do {
-                    try await IOSAlarmKitBridge.shared.sync(payload: payload)
+                    ready = try await IOSAlarmKitBridge.shared.sync(payload: payload)
                 } catch {
                     print("SmartClock AlarmKit sync error: \(error)")
                 }
+                // AlarmKit이 울리면 웹 화면은 알람음을 따로 재생하지 않음 (영상 시청 중에도 시스템 알람이 울림)
+                self.webView?.evaluateJavaScript("window.__onIOSAlarmKitReady && window.__onIOSAlarmKitReady(\(ready ? "true" : "false"));")
             }
         }
 

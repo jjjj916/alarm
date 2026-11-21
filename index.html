@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>스마트 시계 - 알람 · 스톱워치 · 타이머</title>
+  <title>스마트 시계 - 알람</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f6f7f9">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="스마트 시계">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -18,7 +19,7 @@
       color: #111827;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", sans-serif;
       padding-top: calc(1rem + env(safe-area-inset-top));
-      padding-bottom: calc(8.5rem + env(safe-area-inset-bottom));
+      padding-bottom: calc(6rem + env(safe-area-inset-bottom));
       -webkit-tap-highlight-color: transparent;
       user-select: none;
     }
@@ -27,11 +28,21 @@
     .clean-card { background-color: #ffffff; border-radius: 26px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03); overflow: hidden; }
     .pill-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
     .pill-switch input { opacity: 0; width: 0; height: 0; }
-    .pill-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #d1d5db; transition: .25s; border-radius: 34px; }
+    .pill-slider { position: absolute; cursor: pointer; inset: 0; background-color: #d1d5db; transition: .25s; border-radius: 34px; }
     .pill-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .25s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
     input:checked + .pill-slider { background-color: #0381fe; }
     input:checked + .pill-slider:before { transform: translateX(20px); }
+    .hidden { display: none !important; }
     .selected-day { background-color: #0381fe !important; color: white !important; }
+    .tool-btn { padding: 6px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.05); border: 1px solid rgba(229,231,235,.8); background: #fff; color: #4b5563; transition: .2s; }
+    .tool-btn.on-blue { background: #eff6ff; color: #0381fe; border-color: #bfdbfe; }
+    .tool-btn.on-amber { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+    .tool-btn.on-rose { background: #fff1f2; color: #e11d48; border-color: #fecdd3; }
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    details[open] .chev { transform: rotate(180deg); }
+    .notice li { position: relative; padding-left: 14px; }
+    .notice li::before { content: "•"; position: absolute; left: 2px; color: #9ca3af; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center px-4">
@@ -39,61 +50,78 @@
   <audio id="masterAudioEngine" playsinline webkit-playsinline loop preload="auto"></audio>
 
   <div class="max-w-lg w-full space-y-4 my-1">
-    <!-- 상단 유틸리티 바 -->
+    <!-- 상단 버튼 -->
     <div class="flex justify-between items-center px-1 pt-1 gap-1.5 flex-wrap">
-      <span id="activeDayDisplay" class="px-3 py-1.5 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">오늘 요일</span>
+      <span id="activeDayDisplay" class="px-3 py-1.5 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">오늘</span>
       <div class="flex items-center gap-1.5 flex-wrap justify-end">
-        <button id="pushSubscribeBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">🔔 푸시 알림: OFF</button>
-        <button id="testPushBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">📡 푸시 테스트</button>
-        <button id="urgentBurstBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">🚨 무제한 긴급알림: OFF</button>
-        <button id="bgAudioKeepAliveBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">🎧 오디오 유지: OFF</button>
-        <button id="wakeLockBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">💤 화면 켜짐: OFF</button>
+        <button id="pushSubscribeBtn" class="tool-btn">🔔 푸시 알림: OFF</button>
+        <button id="testPushBtn" class="tool-btn">📡 푸시 테스트</button>
+        <button id="urgentBurstBtn" class="tool-btn">🚨 반복 알림: OFF</button>
+        <button id="bgAudioKeepAliveBtn" class="tool-btn">🎧 오디오 유지: OFF</button>
+        <button id="wakeLockBtn" class="tool-btn">💤 화면 켜짐: OFF</button>
       </div>
     </div>
 
-    <!-- 안내 배너 -->
-    <div id="featureInfoBanner" class="clean-card px-4 py-3.5 bg-blue-50/90 border border-blue-200/80 text-left">
+    <!-- 기기별 안내 배너 (기기에 맞는 내용만 표시) -->
+    <div id="featureInfoBanner" class="clean-card px-4 py-3.5 bg-blue-50/90 border border-blue-200/80 text-left hidden">
       <div class="flex items-start justify-between gap-2.5">
         <div class="flex items-start gap-2.5">
           <span id="featureInfoIcon" class="text-base leading-none mt-0.5">💡</span>
           <div>
-            <div id="featureInfoTitle" class="text-xs font-extrabold text-gray-900">iOS 영상 시청 중 알람 안내</div>
-            <p id="featureInfoDesc" class="text-[11px] text-gray-700 leading-relaxed mt-1">iOS는 영상 재생 중 백그라운드 웹 오디오를 차단합니다. 알람 시각에 맞춰 단축어 자동화(미디어 일시 정지 → 앱 열기 → 음량 설정)를 연결하거나 화면을 띄워 두시면 정각 00초에 알람음이 재생됩니다.</p>
+            <div id="featureInfoTitle" class="text-xs font-extrabold text-gray-900"></div>
+            <p id="featureInfoDesc" class="text-[11px] text-gray-700 leading-relaxed mt-1"></p>
           </div>
         </div>
-        <button type="button" onclick="document.getElementById('featureInfoBanner').classList.add('hidden')" class="text-gray-400 text-xs font-bold px-1">✕</button>
+        <button type="button" id="featureInfoClose" class="text-gray-400 text-xs font-bold px-1">✕</button>
       </div>
     </div>
 
     <!-- 시계 -->
-    <div class="text-center py-5 px-4">
-      <p id="nextAlarmCountdown" class="text-lg font-bold text-gray-800 tracking-tight mb-1">모든 알람이 꺼져 있습니다</p>
+    <div class="text-center pt-4 pb-2 px-4">
+      <p id="nextAlarmCountdown" class="text-base font-bold text-gray-800 tracking-tight mb-1">모든 알람이 꺼져 있습니다</p>
       <div id="clock" class="text-5xl font-light text-gray-900 tracking-tight font-mono my-1">00:00:00</div>
       <p id="todayDateLabel" class="text-xs text-gray-500 font-medium mt-1">오늘 날짜 불러오는 중...</p>
+      <p id="clockBasisLabel" class="text-[11px] text-gray-400 mt-1">표준시 맞추는 중...</p>
     </div>
 
-    <!-- ⚡ 빠른 알람 -->
-    <div class="clean-card p-5">
-      <div class="flex justify-between items-center mb-3">
-        <h2 class="text-sm font-bold text-gray-800">⚡ 빠른 알람</h2>
-        <span class="text-[11px] text-gray-400 font-medium">정각 00초 맞춤 등록</span>
+    <!-- 서버 시간 (네이비즘 방식) -->
+    <div class="clean-card p-5 text-left space-y-3">
+      <div class="flex justify-between items-center">
+        <h2 class="text-sm font-bold text-gray-800">🕒 서버 시간 확인</h2>
+        <span class="text-[11px] text-gray-400">티켓팅·수강신청용</span>
       </div>
-      <div class="grid grid-cols-4 gap-2">
-        <button onclick="addQuickTimer(1, '1분 알람')" class="py-2.5 bg-amber-50 hover:bg-amber-100 rounded-2xl text-xs font-bold text-amber-700">+1분</button>
-        <button onclick="addQuickTimer(5, '5분 알람')" class="py-2.5 bg-[#f2f4f7] rounded-2xl text-xs font-bold text-gray-700">+5분</button>
-        <button onclick="addQuickTimer(10, '10분 알람')" class="py-2.5 bg-[#f2f4f7] rounded-2xl text-xs font-bold text-gray-700">+10분</button>
-        <button onclick="addQuickTimer(15, '15분 알람')" class="py-2.5 bg-[#f2f4f7] rounded-2xl text-xs font-bold text-gray-700">+15분</button>
-        <button onclick="addQuickTimer(20, '20분 알람')" class="py-2.5 bg-[#f2f4f7] rounded-2xl text-xs font-bold text-gray-700">+20분</button>
-        <button onclick="addQuickTimer(30, '30분 알람')" class="py-2.5 bg-[#f2f4f7] rounded-2xl text-xs font-bold text-gray-700">+30분</button>
-        <button onclick="addQuickTimer(45, '45분 알람')" class="py-2.5 bg-[#f2f4f7] rounded-2xl text-xs font-bold text-gray-700">+45분</button>
-        <button onclick="addQuickTimer(60, '1시간 알람')" class="py-2.5 bg-blue-50 rounded-2xl text-xs font-bold text-[#0381fe]">+1시간</button>
+      <form id="serverTimeForm" class="flex gap-2">
+        <input id="serverTimeInput" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"
+               placeholder="사이트 주소 (예: ticket.interpark.com)" class="flex-1 min-w-0 bg-[#f2f4f7] text-xs px-3.5 py-3 rounded-2xl">
+        <button id="serverTimeBtn" type="submit" class="px-4 bg-[#0381fe] text-white text-xs font-bold rounded-2xl shrink-0">확인</button>
+      </form>
+      <div class="flex gap-1.5 flex-wrap" id="serverTimeQuick">
+        <button type="button" data-host="www.naver.com" class="px-2.5 py-1 bg-[#f2f4f7] rounded-full text-[11px] font-semibold text-gray-600">네이버</button>
+        <button type="button" data-host="tickets.interpark.com" class="px-2.5 py-1 bg-[#f2f4f7] rounded-full text-[11px] font-semibold text-gray-600">인터파크 티켓</button>
+        <button type="button" data-host="ticket.yes24.com" class="px-2.5 py-1 bg-[#f2f4f7] rounded-full text-[11px] font-semibold text-gray-600">YES24 티켓</button>
+        <button type="button" data-host="ticket.melon.com" class="px-2.5 py-1 bg-[#f2f4f7] rounded-full text-[11px] font-semibold text-gray-600">멜론 티켓</button>
+        <button type="button" data-host="www.coupang.com" class="px-2.5 py-1 bg-[#f2f4f7] rounded-full text-[11px] font-semibold text-gray-600">쿠팡</button>
       </div>
+      <div id="serverTimeResult" class="hidden rounded-2xl bg-[#f6f7f9] p-4 text-center">
+        <p id="serverTimeHost" class="text-[11px] font-bold text-[#0381fe]"></p>
+        <p class="font-mono text-gray-900 my-1"><span id="serverTimeMain" class="text-4xl font-light">00:00:00</span><span id="serverTimeMs" class="text-xl text-gray-400">.0</span></p>
+        <p id="serverTimeDiff" class="text-[11px] text-gray-500"></p>
+        <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 text-left">
+          <span class="text-[11px] font-semibold text-gray-700">이 서버 시간에 맞춰 알람 울리기</span>
+          <label class="pill-switch"><input type="checkbox" id="useServerTimeToggle"><span class="pill-slider"></span></label>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button type="button" id="serverTimeRefresh" class="flex-1 py-2 bg-white rounded-full text-[11px] font-bold text-gray-600 border">↻ 다시 확인</button>
+          <button type="button" id="serverTimeClear" class="flex-1 py-2 bg-white rounded-full text-[11px] font-bold text-gray-400 border">해제</button>
+        </div>
+      </div>
+      <p id="serverTimeStatus" class="text-[11px] text-gray-400 hidden"></p>
     </div>
 
-    <!-- ➕ 새 알람 추가 -->
+    <!-- 새 알람 -->
     <div class="clean-card p-5 text-left space-y-4">
       <div class="flex justify-between items-center">
-        <h2 class="text-sm font-bold text-gray-800">➕ 새 알람 추가</h2>
+        <h2 class="text-sm font-bold text-gray-800">➕ 새 알람</h2>
         <button type="button" id="previewSelectedSoundBtn" class="text-xs font-bold text-[#0381fe]">🔊 알람음 미리듣기</button>
       </div>
       <div class="grid grid-cols-3 gap-2">
@@ -104,53 +132,94 @@
         <select id="alarmHour" class="w-full bg-[#f2f4f7] font-bold px-3 py-2.5 rounded-2xl text-sm font-mono"></select>
         <select id="alarmMinute" class="w-full bg-[#f2f4f7] font-bold px-3 py-2.5 rounded-2xl text-sm font-mono"></select>
       </div>
-      <select id="alarmSound" class="w-full bg-[#f2f4f7] text-xs font-semibold px-3.5 py-2.5 rounded-2xl">
-        <option value="random">🎲 매일 무작위 사운드 (12종 랜덤)</option>
-        <option value="0">✨ 1. 스파클 라이징 팝</option>
-        <option value="1">🌅 2. 선라이즈 오케스트라</option>
-        <option value="2">👾 3. 네온 아케이드 8비트</option>
-        <option value="3">🍃 4. 브라이트 윈드 차임</option>
-        <option value="4">🔔 5. 크리스탈 하모닉 벨</option>
-        <option value="5">☕ 6. 릴랙싱 피아노 스케일</option>
-        <option value="6">🌊 7. 오션 웨이브 하프</option>
-        <option value="7">🚀 8. 갤럭시 디지털 비프</option>
-        <option value="8">🎺 9. 모닝 브라스 팡파르</option>
-        <option value="9">🎵 10. 마림바 트로피컬 펄스</option>
-        <option value="10">⚡ 11. 사이버 시티 신스</option>
-        <option value="11">🚨 12. 하이 피치 모닝 사이렌</option>
-      </select>
-      <div class="flex justify-between items-center px-1" id="dayPicker">
-        <button type="button" data-day="0" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-rose-500 text-xs font-bold">일</button>
-        <button type="button" data-day="1" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">월</button>
-        <button type="button" data-day="2" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">화</button>
-        <button type="button" data-day="3" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">수</button>
-        <button type="button" data-day="4" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">목</button>
-        <button type="button" data-day="5" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">금</button>
-        <button type="button" data-day="6" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-blue-500 text-xs font-bold">토</button>
+      <select id="alarmSound" class="sound-select w-full bg-[#f2f4f7] text-xs font-semibold px-3.5 py-2.5 rounded-2xl"></select>
+      <div>
+        <p class="text-[11px] text-gray-400 mb-1.5 px-1">반복 요일 (선택 안 하면 한 번만 울림)</p>
+        <div class="flex justify-between items-center px-1" id="dayPicker"></div>
       </div>
-      <div class="grid grid-cols-2 gap-3">
-        <input type="text" id="alarmName" placeholder="알람 이름 (예: 기상)" class="w-full bg-[#f2f4f7] text-xs p-3 rounded-2xl">
-        <input type="text" id="alarmGroup" placeholder="그룹 이름 (예: 출근)" class="w-full bg-[#f2f4f7] text-xs p-3 rounded-2xl">
-      </div>
+      <input type="text" id="alarmName" maxlength="40" placeholder="알람 이름 (예: 기상)" class="w-full bg-[#f2f4f7] text-xs p-3 rounded-2xl">
       <button id="addAlarmBtn" class="w-full py-3 bg-[#0381fe] text-white font-bold rounded-full text-sm shadow-md">저장</button>
+      <div>
+        <p class="text-[11px] text-gray-400 mb-1.5 px-1">지금부터 몇 분 뒤에 울릴까요?</p>
+        <div class="grid grid-cols-4 gap-2" id="afterMinutesRow"></div>
+      </div>
     </div>
 
-    <!-- 내 알람 목록 -->
+    <!-- 알람 목록 -->
     <div class="space-y-2.5 pt-1">
       <div class="flex justify-between items-center px-2">
-        <h2 class="text-xs font-bold text-gray-500">내 알람 목록</h2>
-        <span class="text-[11px] text-gray-400">카드를 눌러 시간·설정 수정</span>
+        <h2 class="text-xs font-bold text-gray-500">내 알람</h2>
+        <span class="text-[11px] text-gray-400">눌러서 수정</span>
       </div>
-      <div id="alarmList" class="space-y-2.5 pb-8"></div>
+      <div id="alarmList" class="space-y-2.5"></div>
     </div>
+
+    <!-- 주의사항 -->
+    <details id="noticeCard" class="clean-card text-left">
+      <summary class="px-5 py-4 flex justify-between items-center cursor-pointer">
+        <span class="text-sm font-bold text-gray-800">⚠️ 사용 전 꼭 읽어 주세요</span>
+        <span class="chev text-gray-400 text-xs transition">▼</span>
+      </summary>
+      <div class="notice px-5 pb-5 space-y-4 text-[12px] text-gray-700 leading-relaxed">
+        <div>
+          <p class="font-extrabold text-gray-900 mb-1">공통</p>
+          <ul class="space-y-1">
+            <li>알람은 기기 시계가 아니라 <b>표준시(서버 시간)</b>로 맞춰 00초에 울려요. 기기 시계가 조금 틀려도 괜찮아요.</li>
+            <li><b>이 화면이 켜져 있을 때</b>만 고른 알람음이 울려요. 앱을 닫았거나 다른 앱을 쓰는 중이면 <b>푸시 알림(기기 알림음)</b>으로 알려 드려요.</li>
+            <li>푸시는 통신사·OS 사정에 따라 1~2초 늦게 올 수 있어요. 인터넷이 끊겨 있으면 오지 않아요.</li>
+            <li>브라우저나 앱을 <b>완전히 종료(스와이프로 닫기)</b>하지 마세요. 홈 버튼으로 나가는 것은 괜찮아요.</li>
+            <li>‘화면 켜짐’은 배터리를 많이 써요. 충전 중일 때 쓰는 걸 권장해요.</li>
+            <li>‘반복 알림’을 켜면 끄기 전까지 15초마다 다시 푸시를 보내요(최대 10분).</li>
+            <li>서버 시간 기준 알람은 <b>확인한 순간</b>의 차이를 쓰기 때문에, 중요한 시각 직전에 ‘다시 확인’을 눌러 주세요.</li>
+            <li>알람을 바꾸면 이 기기에서만 저장돼요. 다른 기기와 자동으로 맞춰지지 않아요.</li>
+            <li><b>기상·약속처럼 중요한 알람은 휴대폰 기본 시계 앱 알람도 함께</b> 맞춰 두세요.</li>
+          </ul>
+        </div>
+        <div data-platform="ios" class="hidden">
+          <p class="font-extrabold text-gray-900 mb-1">아이폰 · 아이패드</p>
+          <ul class="space-y-1">
+            <li>Safari에서 <b>공유 → 홈 화면에 추가</b>한 뒤, 그 <b>아이콘으로 실행</b>해야 푸시를 받을 수 있어요. (Safari 탭에서는 푸시 불가)</li>
+            <li>설정 → 알림 → 스마트 시계에서 <b>알림·소리·잠금 화면</b>을 모두 켜 주세요.</li>
+            <li><b>무음 모드(벨소리 스위치/버튼)</b>나 <b>집중 모드(방해금지·수면)</b>에서는 알림음이 나지 않아요. 집중 모드를 쓴다면 허용 앱에 스마트 시계를 추가하세요.</li>
+            <li><b>유튜브 등 영상을 보는 중</b>에는 iOS가 웹앱의 소리 재생을 막아서, 알람음 대신 <b>푸시 알림음</b>이 울려요. 놓치지 않으려면 <b>‘반복 알림’을 켜 두세요</b>(15초마다 다시 울림).</li>
+            <li>영상 시청 중에도 기본 시계처럼 큰 알람음이 꼭 필요하면 iOS 26 이상용 네이티브 앱(AlarmKit) 버전을 써야 해요. 웹앱만으로는 iOS가 허용하지 않아요.</li>
+            <li>알림을 눌러 앱을 열면 알람음이 울려요. 소리가 안 나면 화면을 한 번 눌러 주세요(iOS 자동 재생 제한).</li>
+          </ul>
+        </div>
+        <div data-platform="android" class="hidden">
+          <p class="font-extrabold text-gray-900 mb-1">안드로이드</p>
+          <ul class="space-y-1">
+            <li>설정 → 애플리케이션 → Chrome(또는 사용하는 브라우저) → <b>알림 허용</b>, 사이트 알림 <b>소리·진동</b>을 켜 주세요.</li>
+            <li>설정 → 애플리케이션 → Chrome → 배터리 → <b>제한 없음</b>(또는 ‘최적화 안 함’)으로 바꿔 주세요. 절전 때문에 푸시가 늦어질 수 있어요.</li>
+            <li>데이터 절약 모드를 쓴다면 Chrome의 <b>백그라운드 데이터</b>를 허용하세요.</li>
+            <li>유튜브 시청 중에는 Chrome 알림음이 울려요. 영상 중에도 알람 화면과 알람음이 필요하면 안드로이드 앱(APK) 버전을 쓰세요.</li>
+            <li>방해 금지 모드에서는 알림음이 나지 않을 수 있어요.</li>
+          </ul>
+        </div>
+        <div data-platform="android-native" class="hidden">
+          <p class="font-extrabold text-gray-900 mb-1">안드로이드 앱</p>
+          <ul class="space-y-1">
+            <li>‘알람 및 리마인더’, ‘알림’, ‘전체 화면 알림’ 권한을 모두 허용해야 화면이 꺼져 있어도 정시에 울려요.</li>
+            <li>앱 배터리 설정을 <b>제한 없음</b>으로 두세요.</li>
+          </ul>
+        </div>
+        <div data-platform="desktop" class="hidden">
+          <p class="font-extrabold text-gray-900 mb-1">컴퓨터</p>
+          <ul class="space-y-1">
+            <li>브라우저 창(탭)을 닫지 마세요. 컴퓨터가 절전 모드에 들어가면 울리지 않아요.</li>
+            <li>운영체제 알림 설정에서 브라우저 알림을 허용하세요.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
   </div>
 
-  <!-- 알람 시간/설정 수정 모달 -->
+  <!-- 알람 수정 모달 -->
   <div id="editAlarmModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 hidden z-50">
     <div class="clean-card w-full max-w-lg p-6 space-y-4 text-left shadow-xl">
       <div class="flex justify-between items-center">
-        <h3 class="text-base font-extrabold text-gray-900">✏️ 알람 시간 및 설정 수정</h3>
-        <button type="button" onclick="closeEditModal()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 text-xs font-bold">✕</button>
+        <h3 class="text-base font-extrabold text-gray-900">✏️ 알람 수정</h3>
+        <button type="button" id="closeEditBtn" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 text-xs font-bold">✕</button>
       </div>
       <div class="grid grid-cols-3 gap-2">
         <select id="editAmPm" class="w-full bg-[#f2f4f7] font-bold px-3 py-2.5 rounded-2xl text-sm">
@@ -160,160 +229,221 @@
         <select id="editHour" class="w-full bg-[#f2f4f7] font-bold px-3 py-2.5 rounded-2xl text-sm font-mono"></select>
         <select id="editMinute" class="w-full bg-[#f2f4f7] font-bold px-3 py-2.5 rounded-2xl text-sm font-mono"></select>
       </div>
-      <select id="editSound" class="w-full bg-[#f2f4f7] text-xs font-semibold px-3.5 py-2.5 rounded-2xl">
-        <option value="random">🎲 매일 무작위 사운드 (12종 랜덤)</option>
-        <option value="0">✨ 1. 스파클 라이징 팝</option>
-        <option value="1">🌅 2. 선라이즈 오케스트라</option>
-        <option value="2">👾 3. 네온 아케이드 8비트</option>
-        <option value="3">🍃 4. 브라이트 윈드 차임</option>
-        <option value="4">🔔 5. 크리스탈 하모닉 벨</option>
-        <option value="5">☕ 6. 릴랙싱 피아노 스케일</option>
-        <option value="6">🌊 7. 오션 웨이브 하프</option>
-        <option value="7">🚀 8. 갤럭시 디지털 비프</option>
-        <option value="8">🎺 9. 모닝 브라스 팡파르</option>
-        <option value="9">🎵 10. 마림바 트로피컬 펄스</option>
-        <option value="10">⚡ 11. 사이버 시티 신스</option>
-        <option value="11">🚨 12. 하이 피치 모닝 사이렌</option>
-      </select>
-      <div class="flex justify-between items-center px-1" id="editDayPicker">
-        <button type="button" data-day="0" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-rose-500 text-xs font-bold">일</button>
-        <button type="button" data-day="1" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">월</button>
-        <button type="button" data-day="2" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">화</button>
-        <button type="button" data-day="3" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">수</button>
-        <button type="button" data-day="4" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">목</button>
-        <button type="button" data-day="5" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">금</button>
-        <button type="button" data-day="6" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-blue-500 text-xs font-bold">토</button>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <input type="text" id="editName" placeholder="알람 이름" class="w-full bg-[#f2f4f7] text-xs p-3 rounded-2xl">
-        <input type="text" id="editGroup" placeholder="그룹 이름" class="w-full bg-[#f2f4f7] text-xs p-3 rounded-2xl">
-      </div>
+      <select id="editSound" class="sound-select w-full bg-[#f2f4f7] text-xs font-semibold px-3.5 py-2.5 rounded-2xl"></select>
+      <div class="flex justify-between items-center px-1" id="editDayPicker"></div>
+      <input type="text" id="editName" maxlength="40" placeholder="알람 이름" class="w-full bg-[#f2f4f7] text-xs p-3 rounded-2xl">
       <div class="grid grid-cols-2 gap-2.5 pt-1">
-        <button type="button" onclick="closeEditModal()" class="py-3 bg-gray-100 text-gray-700 font-bold rounded-full text-sm">취소</button>
-        <button type="button" id="saveEditAlarmBtn" class="py-3 bg-[#0381fe] text-white font-bold rounded-full text-sm shadow-md">수정 저장</button>
+        <button type="button" id="cancelEditBtn" class="py-3 bg-gray-100 text-gray-700 font-bold rounded-full text-sm">취소</button>
+        <button type="button" id="saveEditAlarmBtn" class="py-3 bg-[#0381fe] text-white font-bold rounded-full text-sm shadow-md">저장</button>
       </div>
     </div>
   </div>
 
-  <!-- 알람 작동 풀스크린 모달 -->
+  <!-- 알람 울림 화면 -->
   <div id="alarmModal" class="fixed inset-0 bg-[#f6f7f9]/95 backdrop-blur-lg flex flex-col items-center justify-between p-8 hidden z-50">
-    <div class="mt-12 text-center">
-      <p class="text-[11px] font-extrabold tracking-widest text-[#0381fe] mb-2">NOW RINGING · 현재 울리는 알람</p>
+    <div class="mt-16 text-center">
       <p id="modalAlarmTime" class="text-6xl font-light text-gray-900 font-mono my-2">00:00</p>
       <h2 id="modalAlarmName" class="text-xl font-bold text-gray-800 mt-2">알람</h2>
       <p id="modalSoundTitle" class="text-xs text-gray-500 mt-1">알람음 재생 중...</p>
+      <button id="tapToPlayBtn" type="button" class="hidden mt-6 px-6 py-3 bg-amber-100 text-amber-800 font-bold rounded-full text-sm">🔊 눌러서 알람음 켜기</button>
     </div>
     <div class="w-full max-w-xs space-y-3 mb-10">
       <button id="snoozeAlarmBtn" type="button" class="w-full py-4 bg-white text-gray-800 font-bold rounded-full text-sm border shadow-md">😴 5분 뒤 다시 울림</button>
-      <button id="stopAlarmBtn" type="button" class="w-full py-4 bg-[#0381fe] text-white font-extrabold rounded-full text-base">✕ 끄기</button>
+      <button id="stopAlarmBtn" type="button" class="w-full py-4 bg-[#0381fe] text-white font-extrabold rounded-full text-base">끄기</button>
     </div>
   </div>
 
   <script>
-    function escapeHTML(str) {
-      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  (function () {
+    'use strict';
+
+    /* ============ 공통 유틸 ============ */
+    const $ = (id) => document.getElementById(id);
+    const escapeHTML = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const pad = (n, l = 2) => String(n).padStart(l, '0');
+    const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
+    const GRACE_MS = 3 * 60 * 1000;
+    const soundNames = [
+      '✨ 1. 스파클 라이징 팝', '🌅 2. 선라이즈 오케스트라', '👾 3. 네온 아케이드 8비트', '🍃 4. 브라이트 윈드 차임',
+      '🔔 5. 크리스탈 하모닉 벨', '☕ 6. 릴랙싱 피아노 스케일', '🌊 7. 오션 웨이브 하프', '🚀 8. 갤럭시 디지털 비프',
+      '🎺 9. 모닝 브라스 팡파르', '🎵 10. 마림바 트로피컬 펄스', '⚡ 11. 사이버 시티 신스', '🚨 12. 하이 피치 모닝 사이렌'
+    ];
+    const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } };
+    const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+    /* ============ 기기 판별 ============ */
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
+    const isStandalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    const androidBridge = window.AndroidAlarmBridge || null;
+    const iosBridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.smartClock;
+    const isNative = Boolean(androidBridge || iosBridge);
+    const supportsPush = !isNative && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    const platform = androidBridge ? 'android-native' : iosBridge ? 'ios-native' : isIOS ? 'ios' : isAndroid ? 'android' : 'desktop';
+
+    /* ============ 시간: 표준시 보정 + 서버 시간 ============ */
+    let selfOffset = Number(lsGet('self_offset_ms', 0)) || 0;      // 표준시 - 기기 시계
+    let target = lsGet('server_time_target', null);                // { host, offsetMs(대상 - 표준시), accuracyMs, measuredAt, useForAlarm }
+    const trueNow = () => Date.now() + selfOffset;
+    const refDelta = () => (target && target.useForAlarm ? Number(target.offsetMs) || 0 : 0);
+    const refNow = () => trueNow() + refDelta();
+
+    async function syncStandardTime() {
+      let best = null;
+      for (let i = 0; i < 4; i++) {
+        try {
+          const t0 = Date.now();
+          const r = await fetch(`/api/server-time?_=${t0}`, { cache: 'no-store' });
+          const t1 = Date.now();
+          if (!r.ok) break;
+          const { now } = await r.json();
+          if (!Number.isFinite(now)) break;
+          const rtt = t1 - t0;
+          if (!best || rtt < best.rtt) best = { rtt, offset: now - (t0 + t1) / 2 };
+        } catch { break; }
+      }
+      if (best) {
+        selfOffset = Math.round(best.offset);
+        lsSet('self_offset_ms', selfOffset);
+        lsSet('self_offset_at', Date.now());
+      }
+      updateBasisLabel(Boolean(best));
+      return Boolean(best);
     }
 
-    (function initSelects() {
-      const pairs = [
-        [document.getElementById('alarmHour'), document.getElementById('alarmMinute')],
-        [document.getElementById('editHour'), document.getElementById('editMinute')]
-      ];
-      for (const [hEl, mEl] of pairs) {
-        for (let h = 1; h <= 12; h++) hEl.innerHTML += `<option value="${h}" ${h===8?'selected':''}>${String(h).padStart(2,'0')}시</option>`;
-        for (let m = 0; m < 60; m++) { const v = String(m).padStart(2,'0'); mEl.innerHTML += `<option value="${v}">${v}분</option>`; }
+    function updateBasisLabel(ok = true) {
+      const el = $('clockBasisLabel');
+      const deviceDiff = selfOffset / 1000;
+      const devText = Math.abs(deviceDiff) < 0.05 ? '기기 시계 정확' :
+        `기기 시계가 ${Math.abs(deviceDiff).toFixed(2)}초 ${deviceDiff > 0 ? '느림' : '빠름'}`;
+      if (target && target.useForAlarm) el.innerText = `${target.host} 서버 시간 기준 · ${devText}`;
+      else el.innerText = ok ? `표준시 기준 · ${devText}` : '표준시 확인 실패 · 기기 시계 사용 중';
+    }
+
+    // 기준 시계(refNow)의 벽시계 h:m 을 실제(표준시) ms 로 바꿈
+    function wallToTrue(h, m, dayOffset = 0, base = refNow()) {
+      const d = new Date(base);
+      d.setDate(d.getDate() + dayOffset);
+      d.setHours(h, m, 0, 0);
+      return d.getTime() - refDelta();
+    }
+    function hmOf(ms) { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+    function nextSingleShot(timeStr) {
+      const [h, m] = timeStr.split(':').map(Number);
+      let at = wallToTrue(h, m, 0);
+      if (at <= trueNow() + 500) at = wallToTrue(h, m, 1);
+      return at;
+    }
+
+    function occurrences(a, now, back = 1, ahead = 0) {
+      if (!a.isRepeating) return a.singleShotAt ? [Number(a.singleShotAt)] : [];
+      const [h, m] = a.time.split(':').map(Number);
+      const out = [];
+      for (let off = -back; off <= ahead; off++) {
+        const at = wallToTrue(h, m, off, now + refDelta());
+        if ((a.days || []).includes(new Date(at + refDelta()).getDay())) out.push(at);
       }
+      return out;
+    }
+    function nextOccurrence(a, now) {
+      if (!a.enabled) return null;
+      const list = occurrences(a, now, 0, 8).filter((t) => t > now);
+      return list.length ? Math.min(...list) : null;
+    }
+
+    /* ============ 알람 데이터 ============ */
+    function loadAlarms() {
+      const list = lsGet('saved_alarms', null) || lsGet('saved_alarms_backup', []) || [];
+      return (Array.isArray(list) ? list : []).filter((a) => a && typeof a.time === 'string').map((a) => ({
+        id: String(a.id), name: (a.name && a.name !== '빠른 알람') ? a.name : '알람', time: a.time,
+        sound: ((Number(a.sound) || 0) % 12 + 12) % 12, isRandomSound: Boolean(a.isRandomSound || a.randomDaily),
+        days: Array.isArray(a.days) ? a.days : [], isRepeating: Boolean(a.isRepeating && (a.days || []).length),
+        singleShotAt: a.singleShotAt || null, enabled: Boolean(a.enabled), isSnooze: Boolean(a.isSnooze)
+      })).map((a) => {
+        // 예전 '빠른 알람' 이름 정리: "1분 알람", "5분 알람" 등 → "알람"
+        if (/^\d+(분|시간) 알람$/.test(a.name)) a.name = '알람';
+        return a;
+      });
+    }
+    let alarms = loadAlarms();
+    const firedKeys = new Set(lsGet('fired_keys', []));
+    const dismissedKeys = new Set(lsGet('dismissed_keys', []));
+    function rememberKey(set, name, key) {
+      set.add(key);
+      lsSet(name, [...set].slice(-80));
+    }
+
+    let urgentBurstMode = lsGet('urgent_burst_mode', false) === true || localStorage.getItem('urgent_burst_mode') === 'true';
+    let isRinging = false, currentRing = null, isPreviewing = false, previewTimeout = null;
+    let wakeLock = null, wakeLockRequested = false, isBgAudioRunning = false, vibrateTimer = null;
+    let pushEnabled = false, exactWakeUp = null;
+    let nativeHandlesRinging = false;
+    let editingId = null;
+
+    /* ============ 셀렉트 / 요일 버튼 ============ */
+    (function initForm() {
+      for (const [hId, mId] of [['alarmHour', 'alarmMinute'], ['editHour', 'editMinute']]) {
+        let hh = '', mm = '';
+        for (let h = 1; h <= 12; h++) hh += `<option value="${h}" ${h === 7 ? 'selected' : ''}>${pad(h)}시</option>`;
+        for (let m = 0; m < 60; m++) mm += `<option value="${pad(m)}">${pad(m)}분</option>`;
+        $(hId).innerHTML = hh; $(mId).innerHTML = mm;
+      }
+      const soundOpts = `<option value="random">🎲 매일 다른 소리 (12종 중 랜덤)</option>` +
+        soundNames.map((n, i) => `<option value="${i}">${n}</option>`).join('');
+      document.querySelectorAll('.sound-select').forEach((s) => { s.innerHTML = soundOpts; });
+      const dayBtns = (cls) => daysMap.map((d, i) =>
+        `<button type="button" data-day="${i}" class="${cls} w-9 h-9 rounded-full bg-[#f2f4f7] ${i === 0 ? 'text-rose-500' : i === 6 ? 'text-blue-500' : 'text-gray-600'} text-xs font-bold">${d}</button>`).join('');
+      $('dayPicker').innerHTML = dayBtns('day-btn');
+      $('editDayPicker').innerHTML = dayBtns('edit-day-btn');
+      document.querySelectorAll('.day-btn, .edit-day-btn').forEach((b) => b.addEventListener('click', () => b.classList.toggle('selected-day')));
+      $('afterMinutesRow').innerHTML = [[1, '+1분'], [5, '+5분'], [10, '+10분'], [15, '+15분'], [20, '+20분'], [30, '+30분'], [45, '+45분'], [60, '+1시간']]
+        .map(([m, l]) => `<button type="button" data-after="${m}" class="py-2.5 bg-[#f2f4f7] rounded-2xl text-xs font-bold text-gray-700">${l}</button>`).join('');
+      document.querySelectorAll('[data-after]').forEach((b) => b.addEventListener('click', () => addAfterMinutes(Number(b.dataset.after))));
     })();
 
-    function showBanner(icon, title, desc) {
-      const b = document.getElementById('featureInfoBanner');
-      document.getElementById('featureInfoIcon').innerText = icon;
-      document.getElementById('featureInfoTitle').innerText = title;
-      document.getElementById('featureInfoDesc').innerHTML = desc;
-      b.classList.remove('hidden');
+    /* ============ 배너 ============ */
+    let bannerId = null;
+    function showBanner(icon, title, desc, id = null) {
+      if (id && lsGet(`banner_closed_${id}`, false)) return;
+      bannerId = id;
+      $('featureInfoIcon').innerText = icon;
+      $('featureInfoTitle').innerText = title;
+      $('featureInfoDesc').innerHTML = desc;
+      $('featureInfoBanner').classList.remove('hidden');
     }
-
-    function loadSavedAlarms() {
-      try {
-        const primary = localStorage.getItem('saved_alarms');
-        if (primary) {
-          const parsed = JSON.parse(primary);
-          if (Array.isArray(parsed)) return parsed;
-        }
-        const backup = localStorage.getItem('saved_alarms_backup');
-        if (backup) {
-          const parsedBackup = JSON.parse(backup);
-          if (Array.isArray(parsedBackup)) {
-            localStorage.setItem('saved_alarms', backup);
-            return parsedBackup;
-          }
-        }
-      } catch {}
-      return [];
-    }
-
-    function persistAlarmsToStorage(list) {
-      const serialized = JSON.stringify(list);
-      localStorage.setItem('saved_alarms', serialized);
-      localStorage.setItem('saved_alarms_backup', serialized);
-    }
-
-    let alarms = loadSavedAlarms();
-    let urgentBurstMode = localStorage.getItem('urgent_burst_mode') === 'true';
-    let isRinging = false, currentRingingAlarm = null, pushEnabled = false, isBgAudioRunning = false;
-    let isPreviewing = false, previewTimeout = null;
-    let editingAlarmIndex = null;
-    let wakeLock = null, wakeLockRequested = false;
-    let lastDismissedStamp = 0;
-    let lastTriggeredMinuteKey = '';
-    let exactMinuteTimer = null;
-    let silentUrl = null;
-    const cachedSoundUrls = {};
-    const masterEl = document.getElementById('masterAudioEngine');
-    const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
-    const soundNames = [
-      '✨ 1. 스파클 라이징 팝',
-      '🌅 2. 선라이즈 오케스트라',
-      '👾 3. 네온 아케이드 8비트',
-      '🍃 4. 브라이트 윈드 차임',
-      '🔔 5. 크리스탈 하모닉 벨',
-      '☕ 6. 릴랙싱 피아노 스케일',
-      '🌊 7. 오션 웨이브 하프',
-      '🚀 8. 갤럭시 디지털 비프',
-      '🎺 9. 모닝 브라스 팡파르',
-      '🎵 10. 마림바 트로피컬 펄스',
-      '⚡ 11. 사이버 시티 신스',
-      '🚨 12. 하이 피치 모닝 사이렌'
-    ];
-
-    function updateWakeLockUI(active) {
-      const btn = document.getElementById('wakeLockBtn');
-      btn.innerText = active ? '☀️ 화면 켜짐: ON' : '💤 화면 켜짐: OFF';
-      btn.className = active
-        ? 'px-2.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[11px] font-bold shadow-sm transition'
-        : 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition';
-    }
-
-    async function requestScreenWakeLock() {
-      if (!('wakeLock' in navigator)) return;
-      try {
-        wakeLock = await navigator.wakeLock.request('screen');
-        wakeLockRequested = true;
-        updateWakeLockUI(true);
-        wakeLock.addEventListener('release', () => { wakeLock = null; updateWakeLockUI(false); });
-      } catch { updateWakeLockUI(false); }
-    }
-
-    document.getElementById('wakeLockBtn').addEventListener('click', async () => {
-      if (wakeLock) {
-        wakeLockRequested = false;
-        await wakeLock.release();
-        wakeLock = null;
-        updateWakeLockUI(false);
-      } else {
-        await requestScreenWakeLock();
-      }
+    $('featureInfoClose').addEventListener('click', () => {
+      $('featureInfoBanner').classList.add('hidden');
+      if (bannerId) lsSet(`banner_closed_${bannerId}`, true);
     });
+
+    function showPlatformBanner() {
+      if (platform === 'ios' && !isStandalone) {
+        showBanner('📲', '아이폰은 홈 화면에 추가해야 알림을 받을 수 있어요',
+          'Safari 아래쪽 <b>공유 버튼 → 홈 화면에 추가</b>를 누른 뒤, 홈 화면의 <b>스마트 시계 아이콘</b>으로 다시 열고 ‘푸시 알림’을 켜 주세요.');
+      } else if (platform === 'ios') {
+        showBanner('🍎', '아이폰 알람 안내',
+          '이 화면이 켜져 있으면 알람음이, 다른 앱·영상 시청 중에는 <b>푸시 알림음</b>이 울려요. 무음 모드·집중 모드에서는 소리가 나지 않아요. 영상 볼 때 놓치지 않으려면 <b>‘반복 알림’</b>을 켜 두세요.', 'ios-v2');
+      } else if (platform === 'android') {
+        showBanner('🤖', '안드로이드 알람 안내',
+          'Chrome <b>알림 허용</b>과 배터리 <b>‘제한 없음’</b> 설정을 확인해 주세요. 다른 앱 사용 중에는 푸시 알림음으로 알려 드려요.', 'android-v2');
+      } else if (platform === 'android-native') {
+        showBanner('🤖', '기기 알람으로 울려요', '알람·알림·전체 화면 알림 권한을 허용하면 화면이 꺼져 있어도 정시에 울려요.', 'android-native-v2');
+      } else if (platform === 'desktop') {
+        showBanner('💻', '컴퓨터 알람 안내', '브라우저 탭을 닫거나 컴퓨터가 절전 모드에 들어가면 알람음이 울리지 않아요. 푸시 알림을 켜 두세요.', 'desktop-v2');
+      }
+      document.querySelectorAll('[data-platform]').forEach((el) => {
+        const p = el.dataset.platform;
+        const show = p === platform || (p === 'ios' && platform === 'ios-native') || (p === 'android' && platform === 'android-native');
+        el.classList.toggle('hidden', !show);
+      });
+      if (!lsGet('notice_seen_v2', false)) { $('noticeCard').open = true; lsSet('notice_seen_v2', true); }
+      if (!supportsPush) ['pushSubscribeBtn', 'testPushBtn', 'urgentBurstBtn'].forEach((id) => $(id).classList.add('hidden'));
+      if (isNative) $('bgAudioKeepAliveBtn').classList.add('hidden');
+    }
+
+    const cachedSoundUrls = {};
+    let silentUrl = null;
 
     function encodeWav(sampleRate, numSamples, fn) {
       const bytes = numSamples * 2, buf = new ArrayBuffer(44 + bytes), v = new DataView(buf);
@@ -406,568 +536,669 @@
       return silentUrl;
     }
 
+    // 매일 다른 소리: 알람 ID + 날짜로 정하고, 전날과 같은 소리는 피함 (네이티브 앱과 같은 방식)
+    function stableIndex(str) {
+      let h = 14695981039346656037n;
+      for (const b of new TextEncoder().encode(str)) { h ^= BigInt(b); h = (h * 1099511628211n) & 0xFFFFFFFFFFFFFFFFn; }
+      return Number(h % 12n);
+    }
+    function soundFor(alarm, atMs) {
+      if (!alarm.isRandomSound) return ((Number(alarm.sound) || 0) % 12 + 12) % 12;
+      const d = new Date(atMs + refDelta());
+      const key = (x) => `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
+      const prev = new Date(d); prev.setDate(d.getDate() - 1);
+      const today = stableIndex(`${alarm.id}|${key(d)}`);
+      const yesterday = stableIndex(`${alarm.id}|${key(prev)}`);
+      return today === yesterday ? (today + 1) % 12 : today;
+    }
+
+    /* ============ 오디오 ============ */
+    const masterEl = $('masterAudioEngine');
+
     async function ensureBgAudio() {
-      if (isRinging || isPreviewing) return;
+      if (isRinging || isPreviewing || isNative) return;
       const sUrl = getSilentUrl();
       if (masterEl.paused || masterEl.src !== sUrl) {
-        masterEl.src = sUrl;
-        masterEl.volume = 0.01;
-        masterEl.loop = true;
-        try {
-          await masterEl.play();
-          isBgAudioRunning = true;
-        } catch {
-          isBgAudioRunning = false;
-        }
+        masterEl.src = sUrl; masterEl.volume = 0.01; masterEl.loop = true;
+        try { await masterEl.play(); isBgAudioRunning = true; } catch { isBgAudioRunning = false; }
       }
-      const btn = document.getElementById('bgAudioKeepAliveBtn');
+      const btn = $('bgAudioKeepAliveBtn');
       btn.innerText = isBgAudioRunning ? '🎧 오디오 유지: ON' : '🎧 오디오 유지: OFF';
-      btn.className = isBgAudioRunning
-        ? 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm'
-        : 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80';
+      btn.classList.toggle('on-blue', isBgAudioRunning);
     }
-
-    document.getElementById('bgAudioKeepAliveBtn').addEventListener('click', async () => {
+    $('bgAudioKeepAliveBtn').addEventListener('click', async () => {
+      lsSet('bg_audio_wanted', true);
       await ensureBgAudio();
-      if (isBgAudioRunning) {
-        showBanner('🎧', '오디오 유지 활성화됨', '정각 00초에 맞춰 12종 알람음이 즉시 울립니다.');
-      }
+      if (isBgAudioRunning) showBanner('🎧', '오디오 유지 켜짐', '화면을 잠시 벗어나도 브라우저가 허용하는 동안 알람음을 바로 울릴 수 있게 준비해요. 브라우저/OS가 중단시킬 수 있어요.');
     });
 
-    function playUnifiedRing(soundIdx) {
+    function playRing(soundIdx) {
       if (previewTimeout) { clearTimeout(previewTimeout); previewTimeout = null; }
       isPreviewing = false;
-      const url = getUnifiedSoundUrl(soundIdx);
       masterEl.pause();
-      masterEl.src = url;
+      masterEl.src = getUnifiedSoundUrl(soundIdx);
       masterEl.load();
-      masterEl.volume = 1.0;
-      masterEl.loop = true;
-      masterEl.currentTime = 0;
-      masterEl.play().catch(() => {});
-    }
-
-    document.getElementById('previewSelectedSoundBtn').addEventListener('click', () => {
-      if (isRinging) return;
-      const btn = document.getElementById('previewSelectedSoundBtn');
-      if (isPreviewing) {
-        isPreviewing = false;
-        if (previewTimeout) clearTimeout(previewTimeout);
-        masterEl.pause();
-        btn.innerText = '🔊 알람음 미리듣기';
-        ensureBgAudio();
-        return;
+      masterEl.volume = 1.0; masterEl.loop = true; masterEl.currentTime = 0;
+      const p = masterEl.play();
+      if (p && p.then) {
+        p.then(() => $('tapToPlayBtn').classList.add('hidden'))
+         .catch(() => { if (isRinging) $('tapToPlayBtn').classList.remove('hidden'); });
       }
+      if (navigator.vibrate) {
+        clearInterval(vibrateTimer);
+        navigator.vibrate([700, 300, 700, 300, 700]);
+        vibrateTimer = setInterval(() => { if (isRinging) navigator.vibrate([700, 300, 700, 300, 700]); }, 3200);
+      }
+    }
+    $('tapToPlayBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      masterEl.play().then(() => $('tapToPlayBtn').classList.add('hidden')).catch(() => {});
+    });
 
-      const val = document.getElementById('alarmSound').value;
-      const idx = val === 'random' ? Math.floor(Math.random() * 12) : parseInt(val, 10);
-      isPreviewing = true;
-      btn.innerText = '⏹ 미리듣기 중지';
-      masterEl.src = getUnifiedSoundUrl(idx);
-      masterEl.volume = 1.0;
-      masterEl.loop = true;
+    $('previewSelectedSoundBtn').addEventListener('click', () => {
+      if (isRinging) return;
+      const btn = $('previewSelectedSoundBtn');
+      if (isPreviewing) {
+        isPreviewing = false; clearTimeout(previewTimeout); masterEl.pause();
+        btn.innerText = '🔊 알람음 미리듣기'; ensureBgAudio(); return;
+      }
+      const v = $('alarmSound').value;
+      const idx = v === 'random' ? Math.floor(Math.random() * 12) : parseInt(v, 10);
+      isPreviewing = true; btn.innerText = '⏹ 미리듣기 중지';
+      masterEl.src = getUnifiedSoundUrl(idx); masterEl.volume = 1.0; masterEl.loop = true;
       masterEl.play().catch(() => {});
-
       previewTimeout = setTimeout(() => {
-        isPreviewing = false;
-        masterEl.pause();
-        btn.innerText = '🔊 알람음 미리듣기';
-        ensureBgAudio();
+        isPreviewing = false; masterEl.pause(); btn.innerText = '🔊 알람음 미리듣기'; ensureBgAudio();
       }, 4800);
     });
 
-    function onForegroundActivated() {
-      if (wakeLockRequested && !wakeLock) requestScreenWakeLock();
-      checkAndFireDueAlarmsNow();
-      scheduleExactNextMinuteBoundary();
-      if (isRinging && currentRingingAlarm) {
-        playUnifiedRing(currentRingingAlarm.sound ?? 0);
-      } else if (isBgAudioRunning) {
-        ensureBgAudio();
-      }
-    }
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') onForegroundActivated();
-    });
-    window.addEventListener('pageshow', onForegroundActivated);
-    window.addEventListener('focus', onForegroundActivated);
-
-    ['touchstart', 'pointerdown', 'click'].forEach(evt => {
-      document.addEventListener(evt, () => {
-        if (isRinging && masterEl.paused) {
-          masterEl.play().catch(() => {});
-        }
-      }, { passive: true });
-    });
-
+    ['touchstart', 'pointerdown', 'click'].forEach((evt) => document.addEventListener(evt, () => {
+      if (isRinging && masterEl.paused) masterEl.play().then(() => $('tapToPlayBtn').classList.add('hidden')).catch(() => {});
+    }, { passive: true }));
     masterEl.addEventListener('pause', () => {
-      if (isRinging) {
-        setTimeout(() => {
-          if (isRinging && masterEl.paused) masterEl.play().catch(() => {});
-        }, 100);
-      }
+      if (isRinging) setTimeout(() => { if (isRinging && masterEl.paused) masterEl.play().catch(() => {}); }, 150);
     });
 
-    function updateUrgentUI() {
-      const btn = document.getElementById('urgentBurstBtn');
-      btn.innerText = urgentBurstMode ? '🚨 무제한 긴급알림: ON' : '🚨 무제한 긴급알림: OFF';
-      btn.className = urgentBurstMode
-        ? 'px-2.5 py-1.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-full text-[11px] font-bold shadow-sm'
-        : 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80';
+    /* ============ 화면 켜짐 ============ */
+    function updateWakeLockUI(on) {
+      const b = $('wakeLockBtn');
+      b.innerText = on ? '☀️ 화면 켜짐: ON' : '💤 화면 켜짐: OFF';
+      b.classList.toggle('on-amber', on);
     }
-    updateUrgentUI();
-
-    document.getElementById('urgentBurstBtn').addEventListener('click', () => {
-      urgentBurstMode = !urgentBurstMode;
-      localStorage.setItem('urgent_burst_mode', String(urgentBurstMode));
-      updateUrgentUI();
-      syncPush();
-      showBanner('🚨', urgentBurstMode ? '무제한 긴급알림 ON' : '무제한 긴급알림 OFF', urgentBurstMode ? '끄기를 누를 때까지 15초마다 반복 발송됩니다.' : '1회만 발송됩니다.');
-    });
-
-    function urlBase64ToUint8Array(base64String) {
-      const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-      const rawData = window.atob(base64);
-      return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
-    }
-
-    function updatePushUI() {
-      const btn = document.getElementById('pushSubscribeBtn');
-      const on = pushEnabled && Notification.permission === 'granted';
-      btn.innerText = on ? '🔔 푸시 알림: ON' : '🔔 푸시 알림: OFF';
-      btn.className = on
-        ? 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm'
-        : 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80';
-    }
-
-    async function syncPush(clearRinging = false, dismissedAlarmId = null) {
-      if (!('serviceWorker' in navigator)) return false;
+    async function requestScreenWakeLock() {
+      if (!('wakeLock' in navigator)) { showBanner('💤', '화면 켜짐을 지원하지 않는 브라우저예요', '기기 설정에서 화면 자동 꺼짐 시간을 늘려 주세요.'); return; }
       try {
-        const reg = await navigator.serviceWorker.ready;
-        if (clearRinging && reg.active) {
-          reg.active.postMessage({ type: 'STOP_INFINITE_PUSH', alarmId: dismissedAlarmId });
-        }
-        const sub = await reg.pushManager.getSubscription();
-        if (!sub) return false;
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLockRequested = true; updateWakeLockUI(true);
+        wakeLock.addEventListener('release', () => { wakeLock = null; updateWakeLockUI(false); });
+      } catch { updateWakeLockUI(false); }
+    }
+    $('wakeLockBtn').addEventListener('click', async () => {
+      if (wakeLock) { wakeLockRequested = false; await wakeLock.release(); wakeLock = null; updateWakeLockUI(false); }
+      else await requestScreenWakeLock();
+    });
 
-        if (clearRinging) {
-          await fetch('/api/push?action=dismiss', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            keepalive: true,
-            body: JSON.stringify({ subscription: sub.toJSON(), alarmId: dismissedAlarmId, stopAllUrgent: true })
-          }).catch(() => {});
-        }
+    /* ============ 푸시 ============ */
+    function urlBase64ToUint8Array(b64) {
+      const padding = '='.repeat((4 - (b64.length % 4)) % 4);
+      const raw = atob((b64 + padding).replace(/-/g, '+').replace(/_/g, '/'));
+      return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+    }
+    function updatePushUI() {
+      const on = pushEnabled && 'Notification' in window && Notification.permission === 'granted';
+      $('pushSubscribeBtn').innerText = on ? '🔔 푸시 알림: ON' : '🔔 푸시 알림: OFF';
+      $('pushSubscribeBtn').classList.toggle('on-blue', on);
+    }
+    function updateUrgentUI() {
+      $('urgentBurstBtn').innerText = urgentBurstMode ? '🚨 반복 알림: ON' : '🚨 반복 알림: OFF';
+      $('urgentBurstBtn').classList.toggle('on-rose', urgentBurstMode);
+    }
 
+    async function getSubscription() {
+      if (!supportsPush) return null;
+      const reg = await navigator.serviceWorker.ready;
+      return reg.pushManager.getSubscription();
+    }
+
+    let syncTimer = null;
+    function syncPushSoon(clearRinging = false) {
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => syncPush(clearRinging), 150);
+    }
+    async function syncPush(clearRinging = false) {
+      if (!supportsPush) return false;
+      try {
+        const sub = await getSubscription();
+        if (!sub) { pushEnabled = false; updatePushUI(); return false; }
         const res = await fetch('/api/push?action=subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          keepalive: true,
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
           body: JSON.stringify({
-            subscription: sub.toJSON(),
-            alarms,
+            subscription: sub.toJSON(), alarms,
             timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul',
-            urgentBurstMode,
-            clearRinging
+            refDeltaMs: refDelta(), urgentBurstMode, clearRinging
           })
         });
         pushEnabled = res.ok;
+        if (res.ok) { const j = await res.json().catch(() => ({})); exactWakeUp = Boolean(j.exactWakeUp); }
         updatePushUI();
         return res.ok;
       } catch { return false; }
     }
+    async function sendDismissToServer(alarmId) {
+      try {
+        const sub = await getSubscription();
+        if (!sub) return;
+        await fetch('/api/push?action=dismiss', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+          body: JSON.stringify({ subscription: sub.toJSON(), alarmId: alarmId || '' })
+        });
+      } catch {}
+    }
 
     async function subscribePush() {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+      if (!supportsPush) return null;
+      if (platform === 'ios' && !isStandalone) { showPlatformBanner(); return null; }
       let perm = Notification.permission;
       if (perm === 'default') perm = await Notification.requestPermission();
-      if (perm !== 'granted') return null;
-      const cfgRes = await fetch('/api/push?action=config');
-      if (!cfgRes.ok) return null;
-      const cfg = await cfgRes.json();
+      if (perm !== 'granted') {
+        showBanner('🔕', '알림 권한이 꺼져 있어요', isIOS ? '설정 → 알림 → 스마트 시계에서 알림을 허용해 주세요.' : '주소창 왼쪽 자물쇠(사이트 설정) → 알림 → 허용으로 바꿔 주세요.');
+        return null;
+      }
+      const cfg = await fetch('/api/push?action=config').then((r) => r.json()).catch(() => null);
+      if (!cfg || !cfg.vapidPublicKey) { showBanner('⚠️', '서버 푸시 설정이 없어요', '서버에 VAPID 키가 설정되어 있는지 확인해 주세요.'); return null; }
       const reg = await navigator.serviceWorker.ready;
       let sub = await reg.pushManager.getSubscription();
-      if (!sub) {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(cfg.vapidPublicKey)
-        });
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(cfg.vapidPublicKey) });
+      return (await syncPush()) ? sub : null;
+    }
+
+    $('pushSubscribeBtn').addEventListener('click', async () => {
+      if (pushEnabled) {
+        if (!confirm('이 기기의 푸시 알림을 끌까요? 앱을 닫으면 알람 알림이 오지 않아요.')) return;
+        const sub = await getSubscription();
+        if (sub) {
+          await fetch('/api/push?action=unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON() }) }).catch(() => {});
+          await sub.unsubscribe().catch(() => {});
+        }
+        pushEnabled = false; updatePushUI(); return;
       }
-      const ok = await syncPush();
-      return ok ? sub : null;
-    }
-
-    document.getElementById('pushSubscribeBtn').addEventListener('click', async () => {
-      await ensureBgAudio();
-      const sub = await subscribePush();
-      if (sub) showBanner('🔔', '푸시 알림 등록 완료!', '정각 00초 기준으로 서버와 동기화되었습니다.');
-    });
-
-    document.getElementById('testPushBtn').addEventListener('click', async () => {
-      await ensureBgAudio();
-      const sub = await subscribePush();
-      if (!sub) return;
-      const val = document.getElementById('alarmSound').value;
-      const soundIdx = val === 'random' ? 0 : parseInt(val, 10);
-      const res = await fetch('/api/push?action=test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub.toJSON(), sound: soundIdx })
-      });
-      if (res.ok) showBanner('📡', '테스트 푸시 발송됨', '잠시 후 푸시 배너와 동일한 알람음이 울립니다.');
-    });
-
-    function saveAlarms(clearRinging = false, dismissedAlarmId = null) {
-      persistAlarmsToStorage(alarms);
       ensureBgAudio();
-      scheduleExactNextMinuteBoundary();
-      syncPush(clearRinging, dismissedAlarmId);
+      const sub = await subscribePush();
+      if (sub) {
+        showBanner('🔔', '푸시 알림이 켜졌어요', exactWakeUp
+          ? '앱을 닫아도 알람 시각 00초에 맞춰 알림이 와요. ‘푸시 테스트’로 소리를 확인해 보세요.'
+          : '앱을 닫아도 알림이 와요. 다만 서버에 정각 예약(QSTASH_TOKEN)이 설정되지 않아 최대 1분 정도 늦을 수 있어요.');
+      }
+    });
+
+    $('testPushBtn').addEventListener('click', async () => {
+      const sub = pushEnabled ? await getSubscription() : await subscribePush();
+      if (!sub) return;
+      const v = $('alarmSound').value;
+      const res = await fetch('/api/push?action=test', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub.toJSON(), sound: v === 'random' ? 0 : parseInt(v, 10) })
+      }).catch(() => null);
+      if (res && res.ok) showBanner('📡', '테스트 알림을 보냈어요', '몇 초 안에 알림이 오지 않으면 기기 알림 설정을 확인해 주세요.');
+      else showBanner('⚠️', '테스트 알림 실패', '잠시 후 다시 시도하거나 푸시 알림을 껐다 켜 주세요.');
+    });
+
+    $('urgentBurstBtn').addEventListener('click', () => {
+      urgentBurstMode = !urgentBurstMode;
+      localStorage.setItem('urgent_burst_mode', String(urgentBurstMode));
+      updateUrgentUI();
+      syncPushSoon(!urgentBurstMode);
+      showBanner('🚨', urgentBurstMode ? '반복 알림 켜짐' : '반복 알림 꺼짐',
+        urgentBurstMode ? '앱을 닫았거나 영상을 보는 중이어도 끄기 전까지 15초마다 알림을 다시 보내요(최대 10분).' : '알람 시각에 알림을 한 번 보내요.');
+    });
+
+    /* ============ 네이티브 앱 연결 (안드로이드 APK / iOS AlarmKit) ============ */
+    function nativePayload() {
+      return {
+        alarms: alarms.map((a) => ({
+          ...a, group: '', randomDaily: a.isRandomSound,
+          singleShotAt: a.singleShotAt ? Math.round(a.singleShotAt - selfOffset) : null // 네이티브는 기기 시계 기준
+        })),
+        timer: null,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul'
+      };
+    }
+    function syncNative() {
+      try {
+        if (androidBridge && androidBridge.syncState) {
+          const r = JSON.parse(androidBridge.syncState(JSON.stringify(nativePayload())) || '{}');
+          nativeHandlesRinging = Boolean(r.ok && r.exactAlarmPermission);
+        } else if (iosBridge) {
+          iosBridge.postMessage({ action: 'syncState', payload: nativePayload() });
+        }
+      } catch {}
+    }
+    window.syncAlarmsToNativeForIOS = syncNative;
+    window.__onIOSAlarmKitReady = (ok) => { nativeHandlesRinging = Boolean(ok); };
+    window.refreshNativeAlarmStateFromBridge = function () {
+      if (!androidBridge || !androidBridge.getState) return;
+      try {
+        const st = JSON.parse(androidBridge.getState() || '{}');
+        const nativeList = Array.isArray(st.alarms) ? st.alarms : [];
+        let changed = false;
+        for (const n of nativeList) {
+          const a = alarms.find((x) => String(x.id) === String(n.id));
+          if (a && a.enabled && n.enabled === false) { a.enabled = false; changed = true; }
+        }
+        if (changed) { persist(); renderList(); }
+        const status = JSON.parse(androidBridge.getStatus ? androidBridge.getStatus() : '{}');
+        nativeHandlesRinging = Boolean(status.exactAlarm);
+      } catch {}
+      syncNative();
+    };
+
+    /* ============ 저장 / 목록 ============ */
+    function persist() {
+      const s = JSON.stringify(alarms);
+      try { localStorage.setItem('saved_alarms', s); localStorage.setItem('saved_alarms_backup', s); } catch {}
+    }
+    function saveAlarms(clearRinging = false) {
+      persist();
+      syncPushSoon(clearRinging);
+      syncNative();
+      updateCountdown();
     }
 
-    window.addQuickTimer = function(mins, label) {
-      const now = new Date();
-      now.setMinutes(now.getMinutes() + mins);
-      now.setSeconds(0, 0);
-      const hour24 = String(now.getHours()).padStart(2,'0');
-      const minute = String(now.getMinutes()).padStart(2,'0');
-      const timeStr = `${hour24}:${minute}`;
-      const val = document.getElementById('alarmSound').value;
-      const sound = val === 'random' ? Math.floor(Math.random() * 12) : parseInt(val, 10);
-      
-      alarms.push({
-        id: Date.now(), name: label, group: '빠른 알람', time: timeStr, sound,
-        days: [now.getDay()], isRepeating: false, singleShotAt: now.getTime(), enabled: true
-      });
-      saveAlarms();
-      renderList();
-      showBanner('⏰', `${timeStr}:00 정각 알람 등록됨`, `${soundNames[sound]} 사운드로 정확히 00초에 울립니다.`);
-    };
-
-    document.querySelectorAll('.day-btn').forEach(btn => {
-      btn.addEventListener('click', () => btn.classList.toggle('selected-day'));
-    });
-    document.querySelectorAll('.edit-day-btn').forEach(btn => {
-      btn.addEventListener('click', () => btn.classList.toggle('selected-day'));
-    });
-
-    document.getElementById('addAlarmBtn').addEventListener('click', () => {
-      const ampm = document.getElementById('alarmAmPm').value;
-      const h = parseInt(document.getElementById('alarmHour').value, 10);
-      const m = document.getElementById('alarmMinute').value;
-      const soundVal = document.getElementById('alarmSound').value;
-      const sound = soundVal === 'random' ? Math.floor(Math.random() * 12) : parseInt(soundVal, 10);
-      
-      let h24 = h % 12;
-      if (ampm === 'PM') h24 += 12;
-      const timeStr = `${String(h24).padStart(2,'0')}:${m}`;
-      
-      const target = new Date();
-      target.setHours(h24, parseInt(m, 10), 0, 0);
-      if (target.getTime() <= Date.now()) target.setDate(target.getDate() + 1);
-
-      let selectedDays = [];
-      document.querySelectorAll('.day-btn').forEach(btn => {
-        if (btn.classList.contains('selected-day')) selectedDays.push(parseInt(btn.getAttribute('data-day'), 10));
-      });
-
-      alarms.push({
-        id: Date.now(),
-        name: document.getElementById('alarmName').value.trim() || '알람',
-        group: document.getElementById('alarmGroup').value.trim() || '기본',
-        time: timeStr, sound, isRandomSound: soundVal === 'random',
-        days: selectedDays.length ? selectedDays : [target.getDay()],
-        isRepeating: selectedDays.length > 0, singleShotAt: selectedDays.length ? null : target.getTime(), enabled: true
-      });
-      saveAlarms();
-      renderList();
-    });
-
-    window.openEditModal = function(idx) {
-      const a = alarms[idx];
-      if (!a) return;
-      editingAlarmIndex = idx;
-      const [hStr, mStr] = a.time.split(':');
-      const h24 = parseInt(hStr, 10);
-      document.getElementById('editAmPm').value = h24 >= 12 ? 'PM' : 'AM';
-      document.getElementById('editHour').value = String(h24 % 12 === 0 ? 12 : h24 % 12);
-      document.getElementById('editMinute').value = mStr;
-      document.getElementById('editSound').value = a.isRandomSound ? 'random' : String((Number(a.sound) || 0) % 12);
-      document.getElementById('editName').value = a.name || '';
-      document.getElementById('editGroup').value = a.group || '';
-
-      document.querySelectorAll('.edit-day-btn').forEach(btn => {
-        const d = parseInt(btn.getAttribute('data-day'), 10);
-        if (a.isRepeating && (a.days || []).includes(d)) btn.classList.add('selected-day');
-        else btn.classList.remove('selected-day');
-      });
-
-      document.getElementById('editAlarmModal').classList.remove('hidden');
-    };
-
-    window.closeEditModal = function() {
-      editingAlarmIndex = null;
-      document.getElementById('editAlarmModal').classList.add('hidden');
-    };
-
-    document.getElementById('saveEditAlarmBtn').addEventListener('click', () => {
-      if (editingAlarmIndex === null || !alarms[editingAlarmIndex]) return;
-      const ampm = document.getElementById('editAmPm').value;
-      const h = parseInt(document.getElementById('editHour').value, 10);
-      const m = document.getElementById('editMinute').value;
-      const soundVal = document.getElementById('editSound').value;
-      const sound = soundVal === 'random' ? Math.floor(Math.random() * 12) : parseInt(soundVal, 10);
-
-      let h24 = h % 12;
-      if (ampm === 'PM') h24 += 12;
-      const timeStr = `${String(h24).padStart(2, '0')}:${m}`;
-
-      const target = new Date();
-      target.setHours(h24, parseInt(m, 10), 0, 0);
-      if (target.getTime() <= Date.now()) target.setDate(target.getDate() + 1);
-
-      let selectedDays = [];
-      document.querySelectorAll('.edit-day-btn').forEach(btn => {
-        if (btn.classList.contains('selected-day')) selectedDays.push(parseInt(btn.getAttribute('data-day'), 10));
-      });
-
-      const prev = alarms[editingAlarmIndex];
-      alarms[editingAlarmIndex] = {
-        ...prev,
-        name: document.getElementById('editName').value.trim() || '알람',
-        group: document.getElementById('editGroup').value.trim() || '기본',
-        time: timeStr,
-        sound,
-        isRandomSound: soundVal === 'random',
-        days: selectedDays.length ? selectedDays : [target.getDay()],
-        isRepeating: selectedDays.length > 0,
-        singleShotAt: selectedDays.length ? null : target.getTime(),
-        enabled: true
-      };
-
-      saveAlarms();
-      renderList();
-      closeEditModal();
-      showBanner('✏️', '알람 설정 수정됨', `${ampm === 'PM' ? '오후' : '오전'} ${String(h).padStart(2,'0')}:${m}:00 정각 알람이 저장되었습니다.`);
-    });
+    function format12(hm) {
+      const [h, m] = hm.split(':').map(Number);
+      return { ampm: h >= 12 ? '오후' : '오전', t: `${pad(h % 12 === 0 ? 12 : h % 12)}:${pad(m)}` };
+    }
 
     function renderList() {
-      const el = document.getElementById('alarmList');
+      const el = $('alarmList');
       if (!alarms.length) { el.innerHTML = '<div class="clean-card p-6 text-xs text-gray-400 text-center">알람이 없습니다.</div>'; return; }
-      
-      el.innerHTML = alarms.map((a, i) => {
-        const [hStr, mStr] = a.time.split(':');
-        const h24 = parseInt(hStr, 10);
-        const ampm = h24 >= 12 ? '오후' : '오전';
-        const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-        const time12 = `${String(h12).padStart(2, '0')}:${mStr}`;
-        const repeatDaysText = a.isRepeating ? a.days.map(d => daysMap[d]).join(' ') : '한 번만 울림';
-        const soundLabel = soundNames[((Number(a.sound) || 0) % 12 + 12) % 12];
-        
+      const sorted = [...alarms].sort((a, b) => a.time.localeCompare(b.time));
+      el.innerHTML = sorted.map((a) => {
+        const { ampm, t } = format12(a.time);
+        let when;
+        if (a.isRepeating) when = a.days.length === 7 ? '매일' : [...a.days].sort().map((d) => daysMap[d]).join(' ');
+        else if (a.enabled && a.singleShotAt) {
+          const d = new Date(a.singleShotAt + refDelta());
+          const today = new Date(refNow());
+          const tomorrow = new Date(refNow()); tomorrow.setDate(today.getDate() + 1);
+          when = d.toDateString() === today.toDateString() ? '오늘' : d.toDateString() === tomorrow.toDateString() ? '내일' : `${d.getMonth() + 1}월 ${d.getDate()}일`;
+          when += a.isSnooze ? ' · 다시 울림' : ' · 한 번';
+        } else when = '한 번';
+        const sound = a.isRandomSound ? '🎲 매일 다른 소리' : soundNames[a.sound];
         return `
-          <div onclick="openEditModal(${i})" class="clean-card p-5 flex justify-between items-center cursor-pointer active:scale-[0.99] transition ${a.enabled ? 'opacity-100' : 'opacity-60'}">
+          <div data-edit="${escapeHTML(a.id)}" class="clean-card p-5 flex justify-between items-center cursor-pointer active:scale-[0.99] transition ${a.enabled ? '' : 'opacity-50'}">
             <div class="text-left flex-1 min-w-0 pr-2">
-              <div class="flex items-center gap-1.5 mb-1">
-                <span class="text-[11px] px-2 py-0.5 bg-blue-50 text-[#0381fe] rounded-full font-bold">${escapeHTML(a.group)}</span>
-                <span class="text-xs text-gray-600 font-semibold truncate">${escapeHTML(a.name)}</span>
-              </div>
+              <div class="text-xs text-gray-600 font-semibold truncate mb-0.5">${escapeHTML(a.name)}</div>
               <div class="flex items-baseline gap-1.5">
                 <span class="text-sm font-bold text-gray-700">${ampm}</span>
-                <span class="text-3xl font-light font-mono text-gray-900">${time12}</span>
+                <span class="text-3xl font-light font-mono text-gray-900">${t}</span>
               </div>
               <div class="text-[11px] text-gray-400 mt-1 font-medium truncate">
-                <span class="${a.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${repeatDaysText}</span> · ${soundLabel}
+                <span class="${a.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${when}</span> · ${sound}
               </div>
             </div>
-            <div class="flex items-center gap-3 shrink-0" onclick="event.stopPropagation()">
-              <label class="pill-switch">
-                <input type="checkbox" ${a.enabled ? 'checked' : ''} onchange="toggleAlarm(${i})">
-                <span class="pill-slider"></span>
-              </label>
-              <button onclick="deleteAlarm(${i})" class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 hover:text-rose-500 text-xs font-bold transition">✕</button>
+            <div class="flex items-center gap-3 shrink-0" data-stop>
+              <label class="pill-switch"><input type="checkbox" data-toggle="${escapeHTML(a.id)}" ${a.enabled ? 'checked' : ''}><span class="pill-slider"></span></label>
+              <button data-delete="${escapeHTML(a.id)}" class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 hover:text-rose-500 text-xs font-bold transition">✕</button>
             </div>
-          </div>
-        `;
+          </div>`;
       }).join('');
     }
+    $('alarmList').addEventListener('click', (e) => {
+      const del = e.target.closest('[data-delete]');
+      if (del) { deleteAlarm(del.dataset.delete); return; }
+      if (e.target.closest('[data-stop]')) return;
+      const card = e.target.closest('[data-edit]');
+      if (card) openEditModal(card.dataset.edit);
+    });
+    $('alarmList').addEventListener('change', (e) => {
+      const t = e.target.closest('[data-toggle]');
+      if (t) toggleAlarm(t.dataset.toggle);
+    });
 
-    window.toggleAlarm = function(idx) {
-      alarms[idx].enabled = !alarms[idx].enabled;
-      if (alarms[idx].enabled && !alarms[idx].isRepeating) {
-        const [h, m] = alarms[idx].time.split(':').map(Number);
-        const now = new Date();
-        const target = new Date();
-        target.setHours(h, m, 0, 0);
-        if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1);
-        alarms[idx].singleShotAt = target.getTime();
-      }
-      saveAlarms(!alarms[idx].enabled, alarms[idx].id);
-      renderList();
-    };
+    function readPicker(prefix, dayCls) {
+      const ampm = $(`${prefix}AmPm`).value;
+      const h = parseInt($(`${prefix}Hour`).value, 10);
+      const m = $(`${prefix}Minute`).value;
+      const h24 = (h % 12) + (ampm === 'PM' ? 12 : 0);
+      const time = `${pad(h24)}:${m}`;
+      const days = [...document.querySelectorAll(`.${dayCls}.selected-day`)].map((b) => parseInt(b.dataset.day, 10));
+      return { time, days };
+    }
+    function buildAlarm(base, { time, days, soundVal, name }) {
+      const isRepeating = days.length > 0;
+      const singleShotAt = isRepeating ? null : nextSingleShot(time);
+      return {
+        ...base, name: name || '알람', time,
+        sound: soundVal === 'random' ? (Number(base.sound) || 0) : parseInt(soundVal, 10),
+        isRandomSound: soundVal === 'random',
+        days: isRepeating ? days : [new Date(singleShotAt + refDelta()).getDay()],
+        isRepeating, singleShotAt, enabled: true, isSnooze: false
+      };
+    }
+    function untilText(at) {
+      const diff = Math.max(0, at - trueNow());
+      const mins = Math.ceil(diff / 60000);
+      const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+      return [d ? `${d}일` : '', h ? `${h}시간` : '', (m || (!d && !h)) ? `${m}분` : ''].filter(Boolean).join(' ') + ' 후';
+    }
 
-    window.deleteAlarm = function(idx) {
-      const removed = alarms[idx];
-      alarms.splice(idx, 1);
-      saveAlarms(true, removed ? removed.id : null);
-      renderList();
-    };
+    $('addAlarmBtn').addEventListener('click', () => {
+      const { time, days } = readPicker('alarm', 'day-btn');
+      const a = buildAlarm({ id: String(Date.now()), sound: Math.floor(Math.random() * 12) },
+        { time, days, soundVal: $('alarmSound').value, name: $('alarmName').value.trim() });
+      alarms.push(a);
+      saveAlarms(); renderList();
+      document.querySelectorAll('.day-btn.selected-day').forEach((b) => b.classList.remove('selected-day'));
+      $('alarmName').value = '';
+      const n = nextOccurrence(a, trueNow());
+      const { ampm, t } = format12(time);
+      showBanner('⏰', `${ampm} ${t} 알람 저장됨`, n ? `${untilText(n)}에 울려요.` : '');
+    });
 
-    function triggerAlarm(alarm, bypassCooldown = false) {
-      if (!bypassCooldown && Date.now() - lastDismissedStamp < 90000) return;
+    function addAfterMinutes(mins) {
+      const v = $('alarmSound').value;
+      const at = Math.ceil((refNow() + mins * 60000) / 60000) * 60000 - refDelta(); // 기준 시계로 00초 정각
+      const time = hmOf(at + refDelta());
+      const a = {
+        id: String(Date.now()), name: $('alarmName').value.trim() || '알람', time,
+        sound: v === 'random' ? Math.floor(Math.random() * 12) : parseInt(v, 10), isRandomSound: v === 'random',
+        days: [new Date(at + refDelta()).getDay()], isRepeating: false, singleShotAt: at, enabled: true, isSnooze: false
+      };
+      alarms.push(a);
+      saveAlarms(); renderList();
+      $('alarmName').value = '';
+      const { ampm, t } = format12(time);
+      showBanner('⏰', `${ampm} ${t} 알람 저장됨`, `${untilText(at)}에 울려요.`);
+    }
+
+    function openEditModal(id) {
+      const a = alarms.find((x) => x.id === id);
+      if (!a) return;
+      editingId = id;
+      const [hh, mm] = a.time.split(':');
+      const h24 = parseInt(hh, 10);
+      $('editAmPm').value = h24 >= 12 ? 'PM' : 'AM';
+      $('editHour').value = String(h24 % 12 === 0 ? 12 : h24 % 12);
+      $('editMinute').value = mm;
+      $('editSound').value = a.isRandomSound ? 'random' : String(a.sound);
+      $('editName').value = a.name || '';
+      document.querySelectorAll('.edit-day-btn').forEach((b) =>
+        b.classList.toggle('selected-day', a.isRepeating && a.days.includes(parseInt(b.dataset.day, 10))));
+      $('editAlarmModal').classList.remove('hidden');
+    }
+    function closeEditModal() { editingId = null; $('editAlarmModal').classList.add('hidden'); }
+    $('closeEditBtn').addEventListener('click', closeEditModal);
+    $('cancelEditBtn').addEventListener('click', closeEditModal);
+    $('saveEditAlarmBtn').addEventListener('click', () => {
+      const idx = alarms.findIndex((x) => x.id === editingId);
+      if (idx < 0) return closeEditModal();
+      const { time, days } = readPicker('edit', 'edit-day-btn');
+      alarms[idx] = buildAlarm(alarms[idx], { time, days, soundVal: $('editSound').value, name: $('editName').value.trim() });
+      saveAlarms(); renderList(); closeEditModal();
+      const { ampm, t } = format12(time);
+      showBanner('✏️', '알람 수정됨', `${ampm} ${t} 알람으로 저장했어요.`);
+    });
+
+    function toggleAlarm(id) {
+      const a = alarms.find((x) => x.id === id);
+      if (!a) return;
+      a.enabled = !a.enabled;
+      if (a.enabled && !a.isRepeating) { a.singleShotAt = nextSingleShot(a.time); a.isSnooze = false; }
+      saveAlarms(!a.enabled); renderList();
+    }
+    function deleteAlarm(id) {
+      alarms = alarms.filter((x) => x.id !== id);
+      saveAlarms(true); renderList();
+    }
+
+    /* ============ 울림 / 끄기 / 다시 울림 ============ */
+    function triggerAlarm(info) {
+      if (isRinging) return;
       isRinging = true;
-      currentRingingAlarm = alarm;
-      const soundIdx = ((Number(alarm.sound) || 0) % 12 + 12) % 12;
-      const timeVal = alarm.time || new Date().toTimeString().slice(0, 5);
-      const [hStr, mStr] = timeVal.split(':');
-      const h24 = parseInt(hStr, 10);
-      const ampm = h24 >= 12 ? '오후' : '오전';
-      const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-
-      document.getElementById('modalAlarmName').innerText = `[${alarm.group || '알람'}] ${alarm.name || '알람'}`;
-      document.getElementById('modalAlarmTime').innerText = `${ampm} ${String(h12).padStart(2, '0')}:${mStr}`;
-      document.getElementById('modalSoundTitle').innerText = `${soundNames[soundIdx]} 재생 중...`;
-      document.getElementById('alarmModal').classList.remove('hidden');
-
-      playUnifiedRing(soundIdx);
+      currentRing = info;
+      if (isPreviewing) { isPreviewing = false; clearTimeout(previewTimeout); $('previewSelectedSoundBtn').innerText = '🔊 알람음 미리듣기'; }
+      const { ampm, t } = format12(info.time || hmOf(refNow()));
+      $('modalAlarmTime').innerText = `${ampm} ${t}`;
+      $('modalAlarmName').innerText = info.name || '알람';
+      $('modalSoundTitle').innerText = `${soundNames[info.sound] || soundNames[0]} 재생 중`;
+      $('alarmModal').classList.remove('hidden');
+      playRing(info.sound);
     }
 
-    function stopEverything(explicitId = null) {
-      lastDismissedStamp = Date.now();
-      const targetId = explicitId || (currentRingingAlarm && currentRingingAlarm.id) || null;
+    function stopRinging() {
       isRinging = false;
-      isPreviewing = false;
-      if (previewTimeout) { clearTimeout(previewTimeout); previewTimeout = null; }
-
-      try {
-        masterEl.pause();
-        masterEl.loop = false;
-        masterEl.volume = 0;
-        masterEl.src = getSilentUrl();
-        masterEl.currentTime = 0;
-      } catch {}
+      clearInterval(vibrateTimer);
+      if (navigator.vibrate) navigator.vibrate(0);
+      try { masterEl.pause(); masterEl.loop = false; masterEl.currentTime = 0; } catch {}
       isBgAudioRunning = false;
-
-      document.getElementById('alarmModal').classList.add('hidden');
-      alarms = alarms.map(a => (!targetId || String(a.id) === String(targetId))
-        ? { ...a, enabled: false, singleShotAt: null }
-        : a
-      );
-      currentRingingAlarm = null;
-      persistAlarmsToStorage(alarms);
-      syncPush(true, targetId);
-      renderList();
+      $('alarmModal').classList.add('hidden');
+      $('tapToPlayBtn').classList.add('hidden');
     }
 
-    document.getElementById('stopAlarmBtn').addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      stopEverything();
+    function closeNotifications(alarmId) {
+      if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
+      navigator.serviceWorker.controller.postMessage({ type: 'CLOSE_ALARM_NOTIFICATIONS', alarmId: alarmId || '' });
+    }
+
+    function dismissCurrent({ fromPush = false } = {}) {
+      const ring = currentRing;
+      stopRinging();
+      currentRing = null;
+      if (ring) {
+        rememberKey(dismissedKeys, 'dismissed_keys', ring.key);
+        rememberKey(firedKeys, 'fired_keys', ring.key);
+        const a = alarms.find((x) => x.id === ring.id);
+        if (a && !a.isRepeating) { a.enabled = false; a.isSnooze = false; persist(); }
+        if (!fromPush) sendDismissToServer(ring.id);
+        closeNotifications(ring.id);
+      }
+      persist(); syncNative(); renderList(); updateCountdown();
+      return ring;
+    }
+
+    $('stopAlarmBtn').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); dismissCurrent(); setTimeout(ensureBgAudioIfWanted, 300); });
+    $('snoozeAlarmBtn').addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const ring = dismissCurrent();
+      if (!ring) return;
+      const at = trueNow() + 5 * 60000;
+      const existing = alarms.find((x) => x.id === ring.id);
+      const snooze = {
+        id: `snooze_${Date.now()}`, name: ring.name || '알람', time: hmOf(at + refDelta()),
+        sound: ring.sound, isRandomSound: false, days: [new Date(at + refDelta()).getDay()],
+        isRepeating: false, singleShotAt: at, enabled: true, isSnooze: true
+      };
+      // 한 번만 울리는 알람은 같은 카드를 5분 뒤로 옮기고, 반복 알람은 별도 '다시 울림'을 만듦
+      if (existing && !existing.isRepeating) Object.assign(existing, { ...snooze, id: existing.id, name: existing.name });
+      else alarms.push(snooze);
+      saveAlarms(); renderList();
+      showBanner('😴', '5분 뒤 다시 울려요', `${format12(snooze.time).ampm} ${format12(snooze.time).t}에 다시 울려요.`);
     });
+    function ensureBgAudioIfWanted() { if (lsGet('bg_audio_wanted', false)) ensureBgAudio(); }
 
-    document.getElementById('snoozeAlarmBtn').addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const target = currentRingingAlarm;
-      stopEverything();
-      lastDismissedStamp = 0;
-      if (target) addQuickTimer(5, `${target.name} (다시 울림)`);
-    });
-
-    function checkAndFireDueAlarmsNow() {
-      if (isRinging || Date.now() - lastDismissedStamp < 90000) return;
-      const now = new Date();
-      const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      const dateStamp = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}_${currentHM}`;
-
+    /* ============ 알람 확인 루프 (100ms) ============ */
+    function checkDue() {
+      if (isRinging) return;
+      const now = trueNow();
       for (const a of alarms) {
         if (!a.enabled) continue;
-        const minuteKey = `${a.id}_${dateStamp}`;
-        if (lastTriggeredMinuteKey === minuteKey) continue;
-
-        if (!a.isRepeating && a.singleShotAt) {
-          if (now.getTime() >= a.singleShotAt && now.getTime() - a.singleShotAt < 90000 && a.time === currentHM) {
-            lastTriggeredMinuteKey = minuteKey;
-            a.enabled = false;
-            saveAlarms();
-            renderList();
-            triggerAlarm(a);
-            return;
-          }
-        } else if (a.isRepeating && (a.days || []).includes(now.getDay())) {
-          if (a.time === currentHM) {
-            lastTriggeredMinuteKey = minuteKey;
-            triggerAlarm(a);
-            return;
-          }
+        for (const at of occurrences(a, now)) {
+          if (at > now || now - at > GRACE_MS) continue;
+          const key = `${a.id}_${at}`;
+          if (firedKeys.has(key)) continue;
+          rememberKey(firedKeys, 'fired_keys', key);
+          if (!a.isRepeating) { a.enabled = false; persist(); renderList(); }
+          if (nativeHandlesRinging) { updateCountdown(); continue; } // 네이티브 알람이 울림 → 중복 방지
+          triggerAlarm({ id: a.id, key, name: a.name, time: a.time, sound: soundFor(a, at) });
+          return;
         }
       }
     }
 
-    function scheduleExactNextMinuteBoundary() {
-      if (exactMinuteTimer) clearTimeout(exactMinuteTimer);
-      const now = new Date();
-      const msUntilExact00 = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
-      exactMinuteTimer = setTimeout(() => {
-        checkAndFireDueAlarmsNow();
-        scheduleExactNextMinuteBoundary();
-      }, Math.max(10, msUntilExact00));
+    function updateCountdown() {
+      const now = trueNow();
+      let best = null;
+      for (const a of alarms) { const n = nextOccurrence(a, now); if (n && (!best || n < best.at)) best = { at: n, a }; }
+      if (!best) { $('nextAlarmCountdown').innerText = '모든 알람이 꺼져 있습니다'; return; }
+      const { ampm, t } = format12(hmOf(best.at + refDelta()));
+      $('nextAlarmCountdown').innerText = `다음 알람 ${ampm} ${t} · ${untilText(best.at)}`;
     }
 
-    setInterval(() => {
-      const now = new Date();
-      document.getElementById('clock').innerText = now.toTimeString().slice(0, 8);
-      document.getElementById('activeDayDisplay').innerText = `📅 ${daysMap[now.getDay()]}요일`;
-      document.getElementById('todayDateLabel').innerText = `${now.getMonth()+1}월 ${now.getDate()}일`;
-      
-      const enabledCount = alarms.filter(a => a.enabled).length;
-      document.getElementById('nextAlarmCountdown').innerText = enabledCount > 0 ? `활성 알람 ${enabledCount}개 대기 중` : '모든 알람이 꺼져 있습니다';
-      
-      if (isRinging && masterEl.paused) {
-        masterEl.play().catch(() => {});
+    let lastSecond = -1;
+    function tick() {
+      const r = refNow();
+      const d = new Date(r);
+      if (d.getSeconds() !== lastSecond) {
+        lastSecond = d.getSeconds();
+        $('clock').innerText = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        $('activeDayDisplay').innerText = `📅 ${daysMap[d.getDay()]}요일`;
+        $('todayDateLabel').innerText = `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+        updateCountdown();
       }
+      if (isRinging && masterEl.paused && $('tapToPlayBtn').classList.contains('hidden')) masterEl.play().catch(() => {});
+      checkDue();
+    }
+    setInterval(tick, 100);
 
-      checkAndFireDueAlarmsNow();
-    }, 250);
+    /* ============ 서버 시간 (네이비즘 방식) ============ */
+    let serverTimeRaf = null;
+    function renderServerTime() {
+      if (!target) { $('serverTimeResult').classList.add('hidden'); cancelAnimationFrame(serverTimeRaf); return; }
+      $('serverTimeResult').classList.remove('hidden');
+      $('serverTimeHost').innerText = target.host;
+      $('useServerTimeToggle').checked = Boolean(target.useForAlarm);
+      const vsDevice = (selfOffset + target.offsetMs) / 1000;
+      const ageMin = Math.round((Date.now() - target.measuredAt) / 60000);
+      $('serverTimeDiff').innerText =
+        `내 기기보다 ${Math.abs(vsDevice).toFixed(2)}초 ${vsDevice >= 0 ? '빠름' : '느림'} · 표준시보다 ${Math.abs(target.offsetMs / 1000).toFixed(2)}초 ${target.offsetMs >= 0 ? '빠름' : '느림'}` +
+        ` · 오차 ±${(target.accuracyMs / 1000).toFixed(2)}초` + (ageMin >= 10 ? ` · ${ageMin}분 전 확인(다시 확인 권장)` : '');
+      cancelAnimationFrame(serverTimeRaf);
+      const loop = () => {
+        if (!target) return;
+        const d = new Date(trueNow() + target.offsetMs);
+        $('serverTimeMain').innerText = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        $('serverTimeMs').innerText = `.${Math.floor(d.getMilliseconds() / 100)}`;
+        serverTimeRaf = requestAnimationFrame(loop);
+      };
+      loop();
+    }
 
-    renderList();
-    checkAndFireDueAlarmsNow();
-    scheduleExactNextMinuteBoundary();
+    async function checkServerTime(host) {
+      const input = String(host || '').trim();
+      if (!input) return;
+      const st = $('serverTimeStatus');
+      st.classList.remove('hidden'); st.innerText = `${input} 서버 시간 확인 중... (2초 정도 걸려요)`;
+      $('serverTimeBtn').disabled = true;
+      try {
+        await syncStandardTime();
+        const r = await fetch(`/api/server-time?url=${encodeURIComponent(input)}&_=${Date.now()}`, { cache: 'no-store' });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || '확인 실패');
+        const keepUse = target && target.host === j.host && target.useForAlarm;
+        target = { host: j.host, offsetMs: j.offsetMs, accuracyMs: j.accuracyMs, measuredAt: Date.now(), useForAlarm: Boolean(keepUse) };
+        lsSet('server_time_target', target);
+        st.classList.add('hidden');
+        renderServerTime(); updateBasisLabel();
+        if (keepUse) recomputeSingles();
+      } catch (err) {
+        st.innerText = `⚠️ ${err.message || '서버 시간을 가져오지 못했어요.'}`;
+      } finally {
+        $('serverTimeBtn').disabled = false;
+      }
+    }
+    function recomputeSingles() {
+      for (const a of alarms) if (a.enabled && !a.isRepeating && !a.isSnooze) a.singleShotAt = nextSingleShot(a.time);
+      saveAlarms(); renderList();
+    }
+    $('serverTimeForm').addEventListener('submit', (e) => { e.preventDefault(); checkServerTime($('serverTimeInput').value); });
+    document.querySelectorAll('#serverTimeQuick [data-host]').forEach((b) => b.addEventListener('click', () => {
+      $('serverTimeInput').value = b.dataset.host; checkServerTime(b.dataset.host);
+    }));
+    $('serverTimeRefresh').addEventListener('click', () => target && checkServerTime(target.host));
+    $('serverTimeClear').addEventListener('click', () => {
+      const wasUsed = target && target.useForAlarm;
+      target = null; lsSet('server_time_target', null);
+      renderServerTime(); updateBasisLabel();
+      if (wasUsed) recomputeSingles();
+    });
+    $('useServerTimeToggle').addEventListener('change', (e) => {
+      if (!target) return;
+      target.useForAlarm = e.target.checked;
+      lsSet('server_time_target', target);
+      updateBasisLabel(); recomputeSingles();
+      showBanner('🕒', e.target.checked ? `${target.host} 서버 시간에 맞춰 울려요` : '표준시에 맞춰 울려요',
+        e.target.checked ? '중요한 시각 직전에는 ‘다시 확인’을 눌러 차이를 새로 맞춰 주세요.' : '');
+    });
 
-    (function handleShortcutUrlTrigger() {
-      const params = new URLSearchParams(window.location.search);
-      const ringParam = params.get('ring') || params.get('triggerAlarm');
-      if (ringParam === '1' || ringParam === 'true') {
-        const now = new Date();
-        const defaultHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        const alarmPayload = {
-          id: params.get('alarmId') || `shortcut_${Date.now()}`,
-          name: params.get('name') || '알람',
-          group: params.get('group') || '알람',
-          time: params.get('time') || defaultHM,
-          sound: parseInt(params.get('sound') || '0', 10)
-        };
+    /* ============ 포그라운드 복귀 / 푸시 메시지 / 링크로 열기 ============ */
+    function onForeground() {
+      if (wakeLockRequested && !wakeLock) requestScreenWakeLock();
+      const last = Number(lsGet('self_offset_at', 0));
+      if (Date.now() - last > 10 * 60000) syncStandardTime();
+      checkDue();
+      if (isRinging && currentRing) playRing(currentRing.sound);
+      if (target) renderServerTime();
+    }
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') onForeground(); });
+    window.addEventListener('pageshow', onForeground);
 
-        if (window.history && window.history.replaceState) {
-          window.history.replaceState({}, document.title, window.location.pathname);
+    function handlePushRing(p, fromClick) {
+      const at = Number(p.at) || 0;
+      const id = String(p.alarmId || '');
+      const key = `${id}_${at}`;
+      if (id === 'test' && !fromClick) return;
+      if (dismissedKeys.has(key)) return;
+      if (isRinging) return;
+      if (firedKeys.has(key) && !fromClick) return;
+      rememberKey(firedKeys, 'fired_keys', key);
+      const local = alarms.find((x) => x.id === id);
+      if (local && !local.isRepeating && Number(local.singleShotAt) === at) { local.enabled = false; persist(); renderList(); }
+      const sound = local ? soundFor(local, at) : ((Number(p.sound) || 0) % 12 + 12) % 12;
+      triggerAlarm({ id, key, name: p.name || (local && local.name) || '알람', time: p.time || (local && local.time) || hmOf(refNow()), sound });
+    }
+
+    if ('serviceWorker' in navigator && !isNative) {
+      navigator.serviceWorker.addEventListener('message', (e) => {
+        const d = e.data || {};
+        if (d.type === 'PUSH_ALARM_TRIGGER' && d.payload) handlePushRing(d.payload, Boolean(d.fromClick));
+        if (d.type === 'ALARM_DISMISSED_FROM_PUSH' && currentRing && (!d.alarmId || String(d.alarmId) === currentRing.id)) dismissCurrent({ fromPush: true });
+      });
+      navigator.serviceWorker.register('./service-worker.js').then(async (reg) => {
+        reg.update().catch(() => {});
+        if (supportsPush && Notification.permission === 'granted') {
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) syncPush(); else { pushEnabled = false; updatePushUI(); }
         }
+      }).catch(() => {});
+    }
 
-        triggerAlarm(alarmPayload, true);
+    (function handleRingLink() {
+      const q = new URLSearchParams(location.search);
+      if (q.get('ring') === '1' || q.get('triggerAlarm') === '1') {
+        history.replaceState && history.replaceState({}, document.title, location.pathname);
+        handlePushRing({ alarmId: q.get('alarmId') || `link_${Date.now()}`, at: q.get('at') || Date.now(),
+          name: q.get('name'), time: q.get('time'), sound: q.get('sound') }, true);
       }
     })();
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', e => {
-        if (e.data && e.data.type === 'PUSH_ALARM_TRIGGER') triggerAlarm(e.data.payload);
-        if (e.data && e.data.type === 'ALARM_DISMISSED_FROM_PUSH') stopEverything(e.data.alarmId || null);
-      });
-      navigator.serviceWorker.register('./service-worker.js').then(async reg => {
-        if (Notification.permission === 'granted') {
-          const sub = await reg.pushManager.getSubscription();
-          if (sub) syncPush();
-        }
-      });
+    /* ============ 시작 ============ */
+    // 예전 버전 데이터 정리 후 저장
+    persist();
+    if (!lsGet('fired_keys_init_v2', false)) {
+      // 업데이트 직후 이미 지난 알람이 다시 울리지 않도록 직전 회차를 '울림 완료'로 표시
+      const now = trueNow();
+      for (const a of alarms) for (const at of occurrences(a, now)) if (at <= now) rememberKey(firedKeys, 'fired_keys', `${a.id}_${at}`);
+      lsSet('fired_keys_init_v2', true);
     }
+    showPlatformBanner();
+    updateUrgentUI(); updatePushUI(); updateWakeLockUI(false);
+    renderList(); renderServerTime();
+    syncStandardTime().then(() => { updateCountdown(); });
+    setInterval(syncStandardTime, 30 * 60000);
+    syncNative();
+    tick();
+  })();
   </script>
 </body>
 </html>

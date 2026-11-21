@@ -12,11 +12,13 @@ final class IOSAlarmKitBridge {
     private let defaultsKey = "smartclock.alarmkit.ids.v1"
     private let horizonDays = 7
 
-    func sync(payload: [String: Any]) async throws {
+    /// AlarmKit 권한이 있고 예약에 성공하면 true (웹 화면은 중복 울림을 막기 위해 이 값을 사용)
+    @discardableResult
+    func sync(payload: [String: Any]) async throws -> Bool {
         let state = try await manager.requestAuthorization()
         guard state == .authorized else {
             print("SmartClock: AlarmKit authorization not granted: \(state)")
-            return
+            return false
         }
 
         // Cancel only alarms previously created by this bridge.
@@ -80,6 +82,7 @@ final class IOSAlarmKitBridge {
 
         UserDefaults.standard.set(newIDs, forKey: defaultsKey)
         print("SmartClock: AlarmKit scheduled \(newIDs.count) upcoming alarms")
+        return true
     }
 
     private func schedule(id: UUID, title: String, date: Date, soundIndex: Int) async throws {

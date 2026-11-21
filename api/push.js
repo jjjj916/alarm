@@ -1,207 +1,106 @@
-import webpush from 'web-push';
-import { Redis } from '@upstash/redis';
+'use strict';
 
-const redis = Redis.fromEnv();
+const S = require('../lib/server');
 
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
+function readBody(req) {
+  if (req.body && typeof req.body === 'object') return req.body;
+  if (typeof req.body === 'string') { try { return JSON.parse(req.body); } catch { return {}; } }
+  return {};
 }
 
-async function scheduleNextQStash(origin, delaySeconds = 15) {
-  if (!process.env.QSTASH_TOKEN) return false;
-  const targetUrl = `${origin}/api/push?action=check`;
-  const res = await fetch(`https://qstash.upstash.io/v2/publish/${targetUrl}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
-      'Upstash-Delay': `${delaySeconds}s`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ trigger: 'urgent-repeat' })
-  }).catch(() => null);
-  return Boolean(res && res.ok);
-}
-
-export default async function handler(req, res) {
-  const action = String(req.query.action || 'check').toLowerCase();
-  const origin = `https://${req.headers.host}`;
-  const body = req.body || {};
+module.exports = async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+  const action = String((req.query && req.query.action) || 'check').toLowerCase();
+  const body = readBody(req);
 
   try {
     if (action === 'config') {
       return res.status(200).json({
         enabled: Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
-        vapidPublicKey: process.env.VAPID_PUBLIC_KEY || ''
+        vapidPublicKey: process.env.VAPID_PUBLIC_KEY || '',
+        exactWakeUp: Boolean(process.env.QSTASH_TOKEN)
       });
     }
 
-    if (action === 'subscribe') {
-      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-      const { subscription, alarms = [], timeZone = 'Asia/Seoul', urgentBurstMode = false, clearRinging = false } = body;
-      if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Invalid subscription' });
+    if (action === 'check') {
+      // 예전 주소 호환: /api/push?action=check 도 발송 확인으로 동작
+      if (!S.isCronAuthorized(req)) return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(200).json(await S.dispatchDue(req));
+    }
 
-      const subKey = `push_sub:${Buffer.from(subscription.endpoint).toString('base64url')}`;
-      const existing = (await redis.get(subKey)) || {};
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+    const { subscription } = body;
+    if (!S.validateSubscription(subscription)) return res.status(400).json({ error: '잘못된 구독 정보입니다.' });
+
+    const redis = S.getRedis();
+    const id = S.subscriptionId(subscription);
+    const key = S.recordKey(id);
+
+    if (action === 'subscribe') {
+      const existing = (await redis.get(key)) || {};
+      const alarms = (Array.isArray(body.alarms) ? body.alarms : []).slice(0, 100).map(S.sanitizeAlarm).filter(Boolean);
       const record = {
         subscription,
         alarms,
-        timeZone,
-        urgentBurstMode: Boolean(urgentBurstMode),
-        dismissedUntil: clearRinging ? Date.now() + 90000 : (existing.dismissedUntil || 0),
+        timeZone: S.validTimeZone(body.timeZone) ? body.timeZone : 'Asia/Seoul',
+        refDeltaMs: Math.max(-600000, Math.min(600000, Number(body.refDeltaMs) || 0)),
+        urgentBurstMode: Boolean(body.urgentBurstMode),
+        activeRinging: existing.activeRinging || null,
+        skipUntil: existing.skipUntil || {},
         updatedAt: Date.now()
       };
-      await redis.set(subKey, record);
-
-      let nextExactTriggerAt = null;
-      for (const a of alarms) {
-        if (a.enabled && !a.isRepeating && a.singleShotAt && Number(a.singleShotAt) > Date.now()) {
-          if (!nextExactTriggerAt || Number(a.singleShotAt) < nextExactTriggerAt) {
-            nextExactTriggerAt = Number(a.singleShotAt);
-          }
-        }
+      if (!record.urgentBurstMode) record.activeRinging = null;
+      // 삭제된 알람이거나 앱에서 이미 끈 경우 반복 발송 즉시 중단
+      if (body.clearRinging || (record.activeRinging &&
+          !alarms.some((a) => String(a.id) === String(record.activeRinging.alarmId)))) {
+        record.activeRinging = null;
       }
-      if (nextExactTriggerAt) {
-        // 네트워크 왕복/콜드스타트 시간(약 2초)을 미리 당겨 정각 00초에 푸시가 도착하도록 예약
-        const rawSec = Math.floor((nextExactTriggerAt - Date.now()) / 1000) - 2;
-        const delaySec = Math.max(0, rawSec);
-        await scheduleNextQStash(origin, delaySec);
+      await redis.set(key, record);
+      await redis.sadd(S.SUBSCRIPTIONS_SET, id);
+
+      const next = S.nextOccurrence(record, Date.now());
+      const wakeScheduled = next ? await S.scheduleWakeUp(req, next) : false;
+      return res.status(200).json({ ok: true, nextAlarmAt: next, wakeScheduled, exactWakeUp: Boolean(process.env.QSTASH_TOKEN) });
+    }
+
+    if (action === 'dismiss') {
+      const record = await redis.get(key);
+      if (record) {
+        const now = Date.now();
+        const alarmId = body.alarmId ? String(body.alarmId) : null;
+        record.activeRinging = null;
+        record.skipUntil = record.skipUntil || {};
+        for (const a of record.alarms || []) {
+          if (alarmId && String(a.id) !== alarmId) continue;
+          record.skipUntil[a.id] = now + 1000; // 이미 울린 회차는 다시 보내지 않음
+          if (!a.isRepeating && a.singleShotAt && a.singleShotAt <= now + 1000) a.enabled = false;
+        }
+        for (const k of Object.keys(record.skipUntil)) {
+          if (Number(record.skipUntil[k]) < now - S.GRACE_MS * 2) delete record.skipUntil[k];
+        }
+        record.updatedAt = now;
+        await redis.set(key, record);
       }
       return res.status(200).json({ ok: true });
     }
 
-    if (action === 'dismiss') {
-      const { subscription, alarmId } = body;
-      if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Missing subscription' });
-      const subKey = `push_sub:${Buffer.from(subscription.endpoint).toString('base64url')}`;
-      const record = await redis.get(subKey);
-      if (record) {
-        record.dismissedUntil = Date.now() + 90000;
-        if (Array.isArray(record.alarms)) {
-          record.alarms = record.alarms.map((a) => (!alarmId || String(a.id) === String(alarmId))
-            ? { ...a, enabled: false, singleShotAt: null }
-            : a
-          );
-        }
-        await redis.set(subKey, record);
-      }
+    if (action === 'unsubscribe') {
+      await redis.srem(S.SUBSCRIPTIONS_SET, id);
+      await redis.del(key);
       return res.status(200).json({ ok: true });
     }
 
     if (action === 'test') {
-      const { subscription, sound = 0 } = body;
-      if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Missing subscription' });
-      await webpush.sendNotification(
-        subscription,
-        JSON.stringify({
-          title: '📡 테스트 푸시 알람',
-          body: '설정된 12종 알람음과 동일한 사운드로 작동합니다.',
-          alarmId: 'test',
-          name: '테스트 알람',
-          group: '테스트',
-          sound: Number(sound) || 0
-        }),
-        { urgency: 'high', TTL: 60 }
-      );
-      return res.status(200).json({ ok: true });
+      const sound = Number(body.sound) || 0;
+      const now = Date.now();
+      const payload = S.buildPayload({ id: 'test', name: '테스트 알람', time: '', sound }, now, false);
+      payload.body = '푸시 알림이 정상적으로 도착했어요.';
+      const result = await S.sendPush(redis, id, subscription, payload, null);
+      return res.status(result === 'sent' ? 200 : 502).json({ ok: result === 'sent', result });
     }
 
-    if (body.subscription && body.subscription.endpoint) {
-      const subKey = `push_sub:${Buffer.from(body.subscription.endpoint).toString('base64url')}`;
-      const record = await redis.get(subKey);
-      if (!record || !record.urgentBurstMode) return res.status(200).json({ ok: true, stopped: true });
-      if (record.dismissedUntil && Date.now() < Number(record.dismissedUntil)) {
-        return res.status(200).json({ ok: true, stoppedByDismiss: true });
-      }
-      const targetAlarm = (record.alarms || []).find(a => String(a.id) === String(body.repeatAlarmId));
-      if (!targetAlarm || !targetAlarm.enabled) return res.status(200).json({ ok: true, disabled: true });
-
-      await webpush.sendNotification(
-        record.subscription,
-        JSON.stringify({
-          title: `🚨 [반복] ${targetAlarm.name || '알람'}`,
-          body: '[✕ 알람 끄기]를 누르기 전까지 15초마다 반복 발송됩니다.',
-          alarmId: String(targetAlarm.id),
-          name: targetAlarm.name || '알람',
-          group: targetAlarm.group || '긴급 알람',
-          time: targetAlarm.time || '',
-          sound: targetAlarm.sound ?? 0,
-          scheduleKey: body.scheduleKey || '',
-          urgentBurstMode: true
-        }),
-        { urgency: 'high', TTL: 60 }
-      );
-      return res.status(200).json({ ok: true, repeated: true });
-    }
-
-    const keys = await redis.keys('push_sub:*');
-    const nowMs = Date.now();
-    let sentCount = 0;
-    let hasActiveUrgent = false;
-
-    for (const key of keys) {
-      const record = await redis.get(key);
-      if (!record || !record.subscription || !Array.isArray(record.alarms)) continue;
-      if (record.dismissedUntil && nowMs < Number(record.dismissedUntil)) continue;
-
-      const tz = record.timeZone || 'Asia/Seoul';
-      const urgentBurstMode = Boolean(record.urgentBurstMode);
-      let updated = false;
-
-      for (const alarm of record.alarms) {
-        if (!alarm.enabled) continue;
-        let due = false;
-        let scheduleKey = '';
-
-        if (!alarm.isRepeating && alarm.singleShotAt) {
-          const diff = nowMs - Number(alarm.singleShotAt);
-          scheduleKey = `oneshot_${alarm.id}_${alarm.singleShotAt}`;
-          if (diff >= -3000 && diff <= 180000) due = true;
-        } else if (alarm.isRepeating) {
-          const localDate = new Date(new Date(nowMs).toLocaleString('en-US', { timeZone: tz }));
-          const curHM = `${String(localDate.getHours()).padStart(2, '0')}:${String(localDate.getMinutes()).padStart(2, '0')}`;
-          const dateTag = `${localDate.getFullYear()}-${localDate.getMonth() + 1}-${localDate.getDate()}`;
-          scheduleKey = `rep_${alarm.id}_${dateTag}_${curHM}`;
-          if ((alarm.days || []).includes(localDate.getDay()) && alarm.time === curHM) due = true;
-        }
-
-        if (due) {
-          if (!urgentBurstMode && alarm.lastSentKey === scheduleKey) continue;
-          if (urgentBurstMode && alarm.lastSentAt && nowMs - Number(alarm.lastSentAt) < 12000) continue;
-
-          await webpush.sendNotification(
-            record.subscription,
-            JSON.stringify({
-              title: `⏰ [${alarm.group || '알람'}] ${alarm.name || '알람'}`,
-              body: urgentBurstMode ? `${alarm.time} 알람 · [✕ 알람 끄기]를 누르기 전까지 반복됩니다.` : `${alarm.time} 알람이 울립니다.`,
-              alarmId: String(alarm.id),
-              name: alarm.name || '알람',
-              group: alarm.group || '알람',
-              time: alarm.time || '',
-              sound: alarm.sound ?? 0,
-              scheduleKey,
-              urgentBurstMode
-            }),
-            { urgency: 'high', TTL: 60 }
-          ).catch(() => {});
-
-          alarm.lastSentKey = scheduleKey;
-          alarm.lastSentAt = nowMs;
-          if (!urgentBurstMode && !alarm.isRepeating) alarm.enabled = false;
-          if (urgentBurstMode) hasActiveUrgent = true;
-          updated = true;
-          sentCount++;
-        }
-      }
-      if (updated) await redis.set(key, record);
-    }
-
-    if (hasActiveUrgent) await scheduleNextQStash(origin, 15);
-    return res.status(200).json({ ok: true, sentCount, hasActiveUrgent });
+    return res.status(400).json({ error: '알 수 없는 요청입니다.' });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(err.statusCode || 500).json({ error: err.message || '서버 오류' });
   }
-}
+};

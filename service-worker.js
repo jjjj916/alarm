@@ -1,38 +1,40 @@
 'use strict';
 
-const CACHE_NAME = 'smart-clock-v20261121-12sounds-ios-dismiss';
-let dismissedUntil = 0;
-let pendingRepeatTimer = null;
+/*
+ * 중요: 푸시를 받으면 "항상" 알림을 표시합니다.
+ * iOS Safari/Chrome은 알림 없이 끝나는 푸시가 몇 번 쌓이면 푸시 구독을 끊어 버립니다.
+ * (이전 버전은 알람을 끈 직후 도착한 푸시를 알림 없이 무시해서 이후 푸시가 오지 않는 문제가 있었습니다.)
+ */
 
-function stopAllWorkerLoops() {
-  dismissedUntil = Date.now() + 90000;
-  if (pendingRepeatTimer) {
-    clearTimeout(pendingRepeatTimer);
-    pendingRepeatTimer = null;
-  }
-}
+const CACHE_NAME = 'smart-clock-v20261121-exact-push';
 
 self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.map((k) => (k !== CACHE_NAME ? caches.delete(k) : Promise.resolve()))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('message', (event) => {
   const data = event.data || {};
-  if (data.type === 'STOP_INFINITE_PUSH') {
-    stopAllWorkerLoops();
-    self.registration.getNotifications().then((list) => list.forEach((n) => n.close()));
+  if (data.type === 'CLOSE_ALARM_NOTIFICATIONS') {
+    event.waitUntil(
+      self.registration.getNotifications().then((list) => list.forEach((n) => {
+        if (!data.alarmId || (n.data && String(n.data.alarmId) === String(data.alarmId))) n.close();
+      }))
+    );
   }
 });
 
-self.addEventListener('push', (event) => {
-  if (Date.now() < dismissedUntil) return;
+function isIOSWorker() {
+  const ua = self.navigator.userAgent || '';
+  return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome|Firefox|Edg/.test(ua));
+}
 
+self.addEventListener('push', (event) => {
   let payload = {};
   try {
     payload = event.data ? event.data.json() : {};
@@ -41,97 +43,72 @@ self.addEventListener('push', (event) => {
   }
 
   event.waitUntil((async () => {
-    if (Date.now() < dismissedUntil) return;
-
-    const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const client of allClients) {
-      client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload });
-    }
-
-    await self.registration.showNotification(payload.title || '⏰ 알람', {
-      body: payload.body || '배너를 터치하면 설정된 알람음이 연속 재생됩니다.',
+    const options = {
+      body: payload.body || '알람 시간입니다.',
       icon: './icon-192.png',
       badge: './icon-192.png',
-      tag: `smart-clock-${payload.alarmId || 'ring'}-${Date.now()}`,
-      silent: false,
+      tag: payload.tag || `alarm-${payload.alarmId || 'ring'}-${payload.at || Date.now()}`,
       renotify: true,
+      silent: false,
       requireInteraction: true,
-      vibrate: [800, 150, 800, 150, 800],
-      data: payload,
-      actions: [
+      vibrate: [800, 200, 800, 200, 800, 200, 800],
+      timestamp: Number(payload.at) || Date.now(),
+      data: payload
+    };
+    if (!isIOSWorker()) {
+      options.actions = [
         { action: 'dismiss', title: '✕ 알람 끄기' },
-        { action: 'ring', title: '🔊 알람음 켜기' }
-      ]
-    });
-
-    if (payload.urgentBurstMode && Date.now() >= dismissedUntil) {
-      if (pendingRepeatTimer) clearTimeout(pendingRepeatTimer);
-      pendingRepeatTimer = setTimeout(async () => {
-        pendingRepeatTimer = null;
-        if (Date.now() < dismissedUntil) return;
-        const sub = await self.registration.pushManager.getSubscription();
-        if (sub) {
-          await fetch('/api/push?action=check', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              subscription: sub.toJSON(),
-              repeatAlarmId: payload.alarmId || '',
-              scheduleKey: payload.scheduleKey || ''
-            })
-          }).catch(() => {});
-        }
-      }, 15000);
+        { action: 'open', title: '🔊 열어서 알람음 듣기' }
+      ];
     }
+    // 반드시 알림을 먼저 띄웁니다.
+    await self.registration.showNotification(payload.title || '⏰ 알람', options);
+
+    const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of allClients) client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload });
   })());
 });
+
+async function sendDismiss(alarmId) {
+  const sub = await self.registration.pushManager.getSubscription();
+  if (!sub) return;
+  await fetch('/api/push?action=dismiss', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subscription: sub.toJSON(), alarmId: alarmId || '' })
+  }).catch(() => {});
+}
 
 self.addEventListener('notificationclick', (event) => {
   const payload = event.notification.data || {};
   event.notification.close();
 
   if (event.action === 'dismiss') {
-    stopAllWorkerLoops();
     event.waitUntil((async () => {
       const list = await self.registration.getNotifications();
-      list.forEach((n) => n.close());
+      list.forEach((n) => { if (!n.data || String(n.data.alarmId) === String(payload.alarmId)) n.close(); });
       const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      for (const client of allClients) {
-        client.postMessage({ type: 'ALARM_DISMISSED_FROM_PUSH', alarmId: payload.alarmId || '' });
-      }
-      const sub = await self.registration.pushManager.getSubscription();
-      if (sub) {
-        await fetch('/api/push?action=dismiss', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subscription: sub.toJSON(), alarmId: payload.alarmId || '', stopAllUrgent: true })
-        }).catch(() => {});
-      }
+      for (const client of allClients) client.postMessage({ type: 'ALARM_DISMISSED_FROM_PUSH', alarmId: payload.alarmId || '' });
+      await sendDismiss(payload.alarmId);
     })());
     return;
   }
 
   event.waitUntil((async () => {
     const params = new URLSearchParams({
-      triggerAlarm: '1',
+      ring: '1',
       alarmId: payload.alarmId || '',
+      at: payload.at ? String(payload.at) : '',
       name: payload.name || '알람',
-      group: payload.group || '푸시 알람',
       time: payload.time || '',
       sound: payload.sound !== undefined ? String(payload.sound) : '0'
     });
     const targetUrl = `/?${params.toString()}`;
-
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of allClients) {
-      client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload });
-      if ('focus' in client) {
-        await client.focus();
-        return;
-      }
+      client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload, fromClick: true });
+      if ('focus' in client) { await client.focus(); return; }
     }
-    if (self.clients.openWindow) {
-      await self.clients.openWindow(targetUrl);
-    }
+    if (self.clients.openWindow) await self.clients.openWindow(targetUrl);
   })());
 });
