@@ -535,7 +535,7 @@
       let mOpts = '';
       for (let m = 0; m < 60; m++) {
         const val = String(m).padStart(2, '0');
-        mOpts += `<option value="${val}" ${val === defaultMin ? 'selected' : ''}>${val}분</option>`;
+        mOpts += `<option value="${val}" ${val === defaultMin ? 'selected' : ''}>${v}분</option>`.replace('${v}', val);
       }
       minEl.innerHTML = mOpts;
     }
@@ -838,7 +838,10 @@
       const ringUrl = getRingBlobUrlForSound(soundIdx, level);
       isStoppingAudio = true;
 
-      unlockWebAudioContext();
+      const ctx = unlockWebAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
       masterEl.muted = false;
       masterEl.src = ringUrl;
       masterEl.volume = 1.0;
@@ -2411,6 +2414,7 @@
       if (params.get('triggerTimer') === '1') {
         const timerMs = Number(params.get('timerMs')) || 0;
         window.history.replaceState({}, document.title, window.location.pathname);
+        unlockWebAudioContext();
         if (!isRinging) triggerTimerFinished(timerMs);
         return;
       }
@@ -2432,9 +2436,7 @@
 
       const now = getSynchronizedNow();
       const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      if (alarmIdParam) {
-        markAlarmCompletedInState(alarmIdParam, scheduleKeyParam);
-      }
+      unlockWebAudioContext();
 
       if (isRinging) return;
       triggerAlarm(buildAlarmObjectFromPush({

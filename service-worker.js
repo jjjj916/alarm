@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'smart-clock-rollback-v20261121';
+const CACHE_NAME = 'smart-clock-sound-fix-v20261121';
 const dismissedTokens = new Set();
 
 function rememberDismissed(alarmId, scheduleKey) {
@@ -44,7 +44,7 @@ async function showAlarmNotification(payload) {
   if (isDismissed(payload)) return;
   const title = payload.title || '⏰ 알람';
   const body = payload.body || '알람 시간이 되었습니다.';
-  const tag = payload.tag || (payload.alarmId ? `smart-clock-alarm-${payload.alarmId}-${Date.now()}` : `smart-clock-alarm-${Date.now()}`);
+  const tag = `smart-clock-ring-${payload.alarmId || 'all'}-${Date.now()}`;
 
   await self.registration.showNotification(title, {
     body,
@@ -54,11 +54,11 @@ async function showAlarmNotification(payload) {
     silent: false,
     renotify: true,
     requireInteraction: true,
-    vibrate: [500, 150, 500, 150, 500],
+    vibrate: [600, 150, 600, 150, 600],
     data: payload,
     actions: [
       { action: 'dismiss', title: '✕ 알람 끄기' },
-      { action: 'open', title: '앱 열기' }
+      { action: 'open', title: '앱에서 끄기' }
     ]
   });
 }
@@ -121,17 +121,21 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   event.waitUntil((async () => {
-    await dismissAlarmFromWorker(payload);
     const params = new URLSearchParams({
       triggerAlarm: payload.type === 'timer' ? '0' : '1',
       triggerTimer: payload.type === 'timer' ? '1' : '0',
       alarmId: payload.alarmId || '',
+      name: payload.name || '',
+      group: payload.group || '',
+      time: payload.time || '',
+      sound: payload.sound !== undefined ? String(payload.sound) : '0',
       scheduleKey: payload.scheduleKey || '',
       label: payload.label || '알람'
     });
     const targetUrl = `/?${params.toString()}`;
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of allClients) {
+      client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload });
       if ('focus' in client) {
         await client.focus();
         return;
