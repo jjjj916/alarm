@@ -52,13 +52,13 @@
     </div>
 
     <!-- 안내 배너 -->
-    <div id="featureInfoBanner" class="clean-card px-4 py-3.5 bg-blue-50/90 border border-blue-200/80 text-left hidden">
+    <div id="featureInfoBanner" class="clean-card px-4 py-3.5 bg-blue-50/90 border border-blue-200/80 text-left">
       <div class="flex items-start justify-between gap-2.5">
         <div class="flex items-start gap-2.5">
           <span id="featureInfoIcon" class="text-base leading-none mt-0.5">💡</span>
           <div>
-            <div id="featureInfoTitle" class="text-xs font-extrabold text-gray-900">기능 안내</div>
-            <p id="featureInfoDesc" class="text-[11px] text-gray-700 leading-relaxed mt-1"></p>
+            <div id="featureInfoTitle" class="text-xs font-extrabold text-gray-900">iOS 영상 시청 중 알람 안내</div>
+            <p id="featureInfoDesc" class="text-[11px] text-gray-700 leading-relaxed mt-1">iOS는 영상 재생 중 백그라운드 웹 오디오를 차단합니다. 알람 시각에 맞춰 단축어 자동화(미디어 일시 정지 → 앱 열기 → 음량 설정)를 연결하거나 화면을 띄워 두시면 정각 00초에 알람음이 재생됩니다.</p>
           </div>
         </div>
         <button type="button" onclick="document.getElementById('featureInfoBanner').classList.add('hidden')" class="text-gray-400 text-xs font-bold px-1">✕</button>
@@ -79,7 +79,7 @@
         <span class="text-[11px] text-gray-400 font-medium">정각 00초 맞춤 등록</span>
       </div>
       <div class="grid grid-cols-4 gap-2">
-        <button onclick="addQuickTimer(1, '1분 테스트 알람')" class="py-2.5 bg-amber-50 hover:bg-amber-100 rounded-2xl text-xs font-bold text-amber-700">+1분</button>
+        <button onclick="addQuickTimer(1, '1분 알람')" class="py-2.5 bg-amber-50 hover:bg-amber-100 rounded-2xl text-xs font-bold text-amber-700">+1분</button>
         <button onclick="addQuickTimer(5, '5분 알람')" class="py-2.5 bg-[#f2f4f7] rounded-2xl text-xs font-bold text-gray-700">+5분</button>
         <button onclick="addQuickTimer(10, '10분 알람')" class="py-2.5 bg-[#f2f4f7] rounded-2xl text-xs font-bold text-gray-700">+10분</button>
         <button onclick="addQuickTimer(15, '15분 알람')" class="py-2.5 bg-[#f2f4f7] rounded-2xl text-xs font-bold text-gray-700">+15분</button>
@@ -438,9 +438,9 @@
       if (previewTimeout) { clearTimeout(previewTimeout); previewTimeout = null; }
       isPreviewing = false;
       const url = getUnifiedSoundUrl(soundIdx);
-      if (masterEl.src !== url) {
-        masterEl.src = url;
-      }
+      masterEl.pause();
+      masterEl.src = url;
+      masterEl.load();
       masterEl.volume = 1.0;
       masterEl.loop = true;
       masterEl.currentTime = 0;
@@ -904,7 +904,6 @@
       }
     }
 
-    // 다음 정각 00초 000ms에 정확히 깨어나는 밀리초 단위 스케줄러
     function scheduleExactNextMinuteBoundary() {
       if (exactMinuteTimer) clearTimeout(exactMinuteTimer);
       const now = new Date();
