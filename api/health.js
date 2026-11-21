@@ -19,6 +19,17 @@ module.exports = async function handler(req, res) {
     serverTime: Date.now()
   };
 
+  // 상세 진단(알람 발송 시각 기록, 토큰 점검)은 주인만: /api/health?key=CRON_SECRET값
+  // (누구나 보면 사용자 알람 시각이 드러나고, 열 때마다 QStash 확인 요청이 나가므로)
+  const secret = process.env.CRON_SECRET;
+  const key = String((req.query && req.query.key) || '');
+  const detailed = !secret || (key.length === secret.length &&
+    require('crypto').timingSafeEqual(Buffer.from(key), Buffer.from(secret)));
+  if (!detailed) {
+    out.detail = '상세 진단은 /api/health?key=CRON_SECRET값 으로 확인하세요';
+    return res.status(out.ok ? 200 : 503).json(out);
+  }
+
   // QStash 토큰 점검 (토큰 값은 노출하지 않고 형태와 실제 인증 결과만 표시)
   if (hasQStash) {
     const raw = String(process.env.QSTASH_TOKEN);

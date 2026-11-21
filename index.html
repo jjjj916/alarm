@@ -2199,13 +2199,13 @@
     function startWebAudioLoop(soundIdx = 0, level = 0) {
       stopWebAudioLoop();
       const cycleMs = Math.max(1000 - level * 130, 600);
-      playPreviewSound(soundIdx, Math.min(0.45 + level * 0.15, 0.95));
+      playPreviewSoundWebAudio(soundIdx, Math.min(0.45 + level * 0.15, 0.95));
       webAudioLoopTimer = setInterval(() => {
         if (!isRinging && !isTimerRinging) {
           stopWebAudioLoop();
           return;
         }
-        playPreviewSound(soundIdx, Math.min(0.45 + level * 0.15, 0.95));
+        playPreviewSoundWebAudio(soundIdx, Math.min(0.45 + level * 0.15, 0.95));
       }, cycleMs);
     }
 
@@ -3415,7 +3415,25 @@
       updateClock();
     };
 
+    // 미리듣기도 실제 알람과 같은 방식(<audio>, 미디어 볼륨)으로 재생
+    // (예전 Web Audio 방식은 아이폰 무음 스위치가 켜져 있으면 소리가 안 났음)
+    let previewEl = null, previewStopTimer = null;
     function playPreviewSound(soundIdx, gainPeak = 0.35) {
+      try {
+        if (!previewEl) { previewEl = new Audio(); previewEl.setAttribute('playsinline', ''); }
+        clearTimeout(previewStopTimer);
+        previewEl.pause();
+        previewEl.src = getRingBlobUrlForSound(soundIdx, 0);
+        previewEl.loop = false;
+        previewEl.volume = 1.0;
+        previewEl.currentTime = 0;
+        previewEl.play().catch(() => playPreviewSoundWebAudio(soundIdx, gainPeak));
+        previewStopTimer = setTimeout(() => { try { previewEl.pause(); } catch (e) {} }, 3000);
+      } catch (e) {
+        playPreviewSoundWebAudio(soundIdx, gainPeak);
+      }
+    }
+    function playPreviewSoundWebAudio(soundIdx, gainPeak = 0.35) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
       if (!previewAudioCtx) previewAudioCtx = new Ctx();
