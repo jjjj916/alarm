@@ -21,11 +21,18 @@ function initWebPush() {
 function getZonedParts(date, timeZone) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
     timeZone: timeZone || 'Asia/Seoul',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false, weekday: 'short'
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    weekday: 'short'
   });
   const parts = {};
-  for (const p of fmt.formatToParts(date)) parts[p.type] = p.value;
+  for (const p of fmt.formatToParts(date)) {
+    parts[p.type] = p.value;
+  }
   const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
   const hour = parts.hour === '24' ? '00' : parts.hour;
   return {
@@ -33,33 +40,6 @@ function getZonedParts(date, timeZone) {
     hm: `${hour}:${parts.minute}`,
     dayIndex: dayMap[parts.weekday] ?? date.getDay()
   };
-}
-
-async function scheduleQStashNextBurst(req, delaySec = 4) {
-  const qstashToken = process.env.QSTASH_TOKEN;
-  if (!qstashToken) return false;
-
-  const qstashUrl = (process.env.QSTASH_URL || 'https://qstash.upstash.io').replace(/\/$/, '');
-  const host = req.headers['x-forwarded-host'] || req.headers.host || process.env.VERCEL_URL;
-  if (!host) return false;
-  const proto = String(host).includes('localhost') ? 'http' : 'https';
-  const targetUrl = `${proto}://${host}/api/push-cron`;
-
-  try {
-    const res = await fetch(`${qstashUrl}/v2/publish/${encodeURIComponent(targetUrl)}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${qstashToken}`,
-        'Content-Type': 'application/json',
-        'Upstash-Delay': `${Math.max(1, Math.round(delaySec))}s`,
-        'Upstash-Deduplication-Id': `burst-${Math.floor(Date.now() / 3000)}`
-      },
-      body: JSON.stringify({ source: 'infinite-alarm-chain', scheduledAt: Date.now() })
-    });
-    return res.ok;
-  } catch (e) {
-    return false;
-  }
 }
 
 module.exports = async function handler(req, res) {
@@ -70,52 +50,49 @@ module.exports = async function handler(req, res) {
     const subKeys = await redis.keys('smart-clock:sub:*');
 
     let sentCount = 0;
-    let hasOngoingUrgentBurst = false;
+    let checkedSubs = 0;
 
     for (const key of subKeys) {
+      checkedSubs++;
       const record = await redis.get(key);
       if (!record || !record.subscription || !record.subscription.endpoint) continue;
 
       const tz = record.timeZone || 'Asia/Seoul';
       const zoned = getZonedParts(new Date(now), tz);
       const alarms = Array.isArray(record.alarms) ? record.alarms : [];
-      const isBurstEnabled = record.urgentBurstMode !== false;
       let dirty = false;
       const payloadsToSend = [];
 
-      if (record.activeRinging && isBurstEnabled) {
+      if (record.activeRinging && record.urgentBurstMode) {
         const ar = record.activeRinging;
-        const startedAt = Number(ar.startedAt) || now;
         const lastSent = Number(ar.lastSentAt) || 0;
-
-        if (now - startedAt > 30 * 60 * 1000) {
-          record.activeRinging = null;
+        if (now - lastSent >= 12000 && now - (Number(ar.startedAt) || now) <= 10 * 60 * 1000) {
+          ar.lastSentAt = now;
           dirty = true;
-        } else {
-          hasOngoingUrgentBurst = true;
-          if (now - lastSent >= 3500) {
-            const burstSeq = (Number(ar.burstSeq) || 1) + 1;
-            ar.lastSentAt = now;
-            ar.burstSeq = burstSeq;
-            dirty = true;
-            payloadsToSend.push({
-              type: 'alarm',
-              alarmId: String(ar.alarmId || ''),
-              name: ar.name || '알람',
-              group: ar.group || '기본 그룹',
-              time: ar.time || zoned.hm,
-              scheduleKey: ar.scheduleKey || '',
-              title: `⏰ [${burstSeq}회 울림] ${ar.label || ar.name || '알람'}`,
-              body: `${ar.time || zoned.hm} 알람! 배너를 길게 눌러 [✕ 알람 끄기]를 누를 때까지 계속 울립니다.`,
-              tag: `smart-clock-ring-${ar.alarmId || 'all'}-${now}`
-            });
-          }
+          payloadsToSend.push({
+            type: 'alarm',
+            alarmId: String(ar.alarmId || ''),
+            name: ar.name || '긴급 알람',
+            group: ar.group || '기본 그룹',
+            time: ar.time || zoned.hm,
+            sound: Number(ar.sound) || 0,
+            isRepeating: Boolean(ar.isRepeating),
+            snoozeLevel: Number(ar.snoozeLevel) || 2,
+            scheduleKey: ar.scheduleKey || '',
+            title: `🚨 [긴급 반복] ${ar.label || ar.name || '알람'}`,
+            body: `${ar.time || zoned.hm} 알람이 울리고 있습니다 · [✕ 알람 끄기]를 눌러 종료하세요.`,
+            tag: `smart-clock-urgent-${ar.alarmId || 'all'}-${now}`,
+            silent: false,
+            renotify: true
+          });
         }
       }
 
       for (const alarm of alarms) {
         if (!alarm || !alarm.enabled) continue;
-        if (alarm.userDismissedAt && now - Number(alarm.userDismissedAt) < 120 * 1000 && !alarm.nextSnoozeAt) continue;
+        if (alarm.userDismissedAt && now - Number(alarm.userDismissedAt) < 120 * 1000 && !alarm.nextSnoozeAt) {
+          continue;
+        }
 
         let shouldTrigger = false;
         let scheduleKey = '';
@@ -153,18 +130,19 @@ module.exports = async function handler(req, res) {
           alarm.lastServerPushedKey = scheduleKey;
           dirty = true;
           const label = `[${alarm.group || '기본 그룹'}] ${alarm.name || '알람'}`;
-          if (isBurstEnabled) {
-            hasOngoingUrgentBurst = true;
+          if (record.urgentBurstMode) {
             record.activeRinging = {
               alarmId: String(alarm.id),
               name: alarm.name || '알람',
               group: alarm.group || '기본 그룹',
               label,
               time: alarm.time,
+              sound: Number(alarm.sound) || 0,
+              isRepeating: Boolean(alarm.isRepeating),
+              snoozeLevel: Number(alarm.snoozeLevel) || 0,
               scheduleKey,
               startedAt: now,
-              lastSentAt: now,
-              burstSeq: 1
+              lastSentAt: now
             };
           }
           payloadsToSend.push({
@@ -174,10 +152,18 @@ module.exports = async function handler(req, res) {
             group: alarm.group || '기본 그룹',
             label,
             time: alarm.time,
+            sound: Number(alarm.sound) || 0,
+            isRepeating: Boolean(alarm.isRepeating),
+            snoozeInterval: Number(alarm.snoozeInterval) || 5,
+            snoozeCount: Number(alarm.snoozeCount) || 3,
+            remainingSnooze: Number(alarm.remainingSnooze) || 3,
+            snoozeLevel: Number(alarm.snoozeLevel) || 0,
             scheduleKey,
-            title: `⏰ [1회 울림] ${label}`,
-            body: `${alarm.time} 알람! 배너를 길게 눌러 [✕ 알람 끄기]를 누를 때까지 계속 울립니다.`,
-            tag: `smart-clock-ring-${alarm.id}-${now}`
+            title: `⏰ ${label}`,
+            body: `${alarm.time} 알람입니다 · 눌러서 확인하거나 [✕ 알람 끄기]를 누르세요.`,
+            tag: `smart-clock-alarm-${alarm.id}-${now}`,
+            silent: false,
+            renotify: true
           });
         }
       }
@@ -188,27 +174,16 @@ module.exports = async function handler(req, res) {
           const totalMs = Number(record.timer.totalMs) || 0;
           record.timer = null;
           dirty = true;
-          if (isBurstEnabled) {
-            hasOngoingUrgentBurst = true;
-            record.activeRinging = {
-              alarmId: 'timer',
-              name: '타이머 완료',
-              group: '타이머',
-              label: '카운트다운 타이머 완료',
-              time: zoned.hm,
-              scheduleKey: `timer_${now}`,
-              startedAt: now,
-              lastSentAt: now,
-              burstSeq: 1
-            };
-          }
           payloadsToSend.push({
             type: 'timer',
             alarmId: 'timer',
             totalMs,
-            title: '⏳ [1회 울림] 타이머 완료',
-            body: '설정한 타이머가 종료되었습니다. [✕ 알람 끄기]를 누를 때까지 계속 울립니다.',
-            tag: `smart-clock-timer-${now}`
+            label: '카운트다운 타이머 완료',
+            title: '⏳ 타이머 완료',
+            body: '설정한 타이머 시간이 종료되었습니다.',
+            tag: `smart-clock-timer-${now}`,
+            silent: false,
+            renotify: true
           });
         }
       }
@@ -230,20 +205,16 @@ module.exports = async function handler(req, res) {
         } catch (pushErr) {
           if (pushErr && (pushErr.statusCode === 404 || pushErr.statusCode === 410)) {
             await redis.del(key);
-            hasOngoingUrgentBurst = false;
             break;
           }
+          console.error('webpush send error:', pushErr && pushErr.message);
         }
       }
     }
 
-    let nextBurstScheduled = false;
-    if (hasOngoingUrgentBurst) {
-      nextBurstScheduled = await scheduleQStashNextBurst(req, 4);
-    }
-
-    return res.status(200).json({ ok: true, sentCount, hasOngoingUrgentBurst, nextBurstScheduled });
+    return res.status(200).json({ ok: true, checkedSubs, sentCount, timestamp: now });
   } catch (error) {
+    console.error('push-cron error:', error);
     return res.status(500).json({ error: error.message || 'Cron execution failed' });
   }
 };
