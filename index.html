@@ -109,7 +109,7 @@
             <li><b>유튜브 등 영상을 보는 중</b>에는 iOS가 웹앱의 소리 재생을 막아서 알람음(미디어 볼륨)은 나오지 않고, 대신 <b>푸시 알림음이 10초마다 반복</b>해서 울려요. 영상 중에도 들리려면 <b>벨소리·알림 볼륨</b>을 올리고 <b>무음 모드를 꺼 두세요</b>.</li>
             <li>설정 → 알림 → 스마트 시계 → <b>소리</b>와 <b>즉시 전송(Time Sensitive)</b>을 켜 두면 영상 시청 중에도 배너와 소리가 바로 와요.</li>
             <li>앱을 한 번이라도 터치해 두면, 알람 시각에 화면이 켜져 있을 때 알람음이 바로 울려요.</li>
-            <li><b>영상 시청 중에도 알람 소리가 꼭 필요하면</b> 위의 <b>‘🍎 영상 볼 때도 울리게’</b>를 켜 주세요. 아이폰 기본 시계 앱 알람이 함께 등록돼요.</li>
+            <li><b>영상 시청 중에도 알람 소리가 꼭 필요하면</b> 위의 <b>‘🍎 영상 볼 때도 울리게’</b>를 켜 주세요. 아이폰 기본 시계 앱 알람이 함께 등록되고, 시계 알람이 울리면 <b>유튜브가 자동으로 멈추고 알람 소리와 화면이 앞으로</b> 나와요.</li>
           </ul>
         </div>
         <div data-platform="android" class="hidden">
@@ -119,6 +119,8 @@
             <li>설정 → 애플리케이션 → Chrome → 배터리 → <b>제한 없음</b>(또는 ‘최적화 안 함’)으로 바꿔 주세요. 절전 때문에 푸시가 늦어질 수 있어요.</li>
             <li>데이터 절약 모드를 쓴다면 Chrome의 <b>백그라운드 데이터</b>를 허용하세요.</li>
             <li>유튜브 시청 중에는 Chrome 푸시 알림음(알림 볼륨)이 10초마다 반복해서 울려요.</li>
+            <li>🎬 <b>영상 중 알람음:</b> 이 앱을 연 뒤 <b>화면을 한 번 터치</b>하고(🎧 오디오 유지: ON), <b>홈 버튼으로 나가서</b> 유튜브를 보면 알람 시각에 <b>유튜브가 멈추고 알람음이 미디어 볼륨으로</b> 울려요. 앱을 최근 앱 목록에서 지우거나 휴대폰이 Chrome을 정리하면 이 기능은 멈추고 푸시 알림음만 울려요.</li>
+            <li>Chrome 배터리를 <b>‘제한 없음’</b>으로 해 두면 영상 중 알람음이 훨씬 잘 동작해요.</li>
             <li><b>푸시가 아예 안 오면</b> 위의 <b>🩺 알림 점검</b>을 눌러 어디가 막혔는지 확인하세요.</li>
             <li>푸시는 오는데 소리가 없으면: 설정 → 애플리케이션 → Chrome → 알림 → <b>사이트</b>(또는 이 사이트 주소) 항목 → <b>‘소리 및 팝업’/‘알림음’</b>을 켜 주세요. 삼성은 ‘무음’으로 들어가 있는 경우가 많아요.</li>
             <li>방해 금지 모드에서는 알림음이 나지 않을 수 있어요.</li>
@@ -139,7 +141,7 @@
       <div class="flex justify-between items-center gap-3">
         <div>
           <h2 class="text-sm font-bold text-gray-800">🍎 영상 볼 때도 울리게</h2>
-          <p class="text-[11px] text-gray-500 mt-0.5">알람을 저장하면 아이폰 <b>기본 시계 앱</b>에도 같은 시각 알람을 등록해요. 시계 앱 알람은 유튜브 시청 중에도 울려요.</p>
+          <p class="text-[11px] text-gray-500 mt-0.5">알람을 저장하면 아이폰 <b>기본 시계 앱</b>에도 같은 시각 알람을 등록해요. 시계 알람이 울리면 유튜브가 멈추고 알람 소리와 화면이 앞으로 나와요.</p>
         </div>
         <label class="pill-switch shrink-0"><input type="checkbox" id="iosClockToggle"><span class="pill-slider"></span></label>
       </div>
@@ -448,7 +450,7 @@
           '화면이 켜져 있으면 알람음이 <b>미디어 볼륨</b>으로, 영상 시청·다른 앱 사용 중에는 <b>푸시 알림음</b>이 <b>벨소리·알림 볼륨</b>으로 10초마다 울려요. 무음 모드·집중 모드에서는 푸시 소리가 나지 않아요.', 'ios-v3');
       } else if (platform === 'android') {
         showBanner('🤖', '안드로이드 알람 안내',
-          '알람음은 <b>미디어 볼륨</b>으로 울려요. Chrome <b>알림 허용</b>과 배터리 <b>‘제한 없음’</b>을 확인해 주세요. 다른 앱 사용 중에는 푸시 알림음(알림 볼륨)으로 알려 드려요.', 'android-v3');
+          '알람음은 <b>미디어 볼륨</b>으로 울려요. 화면을 한 번 터치하고 홈 버튼으로 나가면, 유튜브를 보다가도 알람 시각에 <b>영상이 멈추고 알람음</b>이 울려요. Chrome <b>알림 허용</b>과 배터리 <b>‘제한 없음’</b>을 확인해 주세요. 다른 앱 사용 중에는 푸시 알림음(알림 볼륨)으로 알려 드려요.', 'android-v4');
       } else if (platform === 'android-native') {
         showBanner('🤖', '기기 알람으로 울려요', '알람·알림·전체 화면 알림 권한을 허용하면 화면이 꺼져 있어도 정시에 울려요.', 'android-native-v2');
       } else if (platform === 'desktop') {
@@ -584,6 +586,7 @@
         masterEl.src = sUrl; masterEl.volume = 0.01; masterEl.loop = true;
         try { await masterEl.play(); isBgAudioRunning = true; } catch { isBgAudioRunning = false; }
       }
+      else isBgAudioRunning = true;
       const btn = $('bgAudioKeepAliveBtn');
       btn.innerText = isBgAudioRunning ? '🎧 오디오 유지: ON' : '🎧 오디오 유지: OFF';
       btn.classList.toggle('on-blue', isBgAudioRunning);
@@ -615,8 +618,36 @@
       audioUnlocked = true;
       if (!masterEl.paused) return;
       masterEl.src = getSilentUrl(); masterEl.volume = 0.01; masterEl.loop = false;
-      masterEl.play().then(() => { if (!isRinging && !isBgAudioRunning) masterEl.pause(); }).catch(() => { audioUnlocked = false; });
+      masterEl.play().then(() => {
+        if (videoPriority) { isBgAudioRunning = false; ensureBgAudio(); return; } // 안드로이드: 대기 오디오 유지
+        if (!isRinging && !isBgAudioRunning) masterEl.pause();
+      }).catch(() => { audioUnlocked = false; });
     }
+
+    /* 안드로이드 '영상 중 알람음 우선'
+       앱을 한 번 터치하면 아주 작은 대기 오디오를 켜 둬서 브라우저가 이 페이지를 잠재우지 않게 하고,
+       알람 시각(또는 푸시 도착)에 알람음을 재생하면 안드로이드가 오디오 포커스를 이 앱으로 넘겨
+       유튜브 등 다른 앱의 재생이 멈추고 알람음이 미디어 볼륨으로 울립니다. */
+    const videoPriority = isAndroid && !isNative && lsGet('video_priority', true) !== false;
+    let forceRingTimer = null;
+    function forceRingWhileHidden() {
+      clearInterval(forceRingTimer);
+      const until = Date.now() + 20000;
+      forceRingTimer = setInterval(() => {
+        if (!isRinging || Date.now() > until) { clearInterval(forceRingTimer); return; }
+        if (masterEl.paused) masterEl.play().catch(() => {});
+      }, 400);
+    }
+    if ('mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.setActionHandler('pause', () => { if (!isRinging) masterEl.pause(); });
+        navigator.mediaSession.setActionHandler('stop', () => { if (isRinging) dismissCurrent(); });
+      } catch {}
+    }
+    document.addEventListener('visibilitychange', () => {
+      // 유튜브로 넘어가기 직전에 대기 오디오를 확실히 켜 둠
+      if (document.visibilityState === 'hidden' && videoPriority && audioUnlocked && !isRinging) ensureBgAudio();
+    });
 
     $('previewSelectedSoundBtn').addEventListener('click', () => {
       if (isRinging) return;
@@ -1051,6 +1082,10 @@
       $('modalSoundTitle').innerText = `${soundNames[info.sound] || soundNames[0]} · 미디어 볼륨으로 재생 중`;
       $('alarmModal').classList.remove('hidden');
       playRing(info.sound);
+      if ('mediaSession' in navigator) {
+        try { navigator.mediaSession.metadata = new MediaMetadata({ title: `⏰ ${info.name || '알람'}`, artist: '스마트 시계 알람' }); navigator.mediaSession.playbackState = 'playing'; } catch {}
+      }
+      if (document.visibilityState === 'hidden') forceRingWhileHidden();
     }
 
     function stopRinging() {
@@ -1101,7 +1136,7 @@
       saveAlarms(); renderList();
       showBanner('😴', '5분 뒤 다시 울려요', `${format12(snooze.time).ampm} ${format12(snooze.time).t}에 다시 울려요.`);
     });
-    function ensureBgAudioIfWanted() { if (lsGet('bg_audio_wanted', false)) ensureBgAudio(); }
+    function ensureBgAudioIfWanted() { if (videoPriority || lsGet('bg_audio_wanted', false)) ensureBgAudio(); }
 
     /* ============ 알람 확인 루프 (100ms) ============ */
     function checkDue() {
