@@ -129,7 +129,7 @@
       <button id="addAlarmBtn" class="w-full py-3 bg-[#0381fe] text-white font-bold rounded-full text-sm shadow-md">저장</button>
     </div>
 
-    <!-- 내 알람 목록 (터치 시 시간/요일/사운드 수정 가능) -->
+    <!-- 내 알람 목록 -->
     <div class="space-y-2.5 pt-1">
       <div class="flex justify-between items-center px-2">
         <h2 class="text-xs font-bold text-gray-500">내 알람 목록</h2>
@@ -233,7 +233,6 @@
     const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
     const soundNames = ['✨ 1. 스파클 라이징 팝', '🌅 2. 선라이즈 오케스트라', '👾 3. 네온 아케이드 8비트', '🍃 4. 브라이트 윈드 차임', '🔔 5. 크리스탈 하모닉 벨', '☕ 6. 릴랙싱 피아노 스케일'];
 
-    // 화면 켜짐 (Wake Lock)
     function updateWakeLockUI(active) {
       const btn = document.getElementById('wakeLockBtn');
       btn.innerText = active ? '☀️ 화면 켜짐: ON' : '💤 화면 켜짐: OFF';
@@ -305,7 +304,6 @@
       if (isBgAudioRunning) showBanner('🎧', '오디오 유지 활성화됨', '백그라운드에서도 푸시 도착 즉시 알람음이 울립니다.');
     });
 
-    // iOS에서 유튜브 재생 중 일시정지된 오디오를 복귀/알람 시 즉시 탈환
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         if (wakeLockRequested && !wakeLock) requestScreenWakeLock();
@@ -314,10 +312,18 @@
       }
     });
 
+    // iOS에서 페이지 진입 시 첫 상호작용이 발생하면 울리고 있는 알람의 오디오를 즉시 활성화
+    ['touchstart', 'pointerdown', 'click'].forEach(evt => {
+      document.addEventListener(evt, () => {
+        if (isRinging) {
+          unlockAudio();
+          if (masterEl.paused) masterEl.play().catch(() => {});
+        }
+      }, { passive: true });
+    });
+
     masterEl.addEventListener('pause', () => {
-      if (isRinging) {
-        masterEl.play().catch(() => {});
-      }
+      if (isRinging) masterEl.play().catch(() => {});
     });
 
     function playRingLoop() {
@@ -512,7 +518,6 @@
       renderList();
     });
 
-    // 알람 카드 클릭 시 수정 모달 열기
     window.openEditModal = function(idx) {
       const a = alarms[idx];
       if (!a) return;
@@ -642,8 +647,8 @@
       renderList();
     };
 
-    function triggerAlarm(alarm) {
-      if (Date.now() - lastDismissedStamp < 90000) return;
+    function triggerAlarm(alarm, bypassCooldown = false) {
+      if (!bypassCooldown && Date.now() - lastDismissedStamp < 90000) return;
       isRinging = true;
       currentRingingAlarm = alarm;
       const timeVal = alarm.time || new Date().toTimeString().slice(0, 5);
@@ -721,6 +726,30 @@
     }, 500);
 
     renderList();
+
+    // 단축어(?ring=1) 또는 푸시 배너(?triggerAlarm=1) 진입 시 즉시 연속 알람음 시작
+    (function handleShortcutUrlTrigger() {
+      const params = new URLSearchParams(window.location.search);
+      const ringParam = params.get('ring') || params.get('triggerAlarm');
+      if (ringParam === '1' || ringParam === 'true') {
+        const now = new Date();
+        const defaultHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const alarmPayload = {
+          id: params.get('alarmId') || `shortcut_${Date.now()}`,
+          name: params.get('name') || '단축어 알람',
+          group: params.get('group') || 'iOS 자동화',
+          time: params.get('time') || defaultHM,
+          sound: parseInt(params.get('sound') || '0', 10)
+        };
+
+        // 주소창에서 파라미터 제거 (새로고침 시 중복 울림 방지)
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        triggerAlarm(alarmPayload, true);
+      }
+    })();
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', e => {
