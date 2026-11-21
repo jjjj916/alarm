@@ -95,13 +95,13 @@
           🔔 푸시 알림: OFF
         </button>
         <button id="testPushBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
-          📡 푸시 테스트
+          📡 푸시 확인
         </button>
         <button id="urgentBurstBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🚨 무제한 긴급알림: OFF
         </button>
         <button id="bgAudioKeepAliveBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
-          🎧 백그라운드 연동: 자동 대기
+          🎧 오디오 포커스: 자동
         </button>
         <button id="wakeLockBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           💤 화면 켜짐: OFF
@@ -136,13 +136,13 @@
         <div class="flex items-start gap-2">
           <span class="text-sm leading-none mt-0.5 shrink-0">🔔</span>
           <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
-            <strong class="font-extrabold">서버 푸시 알람 활성화:</strong> 상단의 <strong class="font-extrabold underline decoration-amber-400 underline-offset-2">[🔔 푸시 알림: ON]</strong>이 켜져 있어야 앱이 백그라운드에 있거나 닫혀 있어도 서버에서 푸시 알람을 발송합니다. (아이폰은 홈 화면에 추가 후 실행해야 푸시가 동작합니다.)
+            <strong class="font-extrabold">정각(00초) 잠금화면 푸시:</strong> 상단의 <strong class="font-extrabold underline decoration-amber-400 underline-offset-2">[🔔 푸시 알림: ON]</strong>을 켜두면 화면이 꺼져도 설정한 시각 정각에 서버 푸시와 진동이 발송됩니다.
           </p>
         </div>
         <div class="flex items-start gap-2 pt-2 border-t border-amber-200/60">
-          <span class="text-sm leading-none mt-0.5 shrink-0">🔊</span>
+          <span class="text-sm leading-none mt-0.5 shrink-0">🎧</span>
           <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
-            <strong class="font-extrabold">미디어 볼륨 사용:</strong> 알람음은 기기의 <strong class="font-extrabold underline decoration-amber-400 underline-offset-2">미디어 볼륨</strong>으로 재생되며, 대기 중에는 유튜브 등 다른 앱 재생을 방해하지 않습니다.
+            <strong class="font-extrabold">유튜브 오디오 포커스 자동 전환:</strong> 대기 중에는 유튜브 등 다른 앱 재생을 방해하지 않으며, <strong class="font-extrabold underline decoration-amber-400 underline-offset-2">알람 시각이 되면 오디오 포커스를 가져와</strong> 기존 미디어를 일시정지시키고 알람음을 울립니다.
           </p>
         </div>
       </div>
@@ -721,16 +721,28 @@
       return bestAlarm;
     }
 
-    function updateMediaSessionMetadata(isActiveRing = false, alarmObj = null) {
+    function claimAudioFocusForAlarm(alarmObj = null) {
       if (!('mediaSession' in navigator)) return;
       const target = alarmObj || currentRingingAlarm || getUpcomingAlarmForBackground();
-      if (isActiveRing) {
-        const title = target ? `[${target.group || '알람'}] ${target.name || '알람'}` : '⏰ 알람이 울립니다';
-        const soundIdx = target ? getDisplayedAlarmSoundIndex(target) : 0;
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title,
-          artist: `알람 울리는 중 · ${soundNames[soundIdx] || '기본 알람음'}`
-        });
+      const title = target ? `[${target.group || '알람'}] ${target.name || '알람'}` : '⏰ 알람이 울립니다';
+      const soundIdx = target ? getDisplayedAlarmSoundIndex(target) : 0;
+
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title,
+        artist: `알람 울리는 중 · ${soundNames[soundIdx] || '기본 알람음'}`,
+        album: 'Smart Clock'
+      });
+      navigator.mediaSession.playbackState = 'playing';
+
+      try {
+        navigator.mediaSession.setActionHandler('pause', () => stopAllRingingState());
+        navigator.mediaSession.setActionHandler('stop', () => stopAllRingingState());
+      } catch (e) {}
+    }
+
+    function releaseAlarmAudioFocus() {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'none';
       }
     }
 
@@ -744,10 +756,16 @@
       masterEl.src = ringUrl;
       masterEl.volume = 1.0;
       masterEl.loop = true;
-      updateMediaSessionMetadata(true, currentRingingAlarm);
+
+      claimAudioFocusForAlarm(currentRingingAlarm);
+
       const p = masterEl.play();
       if (p && typeof p.then === 'function') {
-        p.finally(() => { isStoppingAudio = false; });
+        p.then(() => {
+          claimAudioFocusForAlarm(currentRingingAlarm);
+        }).finally(() => {
+          isStoppingAudio = false;
+        });
       } else {
         isStoppingAudio = false;
       }
@@ -759,7 +777,7 @@
       masterEl.currentTime = 0;
       masterEl.removeAttribute('src');
       masterEl.load();
-      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
+      releaseAlarmAudioFocus();
       isBgAudioRunning = !bgAudioManuallyDisabled && (alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running'));
       updateBgAudioButtonUI();
       isStoppingAudio = false;
@@ -769,10 +787,10 @@
       const btn = document.getElementById('bgAudioKeepAliveBtn');
       if (!btn) return;
       if (isBgAudioRunning) {
-        btn.innerText = '🎧 백그라운드 연동: ON';
+        btn.innerText = '🎧 오디오 포커스: 자동';
         btn.className = 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
       } else {
-        btn.innerText = bgAudioManuallyDisabled ? '🎧 백그라운드 연동: OFF' : '🎧 백그라운드 연동: 자동 대기';
+        btn.innerText = bgAudioManuallyDisabled ? '🎧 오디오 포커스: OFF' : '🎧 오디오 포커스: 대기';
         btn.className = 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition';
       }
     }
@@ -795,19 +813,16 @@
         masterEl.load();
         isStoppingAudio = false;
       }
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = 'none';
-      }
+      releaseAlarmAudioFocus();
       isBgAudioRunning = true;
       updateBgAudioButtonUI();
     }
 
     masterEl.addEventListener('play', () => {
-      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+      if (isRinging || isTimerRinging) claimAudioFocusForAlarm(currentRingingAlarm);
     });
 
     masterEl.addEventListener('pause', () => {
-      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
       if (isStoppingAudio) return;
       if (isRinging || isTimerRinging) {
         setTimeout(() => {
@@ -823,12 +838,12 @@
       if (!isBgAudioRunning) {
         bgAudioManuallyDisabled = false;
         ensureAutoBgKeepAlive(true);
-        showFeatureInfoBanner('🎧', '백그라운드 & 본 알람소리 연동이 켜졌습니다', '대기 중에는 유튜브 재생을 방해하지 않으며, 알람 시각에 본 알람소리 하나만 정확히 재생됩니다.');
+        showFeatureInfoBanner('🎧', '유튜브 오디오 포커스 자동 전환이 켜졌습니다', '평소에는 유튜브 등 다른 앱 재생을 방해하지 않다가, 알람 시간이 되면 오디오 포커스를 가져와 기존 미디어를 일시정지시키고 알람을 울립니다.');
       } else {
         bgAudioManuallyDisabled = true;
         isBgAudioRunning = false;
         stopAndResetMasterAudio();
-        showFeatureInfoBanner('🎧', '백그라운드 오디오 연동이 꺼졌습니다', '수동으로 끄셨기 때문에 자동 재가동되지 않습니다.');
+        showFeatureInfoBanner('🎧', '오디오 포커스 자동 연동이 꺼졌습니다', '수동으로 끄셨기 때문에 자동 재가동되지 않습니다.');
       }
     });
 
@@ -862,10 +877,10 @@
     }
 
     const escalatedVibePresets = [
-      [300, 200, 300],
-      [450, 120, 450, 120, 450],
-      [600, 80, 600, 80, 600, 80, 600],
-      [900, 60, 900, 60, 900, 60, 900]
+      [400, 150, 400],
+      [550, 120, 550, 120, 550],
+      [750, 100, 750, 100, 750, 100, 750],
+      [1000, 80, 1000, 80, 1000, 80, 1000]
     ];
     const intenseSounds = [2, 6, 9, 11];
 
@@ -932,14 +947,9 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subscription, alarms, timeZone: tz, timer, urgentBurstMode, clearRinging })
         });
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          console.error('push-subscribe failed:', response.status, errData);
-          return null;
-        }
+        if (!response.ok) return null;
         return await response.json();
       } catch (error) {
-        console.error('push-subscribe network error:', error);
         return null;
       }
     }
@@ -959,8 +969,10 @@
           const saved = await syncAlarmsToPushServer(sub, clearRinging);
           pushEnabled = Boolean(saved);
           updatePushButtonUI();
+          return saved;
         }
       } catch (error) {}
+      return null;
     }
 
     function markAlarmCompletedInState(targetAlarmId, scheduleKey = null) {
@@ -999,7 +1011,7 @@
         if (requestPerm) {
           const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
           alert(isIOS
-            ? '아이폰(iOS)에서는 Safari 공유 버튼 > [홈 화면에 추가]로 설치한 앱에서만 서버 푸시 알람을 받을 수 있습니다.'
+            ? '아이폰(iOS)에서는 Safari 공유 버튼 > [홈 화면에 추가]로 설치한 앱에서만 잠금화면 서버 푸시 알람을 받을 수 있습니다.'
             : '이 브라우저에서는 Web Push 알림을 지원하지 않습니다.');
         }
         return null;
@@ -1015,7 +1027,7 @@
       const cfgRes = await fetch('/api/push-config').catch(() => null);
       const cfg = cfgRes && cfgRes.ok ? await cfgRes.json() : null;
       if (!cfg || !cfg.enabled || !cfg.vapidPublicKey) {
-        if (requestPerm) alert('서버 푸시 설정(/api/push-config)이 비활성 상태입니다. Vercel 환경 변수(VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, KV_REST_API_URL 등)를 확인해주세요.');
+        if (requestPerm) alert('서버 푸시 설정(/api/push-config)이 비활성 상태입니다. Vercel 환경 변수를 확인해주세요.');
         return null;
       }
       const registration = await navigator.serviceWorker.ready;
@@ -1028,7 +1040,7 @@
       }
       const saved = await syncAlarmsToPushServer(subscription);
       if (!saved) {
-        if (requestPerm) alert('서버(Redis)에 푸시 구독과 알람 목록을 저장하지 못했습니다. 서버 로그와 Upstash Redis 연결을 확인해주세요.');
+        if (requestPerm) alert('서버(Redis)에 푸시 구독과 알람 목록을 저장하지 못했습니다.');
         return null;
       }
       pushEnabled = true;
@@ -1063,19 +1075,18 @@
         if (existingSubscription && pushEnabled) {
           if (!confirm('이 기기의 서버 푸시 알림을 끄고 서버에 저장된 알람 정보를 삭제할까요?')) return;
           await unsubscribeFromPushNotifications();
-          showFeatureInfoBanner('🔔', '서버 푸시 알림이 해제되었습니다', '이제 앱이 닫혀 있을 때는 서버 푸시가 발송되지 않습니다.');
+          showFeatureInfoBanner('🔔', '서버 푸시 알림이 해제되었습니다', '이제 화면이 꺼져 있을 때는 서버 푸시가 발송되지 않습니다.');
           return;
         }
         const sub = await subscribeToPushNotifications(true);
         if (sub) {
-          showFeatureInfoBanner('🔔', '서버 푸시 알림이 활성화되었습니다', `현재 등록된 알람 ${alarms.length}개가 서버에 동기화되었습니다. <b>[📡 푸시 테스트]</b> 버튼으로 수신 여부를 바로 확인해보세요.`);
+          showFeatureInfoBanner('🔔', '서버 푸시 알림이 활성화되었습니다', `현재 등록된 알람 ${alarms.length}개가 서버에 동기화되었습니다. 화면이 꺼져도 설정한 시각 정각에 푸시가 발송됩니다.`);
         }
       } catch (error) {
         alert(error.message || '푸시 설정을 변경하지 못했습니다.');
       }
     });
 
-    // 즉시 테스트 푸시 전송 (현재 시각 + 5초로 서버 동기화 후 /api/cron-check 호출 또는 즉시 로컬/푸시 검증)
     document.getElementById('testPushBtn').addEventListener('click', async () => {
       const btn = document.getElementById('testPushBtn');
       btn.disabled = true;
@@ -1091,22 +1102,22 @@
         }
         if (!sub) return;
 
-        // 현재 구독 상태를 서버에 강제 동기화
         const synced = await syncAlarmsToPushServer(sub);
         if (!synced) {
           alert('서버 동기화에 실패했습니다.');
           return;
         }
-
-        // 서버가 푸시를 발송할 수 있도록 테스트용 1회 알람을 현재 시간 기준으로 체크하거나 즉시 안내
+        const qstashBadge = synced.qstashScheduled
+          ? ` · <b>QStash 정각 예약 활성</b> (${new Date(synced.nextExactTriggerAt).toLocaleTimeString('ko-KR')})`
+          : '';
         showFeatureInfoBanner(
           '✅',
           '푸시 구독 및 서버 동기화 정상 확인 완료',
-          '이 기기의 푸시 토큰이 서버에 정상 등록되어 있습니다. <b>[+5분] 빠른 알람</b>을 누르거나 원하는 시간을 저장하면 해당 시각(정각 분 단위)에 서버에서 Web Push가 발송됩니다.'
+          `기기 푸시 토큰이 서버에 정상 등록되어 있습니다. (활성 알람 ${alarms.filter(a => a.enabled).length}개 동기화됨${qstashBadge})`
         );
       } finally {
         btn.disabled = false;
-        btn.innerText = '📡 푸시 테스트';
+        btn.innerText = '📡 푸시 확인';
       }
     });
 
@@ -1235,7 +1246,6 @@
     function saveAlarms(clearRinging = false) {
       ensureServerScheduleFields();
       localStorage.setItem('saved_alarms', JSON.stringify(alarms));
-      updateMediaSessionMetadata(isRinging || isTimerRinging);
       ensureAutoBgKeepAlive();
       ensureNotificationAndPushSync(clearRinging);
     }

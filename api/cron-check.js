@@ -9,12 +9,87 @@ function localDateKey(parts) {
   return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 }
 
-const DELIVERY_GRACE_MS = 120 * 1000;
+const DELIVERY_GRACE_MS = 360 * 1000;
 const EARLY_TOLERANCE_MS = 5 * 1000;
+
+function computeNextEarliestAfterDispatch(alarms, timer, timeZone, nowMs) {
+  let earliest = Infinity;
+  if (timer && Number.isFinite(Number(timer.endAt)) && Number(timer.endAt) > nowMs + 1000) {
+    earliest = Number(timer.endAt);
+  }
+  const parts = getZonedParts(new Date(nowMs), timeZone);
+  for (const alarm of (alarms || [])) {
+    if (!alarm || !alarm.enabled) continue;
+    if (Number.isFinite(Number(alarm.nextSnoozeAt)) && Number(alarm.nextSnoozeAt) > nowMs + 1000) {
+      if (Number(alarm.nextSnoozeAt) < earliest) earliest = Number(alarm.nextSnoozeAt);
+      continue;
+    }
+    if (!alarm.isRepeating) {
+      const singleAt = Number(alarm.singleShotAt);
+      if (Number.isFinite(singleAt) && singleAt > nowMs + 1000 && singleAt < earliest) {
+        earliest = singleAt;
+      }
+      continue;
+    }
+    const days = Array.isArray(alarm.days) ? alarm.days : [];
+    const [hour, minute] = String(alarm.time || '08:00').split(':').map(Number);
+    for (let offset = 0; offset <= 7; offset++) {
+      const checkWeekday = (parts.weekday + offset) % 7;
+      if (!days.includes(checkWeekday)) continue;
+      const baseUtc = Date.UTC(parts.year, parts.month - 1, parts.day + offset);
+      const targetDate = new Date(baseUtc);
+      const candidateUtc = zonedWallTimeToUtc({
+        year: targetDate.getUTCFullYear(),
+        month: targetDate.getUTCMonth() + 1,
+        day: targetDate.getUTCDate(),
+        hour: hour || 0,
+        minute: minute || 0
+      }, timeZone);
+      if (candidateUtc > nowMs + 1000 && candidateUtc < earliest) {
+        earliest = candidateUtc;
+        break;
+      }
+    }
+  }
+  return Number.isFinite(earliest) ? earliest : null;
+}
+
+async function chainNextQStashPush(req, triggerAtMs) {
+  const qstashToken = process.env.QSTASH_TOKEN;
+  if (!qstashToken || !triggerAtMs) return null;
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  if (!host) return null;
+
+  const targetUrl = `${proto}://${host}/api/cron-check`;
+  const cronSecret = process.env.CRON_SECRET || '';
+  const notBeforeSec = Math.max(Math.floor(Date.now() / 1000) + 2, Math.floor(triggerAtMs / 1000));
+
+  const headers = {
+    'Authorization': `Bearer ${qstashToken}`,
+    'Content-Type': 'application/json',
+    'Upstash-Not-Before': String(notBeforeSec),
+    'Upstash-Retries': '2'
+  };
+  if (cronSecret) headers['Upstash-Forward-Authorization'] = `Bearer ${cronSecret}`;
+
+  try {
+    const res = await fetch(`https://qstash.upstash.io/v2/publish/${encodeURIComponent(targetUrl)}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ source: 'qstash-chain-next', scheduledFor: notBeforeSec })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { messageId: data.messageId || null, scheduledAt: notBeforeSec * 1000 };
+  } catch (e) {
+    return null;
+  }
+}
 
 function alarmIsDue(alarm, parts, nowMs, timeZone) {
   if (!alarm.enabled) return null;
-  if (alarm.userDismissedAt && nowMs - Number(alarm.userDismissedAt) < 120 * 1000 && !alarm.nextSnoozeAt) {
+  if (alarm.userDismissedAt && nowMs - Number(alarm.userDismissedAt) < DELIVERY_GRACE_MS && !alarm.nextSnoozeAt) {
     return null;
   }
 
@@ -27,8 +102,11 @@ function alarmIsDue(alarm, parts, nowMs, timeZone) {
   }
 
   if (alarm.nextSnoozeTime && !Number.isFinite(Number(alarm.nextSnoozeAt))) {
-    if (parts.hour === Number(alarm.nextSnoozeTime.slice(0, 2)) &&
-        parts.minute === Number(alarm.nextSnoozeTime.slice(3, 5))) {
+    const [sh, sm] = alarm.nextSnoozeTime.split(':').map(Number);
+    const scheduledAt = zonedWallTimeToUtc({
+      year: parts.year, month: parts.month, day: parts.day, hour: sh, minute: sm
+    }, timeZone);
+    if (nowMs + EARLY_TOLERANCE_MS >= scheduledAt && nowMs - scheduledAt <= DELIVERY_GRACE_MS) {
       return { kind: 'snooze', scheduledAt: `${localDateKey(parts)}T${alarm.nextSnoozeTime}`, displayTime: alarm.nextSnoozeTime };
     }
   }
@@ -63,7 +141,7 @@ async function sendPush(webpush, redis, id, record, payload, dedupeKey) {
   }
   try {
     await webpush.sendNotification(record.subscription, JSON.stringify(payload), {
-      TTL: 120,
+      TTL: 360,
       urgency: 'high'
     });
     return true;
@@ -206,7 +284,7 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      if (record.timer && Number(record.timer.endAt) <= now + EARLY_TOLERANCE_MS) {
+      if (record.timer && Number(record.timer.endAt) <= now + EARLY_TOLERANCE_MS && now - Number(record.timer.endAt) <= DELIVERY_GRACE_MS) {
         const timer = record.timer;
         const dedupeKey = `smart-clock:timer-sent:${id}:${timer.endAt}`;
         const delivered = await sendPush(webpush, redis, id, record, {
@@ -238,6 +316,16 @@ module.exports = async function handler(req, res) {
       }
 
       if (changed) {
+        // 다음 남은 알람(반복 알람 또는 다른 예약 알람)이 있으면 QStash 정각 체이닝 예약
+        const nextTriggerMs = computeNextEarliestAfterDispatch(record.alarms, record.timer, timeZone, now + 5000);
+        if (nextTriggerMs) {
+          const chained = await chainNextQStashPush(req, nextTriggerMs);
+          record.qstashMessageId = chained ? chained.messageId : null;
+          record.qstashScheduledAt = chained ? chained.scheduledAt : null;
+        } else {
+          record.qstashMessageId = null;
+          record.qstashScheduledAt = null;
+        }
         record.updatedAt = now;
         await redis.set(key, record);
       }
