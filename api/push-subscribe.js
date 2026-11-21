@@ -1,19 +1,77 @@
 'use strict';
 
-const {
-  getRedis, SUBSCRIPTIONS_SET, subscriptionId, recordKey,
-  sanitizeAlarms, sanitizeTimer, validTimeZone,
-  getZonedParts, zonedWallTimeToUtc
-} = require('../lib/server');
+const crypto = require('crypto');
+const { Redis } = require('@upstash/redis');
+
+const SUBSCRIPTIONS_SET = 'smart-clock:subscriptions';
+
+function getRedis() {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  if (!url || !token) {
+    throw new Error('Redis 환경 변수(UPSTASH_REDIS_REST_URL / TOKEN)가 설정되지 않았습니다.');
+  }
+  return new Redis({ url, token });
+}
+
+function subscriptionId(endpoint) {
+  return crypto.createHash('sha256').update(String(endpoint)).digest('hex').slice(0, 24);
+}
+
+function recordKey(id) {
+  return `smart-clock:sub:${id}`;
+}
+
+function validTimeZone(tz) {
+  if (!tz || typeof tz !== 'string') return false;
+  try {
+    Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getZonedParts(date, timeZone) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    weekday: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  });
+  const map = {};
+  for (const p of fmt.formatToParts(date)) map[p.type] = p.value;
+  const wdMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    weekday: wdMap[map.weekday] ?? 0,
+    hour: Number(map.hour) % 24,
+    minute: Number(map.minute),
+    second: Number(map.second)
+  };
+}
+
+function zonedWallTimeToUtc({ year, month, day, hour, minute }, timeZone) {
+  let guess = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  for (let i = 0; i < 3; i++) {
+    const p = getZonedParts(new Date(guess), timeZone);
+    const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, 0, 0);
+    const targetUtc = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+    const diff = targetUtc - asUtc;
+    if (diff === 0) break;
+    guess += diff;
+  }
+  return guess;
+}
 
 function computeEarliestTriggerMs(alarms, timer, timeZone, nowMs) {
   let earliest = Infinity;
 
   if (timer && Number.isFinite(Number(timer.endAt))) {
     const endAt = Number(timer.endAt);
-    if (endAt > nowMs - 5000 && endAt < earliest) {
-      earliest = endAt;
-    }
+    if (endAt > nowMs - 5000 && endAt < earliest) earliest = endAt;
   }
 
   const parts = getZonedParts(new Date(nowMs), timeZone);
@@ -21,14 +79,12 @@ function computeEarliestTriggerMs(alarms, timer, timeZone, nowMs) {
   for (const alarm of (alarms || [])) {
     if (!alarm || !alarm.enabled) continue;
 
-    // 1) 스누즈(다시 울림) 예약 시각
     if (Number.isFinite(Number(alarm.nextSnoozeAt)) && Number(alarm.nextSnoozeAt) > nowMs - 5000) {
       const due = Number(alarm.nextSnoozeAt);
       if (due < earliest) earliest = due;
       continue;
     }
 
-    // 2) 1회성 알람 예약 시각
     if (!alarm.isRepeating) {
       const singleAt = Number(alarm.singleShotAt);
       if (Number.isFinite(singleAt) && singleAt > nowMs - 5000 && singleAt < earliest) {
@@ -37,7 +93,6 @@ function computeEarliestTriggerMs(alarms, timer, timeZone, nowMs) {
       continue;
     }
 
-    // 3) 요일 반복 알람 (향후 8일 중 가장 빠른 시각 계산)
     const days = Array.isArray(alarm.days) ? alarm.days : [];
     if (days.length === 0) continue;
 
@@ -76,9 +131,7 @@ async function cancelPreviousQStashMessage(qstashToken, messageId) {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${qstashToken}` }
     });
-  } catch (e) {
-    // 이미 실행되었거나 만료된 메시지는 무시
-  }
+  } catch {}
 }
 
 async function scheduleExactQStashPush(req, triggerAtMs) {
@@ -99,10 +152,7 @@ async function scheduleExactQStashPush(req, triggerAtMs) {
     'Upstash-Not-Before': String(notBeforeSec),
     'Upstash-Retries': '2'
   };
-
-  if (cronSecret) {
-    headers['Upstash-Forward-Authorization'] = `Bearer ${cronSecret}`;
-  }
+  if (cronSecret) headers['Upstash-Forward-Authorization'] = `Bearer ${cronSecret}`;
 
   try {
     const res = await fetch(`https://qstash.upstash.io/v2/publish/${encodeURIComponent(targetUrl)}`, {
@@ -110,18 +160,10 @@ async function scheduleExactQStashPush(req, triggerAtMs) {
       headers,
       body: JSON.stringify({ source: 'qstash-exact-alarm', scheduledFor: notBeforeSec })
     });
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      console.error('QStash publish failed:', res.status, errText);
-      return null;
-    }
+    if (!res.ok) return null;
     const data = await res.json();
-    return {
-      messageId: data.messageId || null,
-      scheduledAt: notBeforeSec * 1000
-    };
-  } catch (err) {
-    console.error('QStash fetch error:', err.message || err);
+    return { messageId: data.messageId || null, scheduledAt: notBeforeSec * 1000 };
+  } catch {
     return null;
   }
 }
@@ -149,15 +191,39 @@ module.exports = async function handler(req, res) {
       ? body.timeZone
       : (existing && validTimeZone(existing.timeZone) ? existing.timeZone : 'Asia/Seoul');
 
-    const alarms = sanitizeAlarms(body.alarms !== undefined ? body.alarms : (existing ? existing.alarms : []));
-    const timer = body.timer !== undefined ? sanitizeTimer(body.timer) : (existing ? existing.timer : null);
+    const rawAlarms = Array.isArray(body.alarms) ? body.alarms : (existing && Array.isArray(existing.alarms) ? existing.alarms : []);
+    const alarms = rawAlarms.slice(0, 50).map(a => ({
+      id: String(a.id || Date.now()),
+      name: String(a.name || '알람').slice(0, 40),
+      group: String(a.group || '기본 그룹').slice(0, 30),
+      time: String(a.time || '08:00'),
+      sound: Number(a.sound) || 0,
+      randomDaily: Boolean(a.randomDaily),
+      days: Array.isArray(a.days) ? a.days.map(Number) : [],
+      isRepeating: Boolean(a.isRepeating),
+      snoozeInterval: Number(a.snoozeInterval) || 5,
+      snoozeCount: Number(a.snoozeCount) || 3,
+      remainingSnooze: Number.isFinite(Number(a.remainingSnooze)) ? Number(a.remainingSnooze) : (Number(a.snoozeCount) || 3),
+      snoozeLevel: Number(a.snoozeLevel) || 0,
+      nextSnoozeTime: a.nextSnoozeTime || null,
+      nextSnoozeAt: a.nextSnoozeAt ? Number(a.nextSnoozeAt) : null,
+      singleShotAt: a.singleShotAt ? Number(a.singleShotAt) : null,
+      userDismissedAt: a.userDismissedAt ? Number(a.userDismissedAt) : null,
+      dismissedScheduleKey: a.dismissedScheduleKey || null,
+      lastTriggeredKey: a.lastTriggeredKey || null,
+      enabled: Boolean(a.enabled)
+    }));
+
+    const timer = (body.timer && Number.isFinite(Number(body.timer.endAt)))
+      ? { endAt: Number(body.timer.endAt), totalMs: Number(body.timer.totalMs) || 0 }
+      : (body.timer === null ? null : (existing ? existing.timer || null : null));
+
     const urgentBurstMode = body.urgentBurstMode !== undefined
       ? Boolean(body.urgentBurstMode)
       : Boolean(existing && existing.urgentBurstMode);
 
     const activeRinging = body.clearRinging ? null : (existing ? existing.activeRinging || null : null);
 
-    // 이전 QStash 예약 메시지 취소 후 가장 빠른 알람 시각 정각(00초)에 새 예약 등록
     const qstashToken = process.env.QSTASH_TOKEN;
     if (qstashToken && existing && existing.qstashMessageId) {
       await cancelPreviousQStashMessage(qstashToken, existing.qstashMessageId);
@@ -192,6 +258,6 @@ module.exports = async function handler(req, res) {
     });
   } catch (error) {
     console.error('push-subscribe error:', error);
-    return res.status(error.statusCode || 500).json({ error: error.message || '푸시 구독 저장 중 오류가 발생했습니다.' });
+    return res.status(500).json({ error: error.message || '푸시 구독 저장 중 오류가 발생했습니다.' });
   }
 };

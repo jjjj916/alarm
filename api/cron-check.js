@@ -1,16 +1,86 @@
 'use strict';
 
-const {
-  getRedis, SUBSCRIPTIONS_SET, recordKey, configureWebPush,
-  getZonedParts, zonedWallTimeToUtc, validTimeZone, isCronAuthorized
-} = require('../lib/server');
+const webpush = require('web-push');
+const { Redis } = require('@upstash/redis');
+
+const SUBSCRIPTIONS_SET = 'smart-clock:subscriptions';
+const DELIVERY_GRACE_MS = 360 * 1000;
+const EARLY_TOLERANCE_MS = 5 * 1000;
+
+function getRedis() {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  if (!url || !token) throw new Error('Redis 환경 변수가 설정되지 않았습니다.');
+  return new Redis({ url, token });
+}
+
+function recordKey(id) {
+  return `smart-clock:sub:${id}`;
+}
+
+function configureWebPush() {
+  const pub = process.env.VAPID_PUBLIC_KEY;
+  const priv = process.env.VAPID_PRIVATE_KEY;
+  const subject = process.env.VAPID_SUBJECT || 'mailto:admin@example.com';
+  if (!pub || !priv) throw new Error('VAPID 환경 변수가 설정되지 않았습니다.');
+  webpush.setVapidDetails(subject, pub, priv);
+  return webpush;
+}
+
+function isCronAuthorized(req) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return true;
+  const auth = req.headers['authorization'] || '';
+  return auth === `Bearer ${secret}`;
+}
+
+function validTimeZone(tz) {
+  if (!tz || typeof tz !== 'string') return false;
+  try {
+    Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getZonedParts(date, timeZone) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    weekday: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  });
+  const map = {};
+  for (const p of fmt.formatToParts(date)) map[p.type] = p.value;
+  const wdMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    weekday: wdMap[map.weekday] ?? 0,
+    hour: Number(map.hour) % 24,
+    minute: Number(map.minute),
+    second: Number(map.second)
+  };
+}
+
+function zonedWallTimeToUtc({ year, month, day, hour, minute }, timeZone) {
+  let guess = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  for (let i = 0; i < 3; i++) {
+    const p = getZonedParts(new Date(guess), timeZone);
+    const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, 0, 0);
+    const targetUtc = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+    const diff = targetUtc - asUtc;
+    if (diff === 0) break;
+    guess += diff;
+  }
+  return guess;
+}
 
 function localDateKey(parts) {
   return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 }
-
-const DELIVERY_GRACE_MS = 360 * 1000;
-const EARLY_TOLERANCE_MS = 5 * 1000;
 
 function computeNextEarliestAfterDispatch(alarms, timer, timeZone, nowMs) {
   let earliest = Infinity;
@@ -82,7 +152,7 @@ async function chainNextQStashPush(req, triggerAtMs) {
     if (!res.ok) return null;
     const data = await res.json();
     return { messageId: data.messageId || null, scheduledAt: notBeforeSec * 1000 };
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -134,13 +204,13 @@ function alarmIsDue(alarm, parts, nowMs, timeZone) {
   return null;
 }
 
-async function sendPush(webpush, redis, id, record, payload, dedupeKey) {
+async function sendPush(wp, redis, id, record, payload, dedupeKey) {
   if (dedupeKey) {
     const reserved = await redis.set(dedupeKey, '1', { nx: true, ex: 14 * 86400 });
     if (reserved !== 'OK') return false;
   }
   try {
-    await webpush.sendNotification(record.subscription, JSON.stringify(payload), {
+    await wp.sendNotification(record.subscription, JSON.stringify(payload), {
       TTL: 360,
       urgency: 'high'
     });
@@ -166,7 +236,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const redis = getRedis();
-    const webpush = configureWebPush();
+    const wp = configureWebPush();
     const ids = await redis.smembers(SUBSCRIPTIONS_SET);
     const now = Date.now();
     let sent = 0;
@@ -192,7 +262,7 @@ module.exports = async function handler(req, res) {
         const sCount = Number(ringInfo.snoozeCount) || 3;
         const rSnooze = Number.isFinite(Number(ringInfo.remainingSnooze)) ? Number(ringInfo.remainingSnooze) : sCount;
         const sLevel = Number(ringInfo.snoozeLevel) || 0;
-        const delivered = await sendPush(webpush, redis, id, record, {
+        const delivered = await sendPush(wp, redis, id, record, {
           type: ringInfo.type || 'alarm',
           urgentBurstMode: true,
           title: `🚨 [긴급 Lv.${sLevel + 1}] ${ringInfo.label}`,
@@ -226,7 +296,7 @@ module.exports = async function handler(req, res) {
         const sLevel = Number(alarm.snoozeLevel) || 0;
         const sInterval = Number(alarm.snoozeInterval) || 5;
 
-        const delivered = await sendPush(webpush, redis, id, record, {
+        const delivered = await sendPush(wp, redis, id, record, {
           type: 'alarm',
           urgentBurstMode: isUrgent,
           title: isUrgent ? `🚨 [Lv.${sLevel + 1}] ${label}` : `⏰ [Lv.${sLevel + 1}] ${label}`,
@@ -287,7 +357,7 @@ module.exports = async function handler(req, res) {
       if (record.timer && Number(record.timer.endAt) <= now + EARLY_TOLERANCE_MS && now - Number(record.timer.endAt) <= DELIVERY_GRACE_MS) {
         const timer = record.timer;
         const dedupeKey = `smart-clock:timer-sent:${id}:${timer.endAt}`;
-        const delivered = await sendPush(webpush, redis, id, record, {
+        const delivered = await sendPush(wp, redis, id, record, {
           type: 'timer',
           urgentBurstMode: isUrgent,
           title: '⏳ 타이머 완료',
@@ -316,7 +386,6 @@ module.exports = async function handler(req, res) {
       }
 
       if (changed) {
-        // 다음 남은 알람(반복 알람 또는 다른 예약 알람)이 있으면 QStash 정각 체이닝 예약
         const nextTriggerMs = computeNextEarliestAfterDispatch(record.alarms, record.timer, timeZone, now + 5000);
         if (nextTriggerMs) {
           const chained = await chainNextQStashPush(req, nextTriggerMs);
@@ -335,6 +404,6 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true, checked, sent, expired, checkedAt: new Date(now).toISOString() });
   } catch (error) {
     console.error('cron-check error:', error);
-    return res.status(error.statusCode || 500).json({ error: error.message || '알람 확인 중 오류가 발생했습니다.' });
+    return res.status(500).json({ error: error.message || '알람 확인 중 오류가 발생했습니다.' });
   }
 };
