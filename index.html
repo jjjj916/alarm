@@ -183,6 +183,10 @@
           </div>
           <label class="pill-switch shrink-0"><input type="checkbox" id="iosClockToggle"><span class="pill-slider"></span></label>
         </div>
+        <div id="iosOneTapBox" class="hidden space-y-1.5">
+          <button type="button" id="iosOneTapInstallBtn" class="w-full py-3 bg-[#0381fe] text-white rounded-full text-sm font-extrabold shadow-md">⚡ 단축어 한 번에 추가하기</button>
+          <p class="text-[11px] text-gray-500 text-center">열리는 화면에서 <b>[단축어 추가]</b>만 누르면 끝! 이름·설정은 자동으로 맞춰져요.</p>
+        </div>
         <details id="iosClockGuide">
           <summary class="text-[11px] font-bold text-[#0381fe] cursor-pointer">처음 한 번만: 단축어 만들기 (1분)</summary>
           <ol class="list-decimal pl-5 mt-2 space-y-1 text-[11px] text-gray-700 leading-relaxed">
@@ -201,7 +205,7 @@
         </div>
         <div class="grid grid-cols-2 gap-2">
           <button type="button" id="iosOpenShortcutsBtn" class="py-2.5 bg-[#f2f4f7] rounded-full text-xs font-bold text-gray-700">📲 단축어 앱 열기</button>
-          <button type="button" id="iosClockTestBtn" class="py-2.5 bg-[#0381fe] text-white rounded-full text-xs font-bold">⏱ 테스트 (2분 뒤)</button>
+          <button type="button" id="iosClockTestBtn" class="py-2.5 bg-[#0381fe] text-white rounded-full text-xs font-bold">⏱ 연동 테스트 (2분 뒤)</button>
         </div>
         <p class="text-[11px] text-gray-400">‘단축어를 찾을 수 없습니다’가 뜨면 위 이름과 단축어 앱의 이름이 다른 거예요. (예: 알람 ↔ 알림, 띄어쓰기)</p>
       </div>
@@ -1143,6 +1147,7 @@
         const serverTimer = timer ? { endAt: Math.round(timer.endAt + selfOffsetMs), totalMs: timer.totalMs } : null;
         const response = await fetch('/api/push?action=subscribe', {
           method: 'POST',
+          keepalive: true,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             subscription: subscription.toJSON ? subscription.toJSON() : subscription,
@@ -2525,11 +2530,31 @@
     });
 
     let iosClockSync = localStorage.getItem('ios_clock_sync') === 'true';
-    const getShortcutName = () => (localStorage.getItem('ios_shortcut_name') || '스마트시계알람').trim();
+    /* ⚡ 원터치 설치용 iCloud 단축어 링크 (운영자가 한 번만 넣으면 모든 사용자가 '단축어 추가' 한 번으로 설치)
+       만드는 법: 아이폰 단축어 앱에서 '스마트시계알람' 단축어를 길게 누르기 → 공유 → 'iCloud 링크 복사' → 아래 따옴표 안에 붙여넣기
+       예: 'https://www.icloud.com/shortcuts/0123456789abcdef' */
+    const SHORTCUT_ICLOUD_URL = 'https://www.icloud.com/shortcuts/a8ed3552f49447c5b23f86be54b6c79a';
+    const SHORTCUT_OFFICIAL_NAME = '스마트시계알람';
+    const getShortcutName = () => (localStorage.getItem('ios_shortcut_name') || SHORTCUT_OFFICIAL_NAME).trim();
     function runIOSClockShortcut(timeHM) {
       if (!IS_IOS || !iosClockSync || !timeHM) return;
-      location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(getShortcutName())}&input=text&text=${encodeURIComponent(timeHM)}`;
+      const url = `shortcuts://run-shortcut?name=${encodeURIComponent(getShortcutName())}&input=text&text=${encodeURIComponent(timeHM)}`;
+      // 단축어 앱으로 넘어가면 이 앱이 바로 멈춰서, 방금 저장한 스마트 시계 알람이 서버(푸시)에 등록되지 못했습니다.
+      // → 서버 등록을 먼저 끝낸 뒤(최대 1.5초) 단축어를 열고, 혹시 못 끝냈으면 앱으로 돌아올 때 다시 등록합니다.
+      localStorage.setItem('push_resync_pending', '1');
+      showFeatureInfoBanner('⏰', '스마트 시계 알람 + 아이폰 시계 알람 등록 중', '서버 등록 후 단축어가 열려요. 단축어 실행이 끝나면 이 앱으로 돌아와 주세요.');
+      let opened = false;
+      const open = () => { if (!opened) { opened = true; location.href = url; } };
+      Promise.race([
+        syncCurrentPushState().then((ok) => { if (ok) localStorage.removeItem('push_resync_pending'); }),
+        new Promise((r) => setTimeout(r, 1500))
+      ]).finally(open);
     }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && localStorage.getItem('push_resync_pending') === '1') {
+        syncCurrentPushState().then((ok) => { if (ok) localStorage.removeItem('push_resync_pending'); });
+      }
+    });
     if (IS_IOS) {
       document.getElementById('iosClockCard').classList.remove('hidden');
       const tg = document.getElementById('iosClockToggle');
@@ -2537,22 +2562,35 @@
       const nameEl = document.getElementById('iosShortcutName');
       nameEl.value = getShortcutName();
       nameEl.addEventListener('input', () => localStorage.setItem('ios_shortcut_name', nameEl.value.trim()));
+      if (/^https:\/\/www\.icloud\.com\/shortcuts\//.test(SHORTCUT_ICLOUD_URL)) {
+        document.getElementById('iosOneTapBox').classList.remove('hidden');
+        document.getElementById('iosClockGuide').querySelector('summary').innerText = '직접 만들기 (원터치 추가가 안 될 때만)';
+        document.getElementById('iosOneTapInstallBtn').addEventListener('click', () => {
+          // 공유된 단축어 이름으로 자동 설정 + 연동 켜기
+          localStorage.setItem('ios_shortcut_name', SHORTCUT_OFFICIAL_NAME);
+          localStorage.setItem('ios_clock_sync', 'true');
+          localStorage.setItem('ios_clock_guide_seen', 'true');
+          nameEl.value = SHORTCUT_OFFICIAL_NAME;
+          tg.checked = true; iosClockSync = true;
+          location.href = SHORTCUT_ICLOUD_URL;
+        });
+      }
       document.getElementById('iosOpenShortcutsBtn').addEventListener('click', () => {
         localStorage.setItem('ios_shortcut_name', nameEl.value.trim() || '스마트시계알람');
         location.href = 'shortcuts://create-shortcut';
       });
-      if (localStorage.getItem('ios_clock_guide_seen') !== 'true') document.getElementById('iosClockGuide').open = true;
+      if (localStorage.getItem('ios_clock_guide_seen') !== 'true' && !SHORTCUT_ICLOUD_URL) document.getElementById('iosClockGuide').open = true;
       tg.addEventListener('change', () => {
         iosClockSync = tg.checked;
         localStorage.setItem('ios_clock_sync', String(iosClockSync));
         localStorage.setItem('ios_clock_guide_seen', 'true');
-        if (iosClockSync) document.getElementById('iosClockGuide').open = true;
+        if (iosClockSync && !SHORTCUT_ICLOUD_URL) document.getElementById('iosClockGuide').open = true;
       });
       document.getElementById('iosClockTestBtn').addEventListener('click', () => {
         localStorage.setItem('ios_shortcut_name', nameEl.value.trim() || '스마트시계알람');
-        const d = new Date(getSynchronizedNow().getTime() + 120000);
+        // 테스트도 실제와 똑같이: 스마트 시계 알람을 만들고, 같은 시각으로 아이폰 시계 알람도 등록
         const prev = iosClockSync; iosClockSync = true;
-        runIOSClockShortcut(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+        window.addQuickTimer(2, '연동 테스트');
         iosClockSync = prev;
       });
     }
