@@ -32,7 +32,12 @@ export default async function handler(req, res) {
   const body = req.body || {};
 
   try {
-    // 1. /api/push-config
+    // 1. /api/server-time
+    if (action === 'time') {
+      return res.status(200).json({ serverTimeMs: Date.now() });
+    }
+
+    // 2. /api/push-config
     if (action === 'config') {
       return res.status(200).json({
         enabled: Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
@@ -40,7 +45,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. /api/push-subscribe
+    // 3. /api/push-subscribe
     if (action === 'subscribe') {
       if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
       const { subscription, alarms = [], timeZone = 'Asia/Seoul', urgentBurstMode = false, clearRinging = false } = body;
@@ -58,7 +63,6 @@ export default async function handler(req, res) {
       };
       await redis.set(subKey, record);
 
-      // 가장 가까운 알람 시각으로 QStash 예약
       let nextExactTriggerAt = null;
       for (const a of alarms) {
         if (a.enabled && !a.isRepeating && a.singleShotAt && Number(a.singleShotAt) > Date.now()) {
@@ -75,7 +79,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, qstashScheduled, nextExactTriggerAt });
     }
 
-    // 3. /api/push-unsubscribe
+    // 4. /api/push-unsubscribe
     if (action === 'unsubscribe') {
       const { subscription } = body;
       if (subscription && subscription.endpoint) {
@@ -85,7 +89,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // 4. /api/push-dismiss
+    // 5. /api/push-dismiss
     if (action === 'dismiss') {
       const { subscription, alarmId, scheduleKey } = body;
       if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Missing subscription' });
@@ -106,7 +110,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // 5. /api/push-test
+    // 6. /api/push-test
     if (action === 'test') {
       const { subscription } = body;
       if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Missing subscription' });
@@ -125,7 +129,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // 6. /api/push-check (기본 동작)
+    // 7. /api/push-check (기본 동작 + 무제한 긴급알림 15초 체인 재발송)
     if (body.subscription && body.subscription.endpoint) {
       const subKey = `push_sub:${Buffer.from(body.subscription.endpoint).toString('base64url')}`;
       const record = await redis.get(subKey);

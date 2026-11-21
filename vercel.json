@@ -1,10 +1,12 @@
 {
   "rewrites": [
+    { "source": "/api/server-time", "destination": "/api/push?action=time" },
     { "source": "/api/push-config", "destination": "/api/push?action=config" },
     { "source": "/api/push-subscribe", "destination": "/api/push?action=subscribe" },
     { "source": "/api/push-unsubscribe", "destination": "/api/push?action=unsubscribe" },
     { "source": "/api/push-dismiss", "destination": "/api/push?action=dismiss" },
     { "source": "/api/push-test", "destination": "/api/push?action=test" },
-    { "source": "/api/push-check", "destination": "/api/push?action=check" }
+    { "source": "/api/push-check", "destination": "/api/push?action=check" },
+    { "source": "/api/check-alarms", "destination": "/api/push?action=check" }
   ]
 }
