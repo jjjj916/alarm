@@ -39,7 +39,7 @@
   <audio id="masterAudioEngine" playsinline webkit-playsinline loop preload="auto"></audio>
 
   <div class="max-w-lg w-full space-y-4 my-1">
-    <!-- 상단 유틸리티 바 -->
+    <!-- 상단 유틸리티 바 (화면 켜짐 버튼 복구 완료) -->
     <div class="flex justify-between items-center px-1 pt-1 gap-1.5 flex-wrap">
       <span id="activeDayDisplay" class="px-3 py-1.5 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">오늘 요일</span>
       <div class="flex items-center gap-1.5 flex-wrap justify-end">
@@ -47,6 +47,7 @@
         <button id="testPushBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">📡 푸시 테스트</button>
         <button id="urgentBurstBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">🚨 무제한 긴급알림: OFF</button>
         <button id="bgAudioKeepAliveBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">🎧 오디오 유지: OFF</button>
+        <button id="wakeLockBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">💤 화면 켜짐: OFF</button>
       </div>
     </div>
 
@@ -128,7 +129,7 @@
       <button id="addAlarmBtn" class="w-full py-3 bg-[#0381fe] text-white font-bold rounded-full text-sm shadow-md">저장</button>
     </div>
 
-    <!-- 내 알람 목록 (원래 카드 레이아웃 복구) -->
+    <!-- 내 알람 목록 -->
     <div class="space-y-2.5 pt-1">
       <div class="flex justify-between items-center px-2">
         <h2 class="text-xs font-bold text-gray-500">내 알람 목록</h2>
@@ -175,11 +176,58 @@
     try { alarms = JSON.parse(localStorage.getItem('saved_alarms') || '[]'); } catch {}
     let urgentBurstMode = localStorage.getItem('urgent_burst_mode') === 'true';
     let isRinging = false, currentRingingAlarm = null, pushEnabled = false, isBgAudioRunning = false;
-    let lastDismissedId = null, lastDismissedAt = 0;
+    let wakeLock = null, wakeLockRequested = false;
+    let lastDismissedStamp = 0;
     let previewAudioCtx = null, webAudioLoopTimer = null, silentUrl = null;
     const masterEl = document.getElementById('masterAudioEngine');
     const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
     const soundNames = ['✨ 1. 스파클 라이징 팝', '🌅 2. 선라이즈 오케스트라', '👾 3. 네온 아케이드 8비트', '🍃 4. 브라이트 윈드 차임', '🔔 5. 크리스탈 하모닉 벨', '☕ 6. 릴랙싱 피아노 스케일'];
+
+    // 화면 켜짐 (Wake Lock) 복구
+    function updateWakeLockUI(active) {
+      const btn = document.getElementById('wakeLockBtn');
+      btn.innerText = active ? '☀️ 화면 켜짐: ON' : '💤 화면 켜짐: OFF';
+      btn.className = active
+        ? 'px-2.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[11px] font-bold shadow-sm transition'
+        : 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition';
+    }
+
+    async function requestScreenWakeLock() {
+      if (!('wakeLock' in navigator)) {
+        showBanner('⚠️', '화면 켜짐 미지원', '현재 브라우저에서는 화면 꺼짐 방지 API를 지원하지 않습니다.');
+        return;
+      }
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLockRequested = true;
+        updateWakeLockUI(true);
+        wakeLock.addEventListener('release', () => {
+          wakeLock = null;
+          updateWakeLockUI(false);
+        });
+      } catch {
+        updateWakeLockUI(false);
+      }
+    }
+
+    document.getElementById('wakeLockBtn').addEventListener('click', async () => {
+      if (wakeLock) {
+        wakeLockRequested = false;
+        await wakeLock.release();
+        wakeLock = null;
+        updateWakeLockUI(false);
+        showBanner('💤', '화면 켜짐 유지 OFF', '기기 설정 시간에 따라 화면이 자동으로 꺼집니다.');
+      } else {
+        await requestScreenWakeLock();
+        if (wakeLock) showBanner('☀️', '화면 켜짐 유지 ON', '앱을 열어두는 동안 화면이 자동으로 잠기지 않습니다.');
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && wakeLockRequested && !wakeLock) {
+        requestScreenWakeLock();
+      }
+    });
 
     function encodeWav(sampleRate, numSamples, fn) {
       const bytes = numSamples * 2, buf = new ArrayBuffer(44 + bytes), v = new DataView(buf);
@@ -471,9 +519,8 @@
     };
 
     function triggerAlarm(alarm) {
-      if (alarm && alarm.id && String(alarm.id) === String(lastDismissedId) && Date.now() - lastDismissedAt < 65000) {
-        return;
-      }
+      // iOS에서 방금 끄기를 누른 직후(90초 이내) 도착한 지연 푸시는 소리/모달 차단
+      if (Date.now() - lastDismissedStamp < 90000) return;
       isRinging = true;
       currentRingingAlarm = alarm;
       const timeVal = alarm.time || new Date().toTimeString().slice(0, 5);
@@ -489,29 +536,34 @@
     }
 
     function stopEverything(explicitId = null) {
+      lastDismissedStamp = Date.now();
       const targetId = explicitId || (currentRingingAlarm && currentRingingAlarm.id) || null;
-      if (targetId) {
-        lastDismissedId = targetId;
-        lastDismissedAt = Date.now();
-      }
       isRinging = false;
       if (webAudioLoopTimer) clearInterval(webAudioLoopTimer);
+
+      // iOS WebKit 백그라운드 미디어 세션까지 완전히 파괴
       masterEl.pause();
+      masterEl.currentTime = 0;
+      masterEl.removeAttribute('src');
+      masterEl.load();
+      isBgAudioRunning = false;
+
       document.getElementById('alarmModal').classList.add('hidden');
       alarms = alarms.map(a => (!targetId || String(a.id) === String(targetId))
-        ? { ...a, enabled: a.isRepeating ? a.enabled : false }
+        ? { ...a, enabled: false, singleShotAt: null }
         : a
       );
       currentRingingAlarm = null;
-      saveAlarms(true, targetId);
+      localStorage.setItem('saved_alarms', JSON.stringify(alarms));
+      syncPush(true, targetId);
       renderList();
-      ensureBgAudio();
     }
 
     document.getElementById('stopAlarmBtn').addEventListener('click', () => stopEverything());
     document.getElementById('snoozeAlarmBtn').addEventListener('click', () => {
       const target = currentRingingAlarm;
       stopEverything();
+      lastDismissedStamp = 0;
       if (target) addQuickTimer(5, `${target.name} (다시 울림)`);
     });
 
@@ -524,7 +576,7 @@
       const enabledCount = alarms.filter(a => a.enabled).length;
       document.getElementById('nextAlarmCountdown').innerText = enabledCount > 0 ? `활성 알람 ${enabledCount}개 대기 중` : '모든 알람이 꺼져 있습니다';
       
-      if (isRinging) return;
+      if (isRinging || Date.now() - lastDismissedStamp < 90000) return;
       const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       
       for (const a of alarms) {

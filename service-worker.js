@@ -1,23 +1,15 @@
 'use strict';
 
-const CACHE_NAME = 'smart-clock-v20261121-ios-stop-fix';
-const dismissedTokens = new Set();
+const CACHE_NAME = 'smart-clock-v20261121-wakelock-ios-fix';
+let dismissedUntil = 0;
 let pendingRepeatTimer = null;
 
-function rememberDismissed(alarmId, scheduleKey) {
-  if (alarmId) dismissedTokens.add(`id:${alarmId}`);
-  if (scheduleKey) dismissedTokens.add(`key:${scheduleKey}`);
+function stopAllWorkerLoops() {
+  dismissedUntil = Date.now() + 90000;
   if (pendingRepeatTimer) {
     clearTimeout(pendingRepeatTimer);
     pendingRepeatTimer = null;
   }
-}
-
-function isDismissed(payload) {
-  if (!payload) return false;
-  if (payload.alarmId && dismissedTokens.has(`id:${payload.alarmId}`)) return true;
-  if (payload.scheduleKey && dismissedTokens.has(`key:${payload.scheduleKey}`)) return true;
-  return false;
 }
 
 self.addEventListener('install', () => self.skipWaiting());
@@ -33,12 +25,14 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
   const data = event.data || {};
   if (data.type === 'STOP_INFINITE_PUSH') {
-    rememberDismissed(data.alarmId, data.scheduleKey);
+    stopAllWorkerLoops();
     self.registration.getNotifications().then((list) => list.forEach((n) => n.close()));
   }
 });
 
 self.addEventListener('push', (event) => {
+  if (Date.now() < dismissedUntil) return;
+
   let payload = {};
   try {
     payload = event.data ? event.data.json() : {};
@@ -46,13 +40,10 @@ self.addEventListener('push', (event) => {
     payload = { title: '⏰ 알람', body: event.data ? event.data.text() : '알람 시간입니다.' };
   }
 
-  if (isDismissed(payload)) return;
-
   event.waitUntil((async () => {
-    const title = payload.title || '⏰ 알람';
-    const body = payload.body || '알람 시간이 되었습니다.';
-    await self.registration.showNotification(title, {
-      body,
+    if (Date.now() < dismissedUntil) return;
+    await self.registration.showNotification(payload.title || '⏰ 알람', {
+      body: payload.body || '알람 시간이 되었습니다.',
       icon: './icon-192.png',
       badge: './icon-192.png',
       tag: `smart-clock-${payload.alarmId || 'ring'}-${Date.now()}`,
@@ -72,11 +63,11 @@ self.addEventListener('push', (event) => {
       client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload });
     }
 
-    if (payload.urgentBurstMode && !isDismissed(payload)) {
+    if (payload.urgentBurstMode && Date.now() >= dismissedUntil) {
       if (pendingRepeatTimer) clearTimeout(pendingRepeatTimer);
       pendingRepeatTimer = setTimeout(async () => {
         pendingRepeatTimer = null;
-        if (isDismissed(payload)) return;
+        if (Date.now() < dismissedUntil) return;
         const sub = await self.registration.pushManager.getSubscription();
         if (sub) {
           await fetch('/api/push?action=check', {
@@ -94,37 +85,28 @@ self.addEventListener('push', (event) => {
   })());
 });
 
-async function dismissAlarmFromWorker(payload) {
-  const alarmId = payload && payload.alarmId ? String(payload.alarmId) : '';
-  const scheduleKey = payload && payload.scheduleKey ? String(payload.scheduleKey) : '';
-  rememberDismissed(alarmId, scheduleKey);
-
-  const notifications = await self.registration.getNotifications();
-  notifications.forEach((n) => n.close());
-
-  const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-  for (const client of allClients) {
-    client.postMessage({ type: 'ALARM_DISMISSED_FROM_PUSH', alarmId, scheduleKey });
-  }
-
-  try {
-    const sub = await self.registration.pushManager.getSubscription();
-    if (sub) {
-      await fetch('/api/push?action=dismiss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub.toJSON(), alarmId, scheduleKey, stopAllUrgent: true })
-      });
-    }
-  } catch {}
-}
-
 self.addEventListener('notificationclick', (event) => {
   const payload = event.notification.data || {};
   event.notification.close();
 
   if (event.action === 'dismiss') {
-    event.waitUntil(dismissAlarmFromWorker(payload));
+    stopAllWorkerLoops();
+    event.waitUntil((async () => {
+      const list = await self.registration.getNotifications();
+      list.forEach((n) => n.close());
+      const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of allClients) {
+        client.postMessage({ type: 'ALARM_DISMISSED_FROM_PUSH', alarmId: payload.alarmId || '' });
+      }
+      const sub = await self.registration.pushManager.getSubscription();
+      if (sub) {
+        await fetch('/api/push?action=dismiss', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription: sub.toJSON(), alarmId: payload.alarmId || '', stopAllUrgent: true })
+        }).catch(() => {});
+      }
+    })());
     return;
   }
 
@@ -132,13 +114,8 @@ self.addEventListener('notificationclick', (event) => {
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of allClients) {
       client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload });
-      if ('focus' in client) {
-        await client.focus();
-        return;
-      }
+      if ('focus' in client) { await client.focus(); return; }
     }
-    if (self.clients.openWindow) {
-      await self.clients.openWindow('/');
-    }
+    if (self.clients.openWindow) await self.clients.openWindow('/');
   })());
 });

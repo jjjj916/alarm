@@ -51,8 +51,7 @@ export default async function handler(req, res) {
         alarms,
         timeZone,
         urgentBurstMode: Boolean(urgentBurstMode),
-        dismissedKeys: clearRinging ? ['STOP_ALL'] : (existing.dismissedKeys || []),
-        dismissedUntil: clearRinging ? Date.now() + 65000 : (existing.dismissedUntil || 0),
+        dismissedUntil: clearRinging ? Date.now() + 90000 : (existing.dismissedUntil || 0),
         updatedAt: Date.now()
       };
       await redis.set(subKey, record);
@@ -73,19 +72,15 @@ export default async function handler(req, res) {
     }
 
     if (action === 'dismiss') {
-      const { subscription, alarmId, scheduleKey } = body;
+      const { subscription, alarmId } = body;
       if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Missing subscription' });
       const subKey = `push_sub:${Buffer.from(subscription.endpoint).toString('base64url')}`;
       const record = await redis.get(subKey);
       if (record) {
-        const dismissed = new Set(Array.isArray(record.dismissedKeys) ? record.dismissedKeys : []);
-        if (scheduleKey) dismissed.add(scheduleKey);
-        if (alarmId) dismissed.add(`id:${alarmId}`);
-        record.dismissedKeys = [...dismissed].slice(-50);
-        record.dismissedUntil = Date.now() + 65000;
+        record.dismissedUntil = Date.now() + 90000;
         if (Array.isArray(record.alarms)) {
           record.alarms = record.alarms.map((a) => (!alarmId || String(a.id) === String(alarmId))
-            ? { ...a, enabled: a.isRepeating ? a.enabled : false }
+            ? { ...a, enabled: false, singleShotAt: null }
             : a
           );
         }
@@ -120,11 +115,6 @@ export default async function handler(req, res) {
       if (record.dismissedUntil && Date.now() < Number(record.dismissedUntil)) {
         return res.status(200).json({ ok: true, stoppedByDismiss: true });
       }
-      const dismissedList = Array.isArray(record.dismissedKeys) ? record.dismissedKeys : [];
-      if ((body.scheduleKey && dismissedList.includes(body.scheduleKey)) || (body.repeatAlarmId && dismissedList.includes(`id:${body.repeatAlarmId}`))) {
-        return res.status(200).json({ ok: true, dismissed: true });
-      }
-
       const targetAlarm = (record.alarms || []).find(a => String(a.id) === String(body.repeatAlarmId));
       if (!targetAlarm || !targetAlarm.enabled) return res.status(200).json({ ok: true, disabled: true });
 
@@ -158,26 +148,23 @@ export default async function handler(req, res) {
 
       const tz = record.timeZone || 'Asia/Seoul';
       const urgentBurstMode = Boolean(record.urgentBurstMode);
-      const dismissedKeys = Array.isArray(record.dismissedKeys) ? record.dismissedKeys : [];
       let updated = false;
 
       for (const alarm of record.alarms) {
         if (!alarm.enabled) continue;
-        if (dismissedKeys.includes(`id:${alarm.id}`)) continue;
-
         let due = false;
         let scheduleKey = '';
 
         if (!alarm.isRepeating && alarm.singleShotAt) {
           const diff = nowMs - Number(alarm.singleShotAt);
           scheduleKey = `oneshot_${alarm.id}_${alarm.singleShotAt}`;
-          if (diff >= -5000 && diff <= 180000 && !dismissedKeys.includes(scheduleKey)) due = true;
+          if (diff >= -5000 && diff <= 180000) due = true;
         } else if (alarm.isRepeating) {
           const localDate = new Date(new Date(nowMs).toLocaleString('en-US', { timeZone: tz }));
           const curHM = `${String(localDate.getHours()).padStart(2, '0')}:${String(localDate.getMinutes()).padStart(2, '0')}`;
           const dateTag = `${localDate.getFullYear()}-${localDate.getMonth() + 1}-${localDate.getDate()}`;
           scheduleKey = `rep_${alarm.id}_${dateTag}_${curHM}`;
-          if ((alarm.days || []).includes(localDate.getDay()) && alarm.time === curHM && !dismissedKeys.includes(scheduleKey)) due = true;
+          if ((alarm.days || []).includes(localDate.getDay()) && alarm.time === curHM) due = true;
         }
 
         if (due) {
