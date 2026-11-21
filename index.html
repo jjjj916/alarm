@@ -404,6 +404,9 @@
   .w-56 {
     width: calc(var(--spacing) * 56);
   }
+  .w-\[92px\] {
+    width: 92px;
+  }
   .w-full {
     width: 100%;
   }
@@ -439,6 +442,9 @@
   }
   .list-decimal {
     list-style-type: decimal;
+  }
+  .list-none {
+    list-style-type: none;
   }
   .grid-cols-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -603,6 +609,12 @@
   }
   .border-gray-200 {
     border-color: var(--color-gray-200);
+  }
+  .border-gray-200\/70 {
+    border-color: color-mix(in srgb, oklch(92.8% 0.006 264.531) 70%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-gray-200) 70%, transparent);
+    }
   }
   .border-gray-200\/80 {
     border-color: color-mix(in srgb, oklch(92.8% 0.006 264.531) 80%, transparent);
@@ -1434,6 +1446,21 @@
         </button>
       </div>
     </div>
+
+    <!-- 상단 버튼 기능 설명 -->
+    <details id="topButtonsHelp" class="clean-card text-left bg-white border border-gray-200/70">
+      <summary class="px-4 py-3 flex justify-between items-center cursor-pointer list-none">
+        <span class="text-xs font-extrabold text-gray-800">❔ 위 버튼들은 무슨 기능인가요?</span>
+        <span class="text-[10px] font-bold text-gray-400">눌러서 보기</span>
+      </summary>
+      <div class="px-4 pb-4 space-y-2.5 text-[11px] text-gray-700 leading-relaxed">
+        <div class="flex gap-2"><span class="shrink-0 font-extrabold w-[92px]">🔔 푸시 알림</span><p>앱을 닫거나 화면이 꺼져 있어도 알람 시각에 <b>서버가 알림</b>을 보내요. 꼭 <b>ON</b>으로 켜 두세요. (알림음은 벨소리·알림 볼륨)</p></div>
+        <div class="flex gap-2"><span class="shrink-0 font-extrabold w-[92px]">📡 푸시 확인</span><p>이 기기가 서버에 제대로 등록됐는지, 알람이 몇 개 동기화됐는지 확인해요. 알람이 안 오면 먼저 눌러 보세요.</p></div>
+        <div class="flex gap-2"><span class="shrink-0 font-extrabold w-[92px]">🚨 무제한 긴급알림</span><p>알람이 울린 뒤 <b>끄기를 누를 때까지 10초마다 푸시를 반복</b>해요(최대 10분). 잠들었거나 영상을 볼 때 놓치지 않게 해 줘요.</p></div>
+        <div class="flex gap-2"><span class="shrink-0 font-extrabold w-[92px]">🎧 오디오 유지</span><p>들리지 않는 아주 작은 소리를 틀어 두어 앱이 잠들지 않게 해요. <span data-os="android" class="hidden">ON 상태로 홈 버튼을 눌러 유튜브를 보면 <b>알람 시각에 유튜브가 멈추고 알람음</b>이 울려요.</span><span data-os="ios" class="hidden">아이폰은 다른 앱이 소리를 내면 iOS가 멈추게 해서, 영상 시청 중에는 ‘🍎 영상 볼 때도 울리게’를 써 주세요.</span></p></div>
+        <div class="flex gap-2"><span class="shrink-0 font-extrabold w-[92px]">💤 화면 켜짐</span><p>이 앱을 보고 있는 동안 <b>화면이 자동으로 꺼지지 않게</b> 해요. 앱 화면을 켜 둔 채 알람을 기다릴 때 쓰세요. <b>배터리를 많이 쓰니</b> 충전 중에 쓰는 걸 권장해요. 다른 앱으로 가면 자동으로 풀려요.</p></div>
+      </div>
+    </details>
 
     <!-- 기능 설명 배너 -->
     <div id="featureInfoBanner" class="clean-card px-4 py-3.5 bg-blue-50/90 border border-blue-200/80 text-left hidden transition-all duration-300">

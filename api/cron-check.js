@@ -11,7 +11,10 @@ module.exports = async function handler(req, res) {
   }
   if (!S.isCronAuthorized(req)) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const result = await S.dispatchDue(req);
+    // Apps Script(1분마다)는 45초 앞까지 기다렸다가 정각에 보냄 → QStash가 안 돼도 정각 발송
+    const ua = String(req.headers['user-agent'] || '');
+    const lookaheadMs = /google-apps-script/i.test(ua) || req.query.wait === 'long' ? 45000 : 0;
+    const result = await S.dispatchDue(req, { lookaheadMs });
     return res.status(200).json({ ...result, checkedAt: new Date().toISOString() });
   } catch (error) {
     console.error('cron-check error:', error);
