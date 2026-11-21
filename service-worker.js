@@ -6,7 +6,7 @@
  * (이전 버전은 알람을 끈 직후 도착한 푸시를 알림 없이 무시해서 이후 푸시가 오지 않는 문제가 있었습니다.)
  */
 
-const CACHE_NAME = 'smart-clock-v20261121-b';
+const CACHE_NAME = 'smart-clock-v20261121-c';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -20,6 +20,21 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('message', (event) => {
   const data = event.data || {};
+  // 화면(index.html)이 백그라운드에서 울릴 때: 진동·소리가 있는 알림을 함께 띄움
+  if (data.type === 'TRIGGER_BG_VIBRATION' && data.payload) {
+    const p = data.payload;
+    event.waitUntil(self.registration.showNotification(p.title || '⏰ 알람', {
+      body: p.body || '알람 시간입니다.', icon: './icon-192.png', badge: './icon-192.png',
+      tag: `alarm-${p.alarmId || 'ring'}-page`, renotify: true, requireInteraction: true, silent: false,
+      vibrate: [800, 200, 800, 200, 800, 200, 800],
+      data: Object.assign({ type: p.alarmId === 'timer' ? 'timer' : 'alarm' }, p)
+    }));
+    return;
+  }
+  if (data.type === 'STOP_INFINITE_PUSH') {
+    event.waitUntil(self.registration.getNotifications().then((list) => list.forEach((n) => n.close())));
+    return;
+  }
   if (data.type === 'CLOSE_ALARM_NOTIFICATIONS') {
     event.waitUntil(
       self.registration.getNotifications().then((list) => list.forEach((n) => {
@@ -92,15 +107,26 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   event.waitUntil((async () => {
-    const params = new URLSearchParams({
-      ring: '1',
-      alarmId: payload.alarmId || '',
-      at: payload.at ? String(payload.at) : '',
-      name: payload.name || '알람',
-      time: payload.time || '',
-      sound: payload.sound !== undefined ? String(payload.sound) : '0'
-    });
-    const targetUrl = `/?${params.toString()}`;
+    let targetUrl;
+    if (payload.type === 'timer') {
+      targetUrl = `/?${new URLSearchParams({ triggerTimer: '1', timerMs: String(payload.totalMs || 0) })}`;
+    } else {
+      const params = new URLSearchParams({
+        triggerAlarm: '1',
+        alarmId: payload.alarmId || '',
+        name: payload.name || '알람',
+        group: payload.group || '',
+        time: payload.time || '',
+        sound: payload.sound !== undefined ? String(payload.sound) : '0',
+        isRepeating: payload.isRepeating ? '1' : '0',
+        snoozeInterval: String(payload.snoozeInterval || 5),
+        snoozeCount: String(payload.snoozeCount || 3),
+        remainingSnooze: String(payload.remainingSnooze ?? 3),
+        snoozeLevel: String(payload.snoozeLevel || 0),
+        scheduleKey: payload.scheduleKey || ''
+      });
+      targetUrl = `/?${params.toString()}`;
+    }
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of allClients) {
       client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload, fromClick: true });

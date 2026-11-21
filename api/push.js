@@ -47,6 +47,8 @@ module.exports = async function handler(req, res) {
         urgentBurstMode: Boolean(body.urgentBurstMode),
         activeRinging: existing.activeRinging || null,
         skipUntil: existing.skipUntil || {},
+        timer: body.timer && Number(body.timer.endAt) > Date.now() - 60000
+          ? { endAt: Number(body.timer.endAt), totalMs: Number(body.timer.totalMs) || 0 } : null,
         updatedAt: Date.now()
       };
       if (!record.urgentBurstMode) record.activeRinging = null;
@@ -60,7 +62,10 @@ module.exports = async function handler(req, res) {
 
       const next = S.nextOccurrence(record, Date.now());
       const wakeScheduled = next ? await S.scheduleWakeUp(req, next) : false;
-      return res.status(200).json({ ok: true, nextAlarmAt: next, wakeScheduled, exactWakeUp: Boolean(process.env.QSTASH_TOKEN) });
+      return res.status(200).json({
+        ok: true, nextAlarmAt: next, wakeScheduled, exactWakeUp: Boolean(process.env.QSTASH_TOKEN),
+        qstashScheduled: wakeScheduled, nextExactTriggerAt: next
+      });
     }
 
     if (action === 'dismiss') {
