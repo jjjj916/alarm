@@ -233,7 +233,6 @@
       b.classList.remove('hidden');
     }
 
-    // 초기화 방지 이중 스토리지 로드
     function loadSavedAlarms() {
       try {
         const primary = localStorage.getItem('saved_alarms');
@@ -266,6 +265,7 @@
     let editingAlarmIndex = null;
     let wakeLock = null, wakeLockRequested = false;
     let lastDismissedStamp = 0;
+    let lastTriggeredMinuteKey = '';
     let silentUrl = null;
     const cachedSoundUrls = {};
     const masterEl = document.getElementById('masterAudioEngine');
@@ -328,7 +328,6 @@
       return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
     }
 
-    // 12가지 원래 알람 사운드 엔진 (0~11)
     function getUnifiedSoundUrl(soundIdx) {
       const idx = ((Number(soundIdx) || 0) % 12 + 12) % 12;
       if (cachedSoundUrls[idx]) return cachedSoundUrls[idx];
@@ -338,18 +337,18 @@
       const totalSamples = Math.floor(sr * duration);
 
       const patterns = [
-        { notes: [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50], wave: 'bell' },     // 0: 스파클 라이징 팝
-        { notes: [440.00, 554.37, 659.25, 880.00, 1108.73, 880.00], wave: 'brass' },    // 1: 선라이즈 오케스트라
-        { notes: [587.33, 783.99, 987.77, 1174.66, 987.77, 1174.66], wave: 'square' },  // 2: 네온 아케이드 8비트
-        { notes: [659.25, 830.61, 987.77, 1318.51, 987.77, 1318.51], wave: 'chime' },   // 3: 브라이트 윈드 차임
-        { notes: [783.99, 987.77, 1174.66, 1567.98, 1174.66, 1567.98], wave: 'bell' },  // 4: 크리스탈 하모닉 벨
-        { notes: [392.00, 493.88, 587.33, 783.99, 587.33, 783.99], wave: 'piano' },     // 5: 릴랙싱 피아노 스케일
-        { notes: [329.63, 392.00, 493.88, 659.25, 493.88, 392.00], wave: 'chime' },     // 6: 오션 웨이브 하프
-        { notes: [987.77, 0, 987.77, 1318.51, 0, 1318.51], wave: 'beep' },              // 7: 갤럭시 디지털 비프
-        { notes: [523.25, 523.25, 659.25, 783.99, 1046.50, 1046.50], wave: 'brass' },   // 8: 모닝 브라스 팡파르
-        { notes: [587.33, 659.25, 880.00, 783.99, 987.77, 1174.66], wave: 'marimba' },  // 9: 마림바 트로피컬 펄스
-        { notes: [440.00, 880.00, 523.25, 1046.50, 659.25, 1318.51], wave: 'square' },  // 10: 사이버 시티 신스
-        { notes: [880.00, 1318.51, 880.00, 1318.51, 880.00, 1318.51], wave: 'siren' }   // 11: 하이 피치 모닝 사이렌
+        { notes: [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50], wave: 'bell' },
+        { notes: [440.00, 554.37, 659.25, 880.00, 1108.73, 880.00], wave: 'brass' },
+        { notes: [587.33, 783.99, 987.77, 1174.66, 987.77, 1174.66], wave: 'square' },
+        { notes: [659.25, 830.61, 987.77, 1318.51, 987.77, 1318.51], wave: 'chime' },
+        { notes: [783.99, 987.77, 1174.66, 1567.98, 1174.66, 1567.98], wave: 'bell' },
+        { notes: [392.00, 493.88, 587.33, 783.99, 587.33, 783.99], wave: 'piano' },
+        { notes: [329.63, 392.00, 493.88, 659.25, 493.88, 392.00], wave: 'chime' },
+        { notes: [987.77, 0, 987.77, 1318.51, 0, 1318.51], wave: 'beep' },
+        { notes: [523.25, 523.25, 659.25, 783.99, 1046.50, 1046.50], wave: 'brass' },
+        { notes: [587.33, 659.25, 880.00, 783.99, 987.77, 1174.66], wave: 'marimba' },
+        { notes: [440.00, 880.00, 523.25, 1046.50, 659.25, 1318.51], wave: 'square' },
+        { notes: [880.00, 1318.51, 880.00, 1318.51, 880.00, 1318.51], wave: 'siren' }
       ];
 
       const cfg = patterns[idx];
@@ -392,7 +391,6 @@
           const pEnv = attack * Math.exp(-localT * 3.5);
           return (Math.sin(2 * Math.PI * freq * t) + 0.25 * Math.sin(2 * Math.PI * freq * 2 * t)) * pEnv * 0.85;
         }
-        // bell / chime
         const f1 = Math.sin(2 * Math.PI * freq * t);
         const f2 = 0.32 * Math.sin(2 * Math.PI * (freq * 2) * t);
         return (f1 + f2) * env * 0.72;
@@ -477,16 +475,22 @@
       }, 4800);
     });
 
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        if (wakeLockRequested && !wakeLock) requestScreenWakeLock();
-        if (isRinging && currentRingingAlarm) {
-          playUnifiedRing(currentRingingAlarm.sound ?? 0);
-        } else if (isBgAudioRunning) {
-          ensureBgAudio();
-        }
+    // 단축어 '앱 열기'로 포그라운드 전환 시 즉시 현재 시각 알람 검사 및 재생
+    function onForegroundActivated() {
+      if (wakeLockRequested && !wakeLock) requestScreenWakeLock();
+      checkAndFireDueAlarmsNow();
+      if (isRinging && currentRingingAlarm) {
+        playUnifiedRing(currentRingingAlarm.sound ?? 0);
+      } else if (isBgAudioRunning) {
+        ensureBgAudio();
       }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') onForegroundActivated();
     });
+    window.addEventListener('pageshow', onForegroundActivated);
+    window.addEventListener('focus', onForegroundActivated);
 
     ['touchstart', 'pointerdown', 'click'].forEach(evt => {
       document.addEventListener(evt, () => {
@@ -826,7 +830,6 @@
       playUnifiedRing(soundIdx);
     }
 
-    // iOS 환경에서 알람 '끄기' 버튼 클릭 시 즉시 정지 + 재울림 완벽 차단
     function stopEverything(explicitId = null) {
       lastDismissedStamp = Date.now();
       const targetId = explicitId || (currentRingingAlarm && currentRingingAlarm.id) || null;
@@ -869,6 +872,37 @@
       if (target) addQuickTimer(5, `${target.name} (다시 울림)`);
     });
 
+    // 현재 시각과 일치하는 활성 알람 즉시 검사 (초 단위 제한 없이 포그라운드 전환 즉시 작동)
+    function checkAndFireDueAlarmsNow() {
+      if (isRinging || Date.now() - lastDismissedStamp < 90000) return;
+      const now = new Date();
+      const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const dateStamp = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}_${currentHM}`;
+
+      for (const a of alarms) {
+        if (!a.enabled) continue;
+        const minuteKey = `${a.id}_${dateStamp}`;
+        if (lastTriggeredMinuteKey === minuteKey) continue;
+
+        if (!a.isRepeating && a.singleShotAt) {
+          if (now.getTime() >= a.singleShotAt && now.getTime() - a.singleShotAt < 90000 && a.time === currentHM) {
+            lastTriggeredMinuteKey = minuteKey;
+            a.enabled = false;
+            saveAlarms();
+            renderList();
+            triggerAlarm(a);
+            return;
+          }
+        } else if (a.isRepeating && (a.days || []).includes(now.getDay())) {
+          if (a.time === currentHM) {
+            lastTriggeredMinuteKey = minuteKey;
+            triggerAlarm(a);
+            return;
+          }
+        }
+      }
+    }
+
     setInterval(() => {
       const now = new Date();
       document.getElementById('clock').innerText = now.toTimeString().slice(0, 8);
@@ -878,29 +912,18 @@
       const enabledCount = alarms.filter(a => a.enabled).length;
       document.getElementById('nextAlarmCountdown').innerText = enabledCount > 0 ? `활성 알람 ${enabledCount}개 대기 중` : '모든 알람이 꺼져 있습니다';
       
-      if (isRinging || Date.now() - lastDismissedStamp < 90000) return;
-      const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      
-      for (const a of alarms) {
-        if (!a.enabled) continue;
-        if (!a.isRepeating && a.singleShotAt) {
-          if (now.getTime() >= a.singleShotAt && now.getTime() - a.singleShotAt < 60000 && a.time === currentHM) {
-            a.enabled = false;
-            saveAlarms();
-            renderList();
-            triggerAlarm(a);
-            break;
-          }
-        } else if (a.isRepeating && a.days.includes(now.getDay())) {
-          if (a.time === currentHM && now.getSeconds() === 0) {
-            triggerAlarm(a);
-            break;
-          }
-        }
+      // iOS 단축어로 앱 전환 직후 오디오 세션이 늦게 풀리는 경우 자동 재생 재시도
+      if (isRinging && masterEl.paused) {
+        masterEl.play().catch(() => {});
       }
-    }, 500);
+
+      checkAndFireDueAlarmsNow();
+    }, 400);
 
     renderList();
+
+    // 앱 최초 실행 즉시(단축어 '앱 열기'로 콜드 스타트된 경우 포함) 현재 시각 알람 검사
+    checkAndFireDueAlarmsNow();
 
     (function handleShortcutUrlTrigger() {
       const params = new URLSearchParams(window.location.search);
