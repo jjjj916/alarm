@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'smart-clock-v20261121-urgent-fix';
+const CACHE_NAME = 'smart-clock-v20261121-direct-api';
 const dismissedTokens = new Set();
 
 function rememberDismissed(alarmId, scheduleKey) {
@@ -69,19 +69,17 @@ self.addEventListener('push', (event) => {
   event.waitUntil((async () => {
     await showAlarmNotification(payload);
 
-    // 1) 열려 있는 모든 탭(백그라운드 포함)에 즉시 오디오 재생 신호 전송
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of allClients) {
       client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload });
     }
 
-    // 2) 무제한 긴급알림 모드일 때 15초 뒤 다음 푸시 체인 서버 요청
     if (payload.urgentBurstMode && !isDismissed(payload)) {
       await new Promise((r) => setTimeout(r, 15000));
       if (!isDismissed(payload)) {
         const sub = await self.registration.pushManager.getSubscription();
         if (sub) {
-          await fetch('/api/push-check', {
+          await fetch('/api/push?action=check', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -112,7 +110,7 @@ async function dismissAlarmFromWorker(payload) {
   try {
     const sub = await self.registration.pushManager.getSubscription();
     if (sub) {
-      await fetch('/api/push-dismiss', {
+      await fetch('/api/push?action=dismiss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subscription: sub.toJSON(), alarmId, scheduleKey })
