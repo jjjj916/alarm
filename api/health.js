@@ -19,6 +19,31 @@ module.exports = async function handler(req, res) {
     serverTime: Date.now()
   };
 
+  // QStash 토큰 점검 (토큰 값은 노출하지 않고 형태와 실제 인증 결과만 표시)
+  if (hasQStash) {
+    const raw = String(process.env.QSTASH_TOKEN);
+    const token = S.qstashToken();
+    const check = {
+      length: token.length,
+      hadQuotesOrSpaces: raw !== token,
+      looksLike: /^sig_/i.test(token) ? '❌ Signing Key(서명 키)예요 — QSTASH_TOKEN 값을 넣어야 해요'
+        : /^AX|^AY|^A[A-Za-z0-9]{10,}$/.test(token) && token.length < 60 ? '❌ Redis 토큰처럼 보여요 — QStash 메뉴의 QSTASH_TOKEN을 넣어야 해요'
+        : /^ey/.test(token) ? 'QStash 토큰 형태 맞음' : '형태를 알 수 없음',
+      qstashUrlEnv: process.env.QSTASH_URL || null,
+      regions: {}
+    };
+    const bases = [...new Set([process.env.QSTASH_URL ? process.env.QSTASH_URL.trim().replace(/\/$/, '') : null, ...S.QSTASH_BASES].filter(Boolean))];
+    await Promise.all(bases.map(async (b) => {
+      try {
+        const r = await fetch(`${b}/v2/schedules`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(4000) });
+        check.regions[b] = r.ok ? '✅ 인증 성공' : `❌ ${r.status}`;
+      } catch (e) { check.regions[b] = `❌ ${e.name || 'error'}`; }
+    }));
+    check.result = Object.values(check.regions).some((v) => v.startsWith('✅'))
+      ? '✅ 토큰 정상' : '❌ 모든 지역에서 인증 실패 → 토큰 값이 틀렸어요 (Upstash 콘솔 QStash 탭의 QSTASH_TOKEN을 다시 복사 → Vercel에 저장 → Redeploy)';
+    out.qstashTokenCheck = check;
+  }
+
   if (hasRedis) {
     try {
       const redis = S.getRedis();
