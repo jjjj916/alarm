@@ -96,7 +96,7 @@ export default async function handler(req, res) {
         subscription,
         JSON.stringify({
           title: '📡 테스트 푸시 알람',
-          body: '설정된 알람음과 동일한 사운드로 작동합니다.',
+          body: '설정된 12종 알람음과 동일한 사운드로 작동합니다.',
           alarmId: 'test',
           name: '테스트 알람',
           group: '테스트',

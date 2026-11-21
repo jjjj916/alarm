@@ -36,7 +36,6 @@
 </head>
 <body class="min-h-screen flex flex-col items-center px-4">
 
-  <!-- 단일 통합 오디오 엔진 (앱 내 알람 + 백그라운드 푸시 연동 공용) -->
   <audio id="masterAudioEngine" playsinline webkit-playsinline loop preload="auto"></audio>
 
   <div class="max-w-lg w-full space-y-4 my-1">
@@ -106,13 +105,19 @@
         <select id="alarmMinute" class="w-full bg-[#f2f4f7] font-bold px-3 py-2.5 rounded-2xl text-sm font-mono"></select>
       </div>
       <select id="alarmSound" class="w-full bg-[#f2f4f7] text-xs font-semibold px-3.5 py-2.5 rounded-2xl">
-        <option value="random">🎲 매일 무작위 사운드</option>
+        <option value="random">🎲 매일 무작위 사운드 (12종 랜덤)</option>
         <option value="0">✨ 1. 스파클 라이징 팝</option>
         <option value="1">🌅 2. 선라이즈 오케스트라</option>
         <option value="2">👾 3. 네온 아케이드 8비트</option>
         <option value="3">🍃 4. 브라이트 윈드 차임</option>
         <option value="4">🔔 5. 크리스탈 하모닉 벨</option>
         <option value="5">☕ 6. 릴랙싱 피아노 스케일</option>
+        <option value="6">🌊 7. 오션 웨이브 하프</option>
+        <option value="7">🚀 8. 갤럭시 디지털 비프</option>
+        <option value="8">🎺 9. 모닝 브라스 팡파르</option>
+        <option value="9">🎵 10. 마림바 트로피컬 펄스</option>
+        <option value="10">⚡ 11. 사이버 시티 신스</option>
+        <option value="11">🚨 12. 하이 피치 모닝 사이렌</option>
       </select>
       <div class="flex justify-between items-center px-1" id="dayPicker">
         <button type="button" data-day="0" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-rose-500 text-xs font-bold">일</button>
@@ -156,13 +161,19 @@
         <select id="editMinute" class="w-full bg-[#f2f4f7] font-bold px-3 py-2.5 rounded-2xl text-sm font-mono"></select>
       </div>
       <select id="editSound" class="w-full bg-[#f2f4f7] text-xs font-semibold px-3.5 py-2.5 rounded-2xl">
-        <option value="random">🎲 매일 무작위 사운드</option>
+        <option value="random">🎲 매일 무작위 사운드 (12종 랜덤)</option>
         <option value="0">✨ 1. 스파클 라이징 팝</option>
         <option value="1">🌅 2. 선라이즈 오케스트라</option>
         <option value="2">👾 3. 네온 아케이드 8비트</option>
         <option value="3">🍃 4. 브라이트 윈드 차임</option>
         <option value="4">🔔 5. 크리스탈 하모닉 벨</option>
         <option value="5">☕ 6. 릴랙싱 피아노 스케일</option>
+        <option value="6">🌊 7. 오션 웨이브 하프</option>
+        <option value="7">🚀 8. 갤럭시 디지털 비프</option>
+        <option value="8">🎺 9. 모닝 브라스 팡파르</option>
+        <option value="9">🎵 10. 마림바 트로피컬 펄스</option>
+        <option value="10">⚡ 11. 사이버 시티 신스</option>
+        <option value="11">🚨 12. 하이 피치 모닝 사이렌</option>
       </select>
       <div class="flex justify-between items-center px-1" id="editDayPicker">
         <button type="button" data-day="0" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-rose-500 text-xs font-bold">일</button>
@@ -222,8 +233,33 @@
       b.classList.remove('hidden');
     }
 
-    let alarms = [];
-    try { alarms = JSON.parse(localStorage.getItem('saved_alarms') || '[]'); } catch {}
+    // 초기화 방지 이중 스토리지 로드
+    function loadSavedAlarms() {
+      try {
+        const primary = localStorage.getItem('saved_alarms');
+        if (primary) {
+          const parsed = JSON.parse(primary);
+          if (Array.isArray(parsed)) return parsed;
+        }
+        const backup = localStorage.getItem('saved_alarms_backup');
+        if (backup) {
+          const parsedBackup = JSON.parse(backup);
+          if (Array.isArray(parsedBackup)) {
+            localStorage.setItem('saved_alarms', backup);
+            return parsedBackup;
+          }
+        }
+      } catch {}
+      return [];
+    }
+
+    function persistAlarmsToStorage(list) {
+      const serialized = JSON.stringify(list);
+      localStorage.setItem('saved_alarms', serialized);
+      localStorage.setItem('saved_alarms_backup', serialized);
+    }
+
+    let alarms = loadSavedAlarms();
     let urgentBurstMode = localStorage.getItem('urgent_burst_mode') === 'true';
     let isRinging = false, currentRingingAlarm = null, pushEnabled = false, isBgAudioRunning = false;
     let isPreviewing = false, previewTimeout = null;
@@ -234,9 +270,21 @@
     const cachedSoundUrls = {};
     const masterEl = document.getElementById('masterAudioEngine');
     const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
-    const soundNames = ['✨ 1. 스파클 라이징 팝', '🌅 2. 선라이즈 오케스트라', '👾 3. 네온 아케이드 8비트', '🍃 4. 브라이트 윈드 차임', '🔔 5. 크리스탈 하모닉 벨', '☕ 6. 릴랙싱 피아노 스케일'];
+    const soundNames = [
+      '✨ 1. 스파클 라이징 팝',
+      '🌅 2. 선라이즈 오케스트라',
+      '👾 3. 네온 아케이드 8비트',
+      '🍃 4. 브라이트 윈드 차임',
+      '🔔 5. 크리스탈 하모닉 벨',
+      '☕ 6. 릴랙싱 피아노 스케일',
+      '🌊 7. 오션 웨이브 하프',
+      '🚀 8. 갤럭시 디지털 비프',
+      '🎺 9. 모닝 브라스 팡파르',
+      '🎵 10. 마림바 트로피컬 펄스',
+      '⚡ 11. 사이버 시티 신스',
+      '🚨 12. 하이 피치 모닝 사이렌'
+    ];
 
-    // 화면 켜짐 (Wake Lock)
     function updateWakeLockUI(active) {
       const btn = document.getElementById('wakeLockBtn');
       btn.innerText = active ? '☀️ 화면 켜짐: ON' : '💤 화면 켜짐: OFF';
@@ -266,7 +314,6 @@
       }
     });
 
-    // WAV 단일 버퍼 인코더 (이중 AudioContext 충돌 없애고 끊김 없는 고품질 루프 생성)
     function encodeWav(sampleRate, numSamples, fn) {
       const bytes = numSamples * 2, buf = new ArrayBuffer(44 + bytes), v = new DataView(buf);
       const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
@@ -281,50 +328,74 @@
       return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
     }
 
-    // 6가지 고유 멜로디 WAV 생성 (앱 내 알람 + 백그라운드 푸시 도착/미리듣기 모두 동일 사운드 사용)
+    // 12가지 원래 알람 사운드 엔진 (0~11)
     function getUnifiedSoundUrl(soundIdx) {
-      const idx = ((Number(soundIdx) || 0) % 6 + 6) % 6;
+      const idx = ((Number(soundIdx) || 0) % 12 + 12) % 12;
       if (cachedSoundUrls[idx]) return cachedSoundUrls[idx];
 
       const sr = 22050;
-      const duration = 2.4; // 2.4초 단위 멜로디 루프 (페이드 인/아웃 적용으로 루프 이음새 끊김 제거)
+      const duration = 2.4;
       const totalSamples = Math.floor(sr * duration);
 
-      const melodies = [
-        // 0: 스파클 라이징 팝 (밝은 아르페지오)
-        [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50],
-        // 1: 선라이즈 오케스트라 (따뜻한 화음 상승)
-        [440.00, 554.37, 659.25, 880.00, 659.25, 880.00],
-        // 2: 네온 아케이드 8비트 (경쾌한 스타카토)
-        [587.33, 783.99, 987.77, 1174.66, 987.77, 1174.66],
-        // 3: 브라이트 윈드 차임 (청아한 벨)
-        [659.25, 830.61, 987.77, 1318.51, 987.77, 1318.51],
-        // 4: 크리스탈 하모닉 벨 (맑은 이중 배음)
-        [783.99, 987.77, 1174.66, 1567.98, 1174.66, 1567.98],
-        // 5: 릴랙싱 피아노 스케일 (부드러운 사인파 코드)
-        [392.00, 493.88, 587.33, 783.99, 587.33, 783.99]
+      const patterns = [
+        { notes: [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50], wave: 'bell' },     // 0: 스파클 라이징 팝
+        { notes: [440.00, 554.37, 659.25, 880.00, 1108.73, 880.00], wave: 'brass' },    // 1: 선라이즈 오케스트라
+        { notes: [587.33, 783.99, 987.77, 1174.66, 987.77, 1174.66], wave: 'square' },  // 2: 네온 아케이드 8비트
+        { notes: [659.25, 830.61, 987.77, 1318.51, 987.77, 1318.51], wave: 'chime' },   // 3: 브라이트 윈드 차임
+        { notes: [783.99, 987.77, 1174.66, 1567.98, 1174.66, 1567.98], wave: 'bell' },  // 4: 크리스탈 하모닉 벨
+        { notes: [392.00, 493.88, 587.33, 783.99, 587.33, 783.99], wave: 'piano' },     // 5: 릴랙싱 피아노 스케일
+        { notes: [329.63, 392.00, 493.88, 659.25, 493.88, 392.00], wave: 'chime' },     // 6: 오션 웨이브 하프
+        { notes: [987.77, 0, 987.77, 1318.51, 0, 1318.51], wave: 'beep' },              // 7: 갤럭시 디지털 비프
+        { notes: [523.25, 523.25, 659.25, 783.99, 1046.50, 1046.50], wave: 'brass' },   // 8: 모닝 브라스 팡파르
+        { notes: [587.33, 659.25, 880.00, 783.99, 987.77, 1174.66], wave: 'marimba' },  // 9: 마림바 트로피컬 펄스
+        { notes: [440.00, 880.00, 523.25, 1046.50, 659.25, 1318.51], wave: 'square' },  // 10: 사이버 시티 신스
+        { notes: [880.00, 1318.51, 880.00, 1318.51, 880.00, 1318.51], wave: 'siren' }   // 11: 하이 피치 모닝 사이렌
       ];
-      const notes = melodies[idx];
+
+      const cfg = patterns[idx];
+      const notes = cfg.notes;
       const stepDur = duration / notes.length;
 
       cachedSoundUrls[idx] = encodeWav(sr, totalSamples, (t) => {
         const noteIndex = Math.min(notes.length - 1, Math.floor(t / stepDur));
         const localT = t - noteIndex * stepDur;
         const freq = notes[noteIndex];
+        if (!freq) return 0;
 
-        // 부드러운 엔벨로프 (클릭 잡음 및 끊김 방지)
-        const attack = Math.min(1, localT / 0.02);
-        const release = Math.max(0, 1 - (localT / stepDur) * 0.65);
+        const attack = Math.min(1, localT / 0.015);
+        const release = Math.max(0, 1 - (localT / stepDur) * 0.6);
         const env = attack * release;
 
-        if (idx === 2) {
-          // 8비트 사각파 믹스
-          const sq = Math.sin(2 * Math.PI * freq * t) >= 0 ? 0.5 : -0.5;
-          return sq * env * 0.75;
+        if (cfg.wave === 'square') {
+          const sq = Math.sin(2 * Math.PI * freq * t) >= 0 ? 0.55 : -0.55;
+          return sq * env * 0.78;
         }
-        const fundamental = Math.sin(2 * Math.PI * freq * t);
-        const harmonic = 0.3 * Math.sin(2 * Math.PI * (freq * 2) * t);
-        return (fundamental + harmonic) * env * 0.72;
+        if (cfg.wave === 'beep') {
+          const pulse = (localT % 0.12) < 0.07 ? 1 : 0;
+          return Math.sin(2 * Math.PI * freq * t) * pulse * 0.85;
+        }
+        if (cfg.wave === 'siren') {
+          const sweep = freq + Math.sin(2 * Math.PI * 5 * t) * 240;
+          return (Math.sin(2 * Math.PI * sweep * t) * 0.65 + (Math.sin(2 * Math.PI * sweep * t) >= 0 ? 0.25 : -0.25)) * 0.85;
+        }
+        if (cfg.wave === 'brass') {
+          const s1 = Math.sin(2 * Math.PI * freq * t);
+          const s2 = 0.45 * Math.sin(2 * Math.PI * freq * 2 * t);
+          const s3 = 0.25 * Math.sin(2 * Math.PI * freq * 3 * t);
+          return (s1 + s2 + s3) * env * 0.55;
+        }
+        if (cfg.wave === 'marimba') {
+          const mEnv = attack * Math.exp(-localT * 7);
+          return (Math.sin(2 * Math.PI * freq * t) + 0.35 * Math.sin(2 * Math.PI * freq * 4 * t)) * mEnv * 0.85;
+        }
+        if (cfg.wave === 'piano') {
+          const pEnv = attack * Math.exp(-localT * 3.5);
+          return (Math.sin(2 * Math.PI * freq * t) + 0.25 * Math.sin(2 * Math.PI * freq * 2 * t)) * pEnv * 0.85;
+        }
+        // bell / chime
+        const f1 = Math.sin(2 * Math.PI * freq * t);
+        const f2 = 0.32 * Math.sin(2 * Math.PI * (freq * 2) * t);
+        return (f1 + f2) * env * 0.72;
       });
       return cachedSoundUrls[idx];
     }
@@ -336,7 +407,6 @@
       return silentUrl;
     }
 
-    // 백그라운드 오디오 세션 유지 (iOS/안드로이드 공용 단일 엔진)
     async function ensureBgAudio() {
       if (isRinging || isPreviewing) return;
       const sUrl = getSilentUrl();
@@ -361,11 +431,10 @@
     document.getElementById('bgAudioKeepAliveBtn').addEventListener('click', async () => {
       await ensureBgAudio();
       if (isBgAudioRunning) {
-        showBanner('🎧', '오디오 유지 활성화됨', '백그라운드에서도 푸시 도착 시 동일한 알람음이 끊김 없이 재생됩니다.');
+        showBanner('🎧', '오디오 유지 활성화됨', '백그라운드에서도 푸시 도착 시 동일한 12종 알람음이 재생됩니다.');
       }
     });
 
-    // 단일 HTMLAudioElement로 알람음 재생 (이중 setInterval 제거 -> 영상 시청 중 끊김 해결)
     function playUnifiedRing(soundIdx) {
       if (previewTimeout) { clearTimeout(previewTimeout); previewTimeout = null; }
       isPreviewing = false;
@@ -379,7 +448,6 @@
       masterEl.play().catch(() => {});
     }
 
-    // 미리듣기 버튼 연결 (앱 알람음 & 푸시 알람음 동일 사운드 확인)
     document.getElementById('previewSelectedSoundBtn').addEventListener('click', () => {
       if (isRinging) return;
       const btn = document.getElementById('previewSelectedSoundBtn');
@@ -393,7 +461,7 @@
       }
 
       const val = document.getElementById('alarmSound').value;
-      const idx = val === 'random' ? Math.floor(Math.random() * 6) : parseInt(val, 10);
+      const idx = val === 'random' ? Math.floor(Math.random() * 12) : parseInt(val, 10);
       isPreviewing = true;
       btn.innerText = '⏹ 미리듣기 중지';
       masterEl.src = getUnifiedSoundUrl(idx);
@@ -409,7 +477,6 @@
       }, 4800);
     });
 
-    // 유튜브 시청 후 복귀 또는 iOS/안드로이드 백그라운드 복원 시 즉시 오디오 포커스 획득
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         if (wakeLockRequested && !wakeLock) requestScreenWakeLock();
@@ -429,7 +496,6 @@
       }, { passive: true });
     });
 
-    // 영상 앱과 오디오 포커스 충돌로 일시 중지될 경우 1회 부드럽게 재개
     masterEl.addEventListener('pause', () => {
       if (isRinging) {
         setTimeout(() => {
@@ -531,7 +597,7 @@
     document.getElementById('pushSubscribeBtn').addEventListener('click', async () => {
       await ensureBgAudio();
       const sub = await subscribePush();
-      if (sub) showBanner('🔔', '푸시 알림 등록 완료!', '설정한 알람과 사운드 번호가 서버에 동기화되었습니다.');
+      if (sub) showBanner('🔔', '푸시 알림 등록 완료!', '설정한 12종 사운드 및 알람이 서버에 동기화되었습니다.');
     });
 
     document.getElementById('testPushBtn').addEventListener('click', async () => {
@@ -545,11 +611,11 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subscription: sub.toJSON(), sound: soundIdx })
       });
-      if (res.ok) showBanner('📡', '테스트 푸시 발송됨', '잠시 후 푸시 배너와 동일한 멜로디 알람음이 울립니다.');
+      if (res.ok) showBanner('📡', '테스트 푸시 발송됨', '잠시 후 푸시 배너와 동일한 알람음이 울립니다.');
     });
 
     function saveAlarms(clearRinging = false, dismissedAlarmId = null) {
-      localStorage.setItem('saved_alarms', JSON.stringify(alarms));
+      persistAlarmsToStorage(alarms);
       ensureBgAudio();
       syncPush(clearRinging, dismissedAlarmId);
     }
@@ -562,7 +628,7 @@
       const minute = String(now.getMinutes()).padStart(2,'0');
       const timeStr = `${hour24}:${minute}`;
       const val = document.getElementById('alarmSound').value;
-      const sound = val === 'random' ? Math.floor(Math.random() * 6) : parseInt(val, 10);
+      const sound = val === 'random' ? Math.floor(Math.random() * 12) : parseInt(val, 10);
       
       alarms.push({
         id: Date.now(), name: label, group: '빠른 알람', time: timeStr, sound,
@@ -585,7 +651,7 @@
       const h = parseInt(document.getElementById('alarmHour').value, 10);
       const m = document.getElementById('alarmMinute').value;
       const soundVal = document.getElementById('alarmSound').value;
-      const sound = soundVal === 'random' ? Math.floor(Math.random() * 6) : parseInt(soundVal, 10);
+      const sound = soundVal === 'random' ? Math.floor(Math.random() * 12) : parseInt(soundVal, 10);
       
       let h24 = h % 12;
       if (ampm === 'PM') h24 += 12;
@@ -621,7 +687,7 @@
       document.getElementById('editAmPm').value = h24 >= 12 ? 'PM' : 'AM';
       document.getElementById('editHour').value = String(h24 % 12 === 0 ? 12 : h24 % 12);
       document.getElementById('editMinute').value = mStr;
-      document.getElementById('editSound').value = a.isRandomSound ? 'random' : String((Number(a.sound) || 0) % 6);
+      document.getElementById('editSound').value = a.isRandomSound ? 'random' : String((Number(a.sound) || 0) % 12);
       document.getElementById('editName').value = a.name || '';
       document.getElementById('editGroup').value = a.group || '';
 
@@ -645,7 +711,7 @@
       const h = parseInt(document.getElementById('editHour').value, 10);
       const m = document.getElementById('editMinute').value;
       const soundVal = document.getElementById('editSound').value;
-      const sound = soundVal === 'random' ? Math.floor(Math.random() * 6) : parseInt(soundVal, 10);
+      const sound = soundVal === 'random' ? Math.floor(Math.random() * 12) : parseInt(soundVal, 10);
 
       let h24 = h % 12;
       if (ampm === 'PM') h24 += 12;
@@ -691,7 +757,7 @@
         const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
         const time12 = `${String(h12).padStart(2, '0')}:${mStr}`;
         const repeatDaysText = a.isRepeating ? a.days.map(d => daysMap[d]).join(' ') : '한 번만 울림';
-        const soundLabel = soundNames[(Number(a.sound) || 0) % 6];
+        const soundLabel = soundNames[((Number(a.sound) || 0) % 12 + 12) % 12];
         
         return `
           <div onclick="openEditModal(${i})" class="clean-card p-5 flex justify-between items-center cursor-pointer active:scale-[0.99] transition ${a.enabled ? 'opacity-100' : 'opacity-60'}">
@@ -745,7 +811,7 @@
       if (!bypassCooldown && Date.now() - lastDismissedStamp < 90000) return;
       isRinging = true;
       currentRingingAlarm = alarm;
-      const soundIdx = (Number(alarm.sound) || 0) % 6;
+      const soundIdx = ((Number(alarm.sound) || 0) % 12 + 12) % 12;
       const timeVal = alarm.time || new Date().toTimeString().slice(0, 5);
       const [hStr, mStr] = timeVal.split(':');
       const h24 = parseInt(hStr, 10);
@@ -760,15 +826,21 @@
       playUnifiedRing(soundIdx);
     }
 
+    // iOS 환경에서 알람 '끄기' 버튼 클릭 시 즉시 정지 + 재울림 완벽 차단
     function stopEverything(explicitId = null) {
       lastDismissedStamp = Date.now();
       const targetId = explicitId || (currentRingingAlarm && currentRingingAlarm.id) || null;
       isRinging = false;
+      isPreviewing = false;
+      if (previewTimeout) { clearTimeout(previewTimeout); previewTimeout = null; }
 
-      masterEl.pause();
-      masterEl.currentTime = 0;
-      masterEl.removeAttribute('src');
-      masterEl.load();
+      try {
+        masterEl.pause();
+        masterEl.loop = false;
+        masterEl.volume = 0;
+        masterEl.src = getSilentUrl();
+        masterEl.currentTime = 0;
+      } catch {}
       isBgAudioRunning = false;
 
       document.getElementById('alarmModal').classList.add('hidden');
@@ -777,13 +849,20 @@
         : a
       );
       currentRingingAlarm = null;
-      localStorage.setItem('saved_alarms', JSON.stringify(alarms));
+      persistAlarmsToStorage(alarms);
       syncPush(true, targetId);
       renderList();
     }
 
-    document.getElementById('stopAlarmBtn').addEventListener('click', () => stopEverything());
-    document.getElementById('snoozeAlarmBtn').addEventListener('click', () => {
+    document.getElementById('stopAlarmBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      stopEverything();
+    });
+
+    document.getElementById('snoozeAlarmBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const target = currentRingingAlarm;
       stopEverything();
       lastDismissedStamp = 0;
@@ -823,7 +902,6 @@
 
     renderList();
 
-    // 단축어(?ring=1) 또는 푸시 배너 클릭(?triggerAlarm=1) 진입 시 동일한 알람음으로 즉시 실행
     (function handleShortcutUrlTrigger() {
       const params = new URLSearchParams(window.location.search);
       const ringParam = params.get('ring') || params.get('triggerAlarm');

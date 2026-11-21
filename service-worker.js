@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'smart-clock-v20261121-unified-audio';
+const CACHE_NAME = 'smart-clock-v20261121-12sounds-ios-dismiss';
 let dismissedUntil = 0;
 let pendingRepeatTimer = null;
 
@@ -43,13 +43,11 @@ self.addEventListener('push', (event) => {
   event.waitUntil((async () => {
     if (Date.now() < dismissedUntil) return;
 
-    // 1. 열려 있거나 백그라운드 살아있는 클라이언트에 즉시 동일 사운드 재생 명령 전송
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of allClients) {
       client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload });
     }
 
-    // 2. 시스템 푸시 배너 표시 (배너 클릭 시 동일한 sound 번호로 앱 실행)
     await self.registration.showNotification(payload.title || '⏰ 알람', {
       body: payload.body || '배너를 터치하면 설정된 알람음이 연속 재생됩니다.',
       icon: './icon-192.png',
