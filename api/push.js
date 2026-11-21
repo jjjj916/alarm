@@ -29,6 +29,9 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+    if (!String(req.headers['content-type'] || '').includes('application/json')) {
+      return res.status(415).json({ error: 'JSON 요청만 받습니다.' }); // 다른 사이트가 폼으로 몰래 호출하지 못하게
+    }
     const { subscription } = body;
     if (!S.validateSubscription(subscription)) return res.status(400).json({ error: '잘못된 구독 정보입니다.' });
 
@@ -38,6 +41,9 @@ module.exports = async function handler(req, res) {
 
     if (action === 'subscribe') {
       const existing = (await redis.get(key)) || {};
+      if (!existing.subscription && (await redis.scard(S.SUBSCRIPTIONS_SET)) >= S.MAX_SUBSCRIPTIONS) {
+        return res.status(503).json({ error: '등록 가능한 기기 수가 가득 찼어요.' });
+      }
       const alarms = (Array.isArray(body.alarms) ? body.alarms : []).slice(0, 100).map(S.sanitizeAlarm).filter(Boolean);
       const record = {
         subscription,

@@ -9,6 +9,7 @@
  */
 
 const net = require('net');
+const dns = require('dns').promises;
 
 function isPrivateHost(host) {
   const h = host.toLowerCase().replace(/^\[|\]$/g, '');
@@ -18,21 +19,37 @@ function isPrivateHost(host) {
     return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
       (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
   }
-  if (net.isIP(h) === 6) return h === '::1' || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80');
+  if (net.isIP(h) === 6) {
+    if (h.startsWith('::ffff:')) return isPrivateHost(h.slice(7));
+    return h === '::' || h === '::1' || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80');
+  }
   return false;
+}
+
+// 도메인이 실제로 가리키는 IP까지 확인 (예: 127.0.0.1.nip.io 같은 우회 차단)
+async function resolvesToPrivate(hostname) {
+  if (net.isIP(hostname)) return isPrivateHost(hostname);
+  try {
+    const list = await dns.lookup(hostname, { all: true });
+    return list.length === 0 || list.some((a) => isPrivateHost(a.address));
+  } catch {
+    return true;
+  }
 }
 
 async function sampleOnce(url) {
   const t0 = Date.now();
   let response;
   try {
-    response = await fetch(url, { method: 'HEAD', redirect: 'manual', headers: { 'User-Agent': 'SmartClockTimeSync/2.0', 'Cache-Control': 'no-cache' } });
+    response = await fetch(url, { method: 'HEAD', redirect: 'manual', signal: AbortSignal.timeout(3000), headers: { 'User-Agent': 'SmartClockTimeSync/2.0', 'Cache-Control': 'no-cache' } });
   } catch {
     response = null;
   }
   if (!response || !response.headers.get('date')) {
     const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
     response = await fetch(url, { method: 'GET', redirect: 'manual', signal: ctrl.signal, headers: { 'User-Agent': 'SmartClockTimeSync/2.0', 'Cache-Control': 'no-cache' } });
+    clearTimeout(timer);
     ctrl.abort();
   }
   const t1 = Date.now();
@@ -43,8 +60,9 @@ async function sampleOnce(url) {
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
-  const raw = String((req.query && req.query.url) || '').trim();
+  const raw = String((req.query && req.query.url) || '').trim().slice(0, 300);
   if (!raw) return res.status(200).json({ now: Date.now() });
+
 
   let target;
   try {
@@ -52,15 +70,17 @@ module.exports = async function handler(req, res) {
   } catch {
     return res.status(400).json({ error: '주소 형식이 올바르지 않습니다.' });
   }
-  if (!/^https?:$/.test(target.protocol) || isPrivateHost(target.hostname)) {
+  if (!/^https?:$/.test(target.protocol) || target.username || target.password ||
+      (target.port && !['80', '443'].includes(target.port)) ||
+      isPrivateHost(target.hostname) || (await resolvesToPrivate(target.hostname))) {
     return res.status(400).json({ error: '확인할 수 없는 주소입니다.' });
   }
 
   try {
     const samples = [];
-    const deadline = Date.now() + 2600;
+    const deadline = Date.now() + 2200;
     let transition = null;
-    while (Date.now() < deadline && samples.length < 45) {
+    while (Date.now() < deadline && samples.length < 25) {
       const s = await sampleOnce(target.toString());
       if (!Number.isFinite(s.sec)) {
         return res.status(422).json({ error: '이 사이트는 서버 시간(Date 헤더)을 알려주지 않습니다.' });
