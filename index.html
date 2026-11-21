@@ -356,6 +356,9 @@
   .inline-block {
     display: inline-block;
   }
+  .table {
+    display: table;
+  }
   .h-8 {
     height: calc(var(--spacing) * 8);
   }
@@ -942,6 +945,9 @@
   .opacity-65 {
     opacity: 65%;
   }
+  .opacity-80 {
+    opacity: 80%;
+  }
   .opacity-85 {
     opacity: 85%;
   }
@@ -1479,7 +1485,10 @@
 
           <div data-os="android" class="hidden flex items-start gap-2 pt-2 border-t border-amber-200/50">
             <span class="font-extrabold text-emerald-700 shrink-0">3. 갤럭시(Android)</span>
-            <p>배터리 절전으로 알람이 밀리지 않도록 <b>[설정 &gt; 애플리케이션 &gt; 사용 중인 브라우저(Chrome/삼성 인터넷) &gt; 배터리 &gt; 제한 없음]</b>으로 설정해주세요.</p>
+            <p>배터리 절전으로 알람이 밀리지 않도록 아래 <b>두 앱 모두</b> 배터리 최적화를 꺼 주세요.<br>
+              • <b>인터넷 브라우저:</b> [설정 &gt; 애플리케이션 &gt; 사용 중인 브라우저(Chrome/삼성 인터넷) &gt; 배터리 &gt; 제한 없음]<br>
+              • <b>스마트 시계 앱:</b> 홈 화면에 추가한 경우 [설정 &gt; 애플리케이션 &gt; <b>스마트 시계</b> &gt; 배터리 &gt; 제한 없음]<br>
+              <span class="text-[10px] opacity-80">목록에 ‘스마트 시계’가 없으면 브라우저만 설정하면 돼요. 휴대폰 [디바이스 케어 &gt; 배터리 &gt; 사용하지 않는 앱 절전/잠자는 앱] 목록에도 두 앱이 들어가 있지 않은지 확인하세요.</span></p>
           </div>
 
           <div data-os="ios" class="hidden flex items-start gap-2 pt-2 border-t border-amber-200/50">
