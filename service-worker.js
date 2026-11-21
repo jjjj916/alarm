@@ -6,7 +6,7 @@
  * (이전 버전은 알람을 끈 직후 도착한 푸시를 알림 없이 무시해서 이후 푸시가 오지 않는 문제가 있었습니다.)
  */
 
-const CACHE_NAME = 'smart-clock-v20261121-exact-push';
+const CACHE_NAME = 'smart-clock-v20261121-b';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -56,10 +56,7 @@ self.addEventListener('push', (event) => {
       data: payload
     };
     if (!isIOSWorker()) {
-      options.actions = [
-        { action: 'dismiss', title: '✕ 알람 끄기' },
-        { action: 'open', title: '🔊 열어서 알람음 듣기' }
-      ];
+      options.actions = [{ action: 'dismiss', title: '✕ 알람 끄기' }];
     }
     // 반드시 알림을 먼저 띄웁니다.
     await self.registration.showNotification(payload.title || '⏰ 알람', options);
