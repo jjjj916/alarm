@@ -535,7 +535,7 @@
       let mOpts = '';
       for (let m = 0; m < 60; m++) {
         const val = String(m).padStart(2, '0');
-        mOpts += `<option value="${val}" ${val === defaultMin ? 'selected' : ''}>${v}분</option>`.replace('${v}', val);
+        mOpts += `<option value="${val}" ${val === defaultMin ? 'selected' : ''}>${val}분</option>`;
       }
       minEl.innerHTML = mOpts;
     }

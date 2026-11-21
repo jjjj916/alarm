@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'smart-clock-sound-fix-v20261121';
+const CACHE_NAME = 'smart-clock-fixed-v20261121-2';
 const dismissedTokens = new Set();
 
 function rememberDismissed(alarmId, scheduleKey) {
