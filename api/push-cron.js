@@ -21,18 +21,11 @@ function initWebPush() {
 function getZonedParts(date, timeZone) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
     timeZone: timeZone || 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    weekday: 'short'
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false, weekday: 'short'
   });
   const parts = {};
-  for (const p of fmt.formatToParts(date)) {
-    parts[p.type] = p.value;
-  }
+  for (const p of fmt.formatToParts(date)) parts[p.type] = p.value;
   const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
   const hour = parts.hour === '24' ? '00' : parts.hour;
   return {
@@ -42,7 +35,7 @@ function getZonedParts(date, timeZone) {
   };
 }
 
-async function scheduleQStashNextBurst(req, delaySec = 5) {
+async function scheduleQStashNextBurst(req, delaySec = 4) {
   const qstashToken = process.env.QSTASH_TOKEN;
   if (!qstashToken) return false;
 
@@ -59,9 +52,9 @@ async function scheduleQStashNextBurst(req, delaySec = 5) {
         Authorization: `Bearer ${qstashToken}`,
         'Content-Type': 'application/json',
         'Upstash-Delay': `${Math.max(1, Math.round(delaySec))}s`,
-        'Upstash-Deduplication-Id': `burst-${Math.floor(Date.now() / 4000)}`
+        'Upstash-Deduplication-Id': `burst-${Math.floor(Date.now() / 3000)}`
       },
-      body: JSON.stringify({ source: 'urgent-burst-chain', scheduledAt: Date.now() })
+      body: JSON.stringify({ source: 'infinite-alarm-chain', scheduledAt: Date.now() })
     });
     return res.ok;
   } catch (e) {
@@ -89,23 +82,23 @@ module.exports = async function handler(req, res) {
       const tz = record.timeZone || 'Asia/Seoul';
       const zoned = getZonedParts(new Date(now), tz);
       const alarms = Array.isArray(record.alarms) ? record.alarms : [];
+      const isBurstEnabled = record.urgentBurstMode !== false;
       let dirty = false;
       const payloadsToSend = [];
 
-      // 1. 무제한 긴급알림(activeRinging) 5초 단위 연속 재발송 처리
-      if (record.activeRinging && record.urgentBurstMode) {
+      // 1. 무한 기본 알림음 연속 발송 (최대 30분간 4초마다 반복, [✕ 알람 끄기] 클릭 시 즉시 중단)
+      if (record.activeRinging && isBurstEnabled) {
         const ar = record.activeRinging;
         const startedAt = Number(ar.startedAt) || now;
         const lastSent = Number(ar.lastSentAt) || 0;
         const elapsedTotal = now - startedAt;
 
-        if (elapsedTotal > 10 * 60 * 1000) {
-          // 10분 경과 시 자동 종료
+        if (elapsedTotal > 30 * 60 * 1000) {
           record.activeRinging = null;
           dirty = true;
         } else {
           hasOngoingUrgentBurst = true;
-          if (now - lastSent >= 4500) {
+          if (now - lastSent >= 3500) {
             const burstSeq = (Number(ar.burstSeq) || 1) + 1;
             ar.lastSentAt = now;
             ar.burstSeq = burstSeq;
@@ -113,16 +106,13 @@ module.exports = async function handler(req, res) {
             payloadsToSend.push({
               type: 'alarm',
               alarmId: String(ar.alarmId || ''),
-              name: ar.name || '긴급 알람',
+              name: ar.name || '알람',
               group: ar.group || '기본 그룹',
               time: ar.time || zoned.hm,
-              sound: Number(ar.sound) || 0,
-              isRepeating: Boolean(ar.isRepeating),
-              snoozeLevel: Number(ar.snoozeLevel) || 2,
               scheduleKey: ar.scheduleKey || '',
-              title: `🚨 [긴급 ${burstSeq}회차] ${ar.label || ar.name || '알람'}`,
+              title: `⏰ [${burstSeq}회 울림] ${ar.label || ar.name || '알람'}`,
               body: `${ar.time || zoned.hm} 알람! 배너를 길게 눌러 [✕ 알람 끄기]를 누를 때까지 계속 울립니다.`,
-              tag: `smart-clock-urgent-${ar.alarmId || 'all'}-${now}`,
+              tag: `smart-clock-ring-${ar.alarmId || 'all'}-${now}`,
               silent: false,
               renotify: true
             });
@@ -173,7 +163,7 @@ module.exports = async function handler(req, res) {
           alarm.lastServerPushedKey = scheduleKey;
           dirty = true;
           const label = `[${alarm.group || '기본 그룹'}] ${alarm.name || '알람'}`;
-          if (record.urgentBurstMode) {
+          if (isBurstEnabled) {
             hasOngoingUrgentBurst = true;
             record.activeRinging = {
               alarmId: String(alarm.id),
@@ -181,9 +171,6 @@ module.exports = async function handler(req, res) {
               group: alarm.group || '기본 그룹',
               label,
               time: alarm.time,
-              sound: Number(alarm.sound) || 0,
-              isRepeating: Boolean(alarm.isRepeating),
-              snoozeLevel: Number(alarm.snoozeLevel) || 0,
               scheduleKey,
               startedAt: now,
               lastSentAt: now,
@@ -197,18 +184,10 @@ module.exports = async function handler(req, res) {
             group: alarm.group || '기본 그룹',
             label,
             time: alarm.time,
-            sound: Number(alarm.sound) || 0,
-            isRepeating: Boolean(alarm.isRepeating),
-            snoozeInterval: Number(alarm.snoozeInterval) || 5,
-            snoozeCount: Number(alarm.snoozeCount) || 3,
-            remainingSnooze: Number(alarm.remainingSnooze) || 3,
-            snoozeLevel: Number(alarm.snoozeLevel) || 0,
             scheduleKey,
-            title: record.urgentBurstMode ? `🚨 [긴급 1회차] ${label}` : `⏰ ${label}`,
-            body: record.urgentBurstMode
-              ? `${alarm.time} 알람! [✕ 알람 끄기]를 누를 때까지 5초마다 반복 알림이 울립니다.`
-              : `${alarm.time} 알람입니다 · 눌러서 확인하거나 [✕ 알람 끄기]를 누르세요.`,
-            tag: `smart-clock-alarm-${alarm.id}-${now}`,
+            title: `⏰ [1회 울림] ${label}`,
+            body: `${alarm.time} 알람! 배너를 길게 눌러 [✕ 알람 끄기]를 누를 때까지 계속 울립니다.`,
+            tag: `smart-clock-ring-${alarm.id}-${now}`,
             silent: false,
             renotify: true
           });
@@ -222,13 +201,27 @@ module.exports = async function handler(req, res) {
           const totalMs = Number(record.timer.totalMs) || 0;
           record.timer = null;
           dirty = true;
+          if (isBurstEnabled) {
+            hasOngoingUrgentBurst = true;
+            record.activeRinging = {
+              alarmId: 'timer',
+              name: '타이머 완료',
+              group: '타이머',
+              label: '카운트다운 타이머 완료',
+              time: zoned.hm,
+              scheduleKey: `timer_${now}`,
+              startedAt: now,
+              lastSentAt: now,
+              burstSeq: 1
+            };
+          }
           payloadsToSend.push({
             type: 'timer',
             alarmId: 'timer',
             totalMs,
             label: '카운트다운 타이머 완료',
-            title: '⏳ 타이머 완료',
-            body: '설정한 타이머 시간이 종료되었습니다.',
+            title: '⏳ [1회 울림] 타이머 완료',
+            body: '설정한 타이머가 종료되었습니다. [✕ 알람 끄기]를 누를 때까지 계속 울립니다.',
             tag: `smart-clock-timer-${now}`,
             silent: false,
             renotify: true
@@ -247,12 +240,7 @@ module.exports = async function handler(req, res) {
           await webpush.sendNotification(
             record.subscription,
             JSON.stringify(payload),
-            {
-              TTL: 60,
-              headers: {
-                Urgency: 'high'
-              }
-            }
+            { TTL: 60, headers: { Urgency: 'high' } }
           );
           sentCount++;
         } catch (pushErr) {
@@ -266,10 +254,9 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // 무제한 긴급알림이 활성 상태라면 5초 뒤 QStash로 다음 푸시 체인 예약
     let nextBurstScheduled = false;
     if (hasOngoingUrgentBurst) {
-      nextBurstScheduled = await scheduleQStashNextBurst(req, 5);
+      nextBurstScheduled = await scheduleQStashNextBurst(req, 4);
     }
 
     return res.status(200).json({

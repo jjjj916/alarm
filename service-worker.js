@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'smart-clock-ios-clean-v20261121';
+const CACHE_NAME = 'smart-clock-ios-infinite-v20261121-2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -23,11 +23,14 @@ self.addEventListener('push', (event) => {
   }
 
   const title = data.title || '⏰ 스마트 시계 알람';
+  // iOS에서 매번 기본 알림음이 울리도록 매회 고유 tag 부여
+  const uniqueTag = data.tag || `smart-clock-ring-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
   const options = {
-    body: data.body || '알람 시각입니다.',
+    body: data.body || '배너를 길게 눌러 [✕ 알람 끄기]를 누를 때까지 계속 울립니다.',
     icon: './icon-192.png',
     badge: './icon-192.png',
-    tag: data.tag || `smart-clock-${Date.now()}`,
+    tag: uniqueTag,
     renotify: true,
     silent: false,
     data: {

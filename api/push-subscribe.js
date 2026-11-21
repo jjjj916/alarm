@@ -45,7 +45,6 @@ function findNextAlarmTimestamp(alarms, timer, timeZone) {
         for (const p of fmt.formatToParts(cand)) parts[p.type] = p.value;
         const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
         if (a.days.includes(dayMap[parts.weekday])) {
-          // KST(+09:00) 기준 정각 계산 보정
           const iso = `${parts.year}-${parts.month}-${parts.day}T${String(th).padStart(2, '0')}:${String(tm).padStart(2, '0')}:00+09:00`;
           const ts = Date.parse(iso);
           if (!Number.isNaN(ts) && ts > now - 5000) {
@@ -103,7 +102,8 @@ module.exports = async function handler(req, res) {
     const alarms = Array.isArray(body.alarms) ? body.alarms : [];
     const timeZone = body.timeZone || 'Asia/Seoul';
     const timer = body.timer || null;
-    const urgentBurstMode = Boolean(body.urgentBurstMode);
+    // 명시적으로 false가 아니면 기본적으로 무한 기본알림음 활성화
+    const urgentBurstMode = body.urgentBurstMode !== false;
 
     const record = {
       subscription,

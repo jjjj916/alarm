@@ -98,7 +98,7 @@
           📡 푸시 확인
         </button>
         <button id="urgentBurstBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
-          🚨 무제한 긴급알림: OFF
+          🔕 무한 기본알림음: OFF
         </button>
         <button id="bgAudioKeepAliveBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition">
           🎧 오디오 유지: OFF
@@ -171,13 +171,13 @@
             <span class="font-extrabold text-purple-700 shrink-0">5. 아이폰/아이패드</span>
             <p>
               • 반드시 Safari 공유 버튼에서 <b>[홈 화면에 추가]</b>로 설치한 아이콘으로 실행하고 <b>[🔔 푸시 알림: ON]</b>을 켜두세요.<br>
-              • <b>유튜브 시청 시:</b> 영상 시청을 방해하지 않도록 정각에 <b>상단 배너 + 시스템 알림음 1회</b>로 깔끔하게 알려줍니다. 기상 등 절대 놓치면 안 될 때만 <b>[🚨 무제한 긴급알림: ON]</b>을 켜세요.
+              • <b>유튜브 시청 시:</b> 영상 시청을 방해하지 않도록 정각에 <b>상단 배너 + 시스템 알림음 1회</b>로 깔끔하게 알려줍니다. 기상 등 절대 놓치면 안 될 때만 <b>[🔔 무한 기본알림음: ON]</b>을 켜세요.
             </p>
           </div>
 
           <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
             <span class="font-extrabold text-rose-700 shrink-0">6. 꼭 일어나야 할 때</span>
-            <p>상단의 <span class="underline decoration-amber-400 font-bold">[🚨 무제한 긴급알림: ON]</span>을 켜두면 알림 배너의 <b>[✕ 알람 끄기]</b>를 누르기 전까지 서버 긴급 푸시가 5초마다 반복됩니다. (유튜브 시청 중에는 OFF 권장)</p>
+            <p>상단의 <span class="underline decoration-amber-400 font-bold">[🔔 무한 기본알림음: ON]</span>을 켜두면 알림 배너의 <b>[✕ 알람 끄기]</b>를 누르기 전까지 서버 긴급 푸시가 5초마다 반복됩니다. (유튜브 시청 중에는 OFF 권장)</p>
           </div>
         </div>
       </div>
@@ -603,7 +603,7 @@
       alarms = [];
     }
 
-    let urgentBurstMode = localStorage.getItem('urgent_burst_mode') === 'true';
+    let urgentBurstMode = localStorage.getItem('urgent_burst_mode') !== 'false';
     let vibeInterval = null;
     let webAudioLoopTimer = null;
     let isRinging = false;
@@ -717,10 +717,10 @@
       const btn = document.getElementById('urgentBurstBtn');
       if (!btn) return;
       if (urgentBurstMode) {
-        btn.innerText = '🚨 무제한 긴급알림: ON';
+        btn.innerText = '🔔 무한 기본알림음: ON';
         btn.className = 'px-2.5 py-1.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-full text-[11px] font-bold shadow-sm transition';
       } else {
-        btn.innerText = '🚨 무제한 긴급알림: OFF';
+        btn.innerText = '🔕 무한 기본알림음: OFF';
         btn.className = 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition';
       }
     }
@@ -733,9 +733,9 @@
       syncCurrentPushState();
       if (urgentBurstMode) {
         if ('vibrate' in navigator) navigator.vibrate([400, 100, 400]);
-        showFeatureInfoBanner('🚨', '무제한 긴급 알림 모드가 켜졌습니다', '배너의 <b>[✕ 알람 끄기]</b>를 누를 때까지 5초마다 푸시가 반복됩니다. (유튜브 시청 시에는 끄는 것을 권장합니다)');
+        showFeatureInfoBanner('🔔', '무한 기본 알림음 모드가 켜졌습니다', '유튜브를 틀고 자더라도 알람 정각부터 <b>[✕ 알람 끄기]</b>를 누를 때까지 4초마다 iOS 기본 알림음이 계속 울립니다.');
       } else {
-        showFeatureInfoBanner('🎬', '일반 단일 알림 모드 (유튜브 시청 권장)', '알람 시각에 푸시 알림과 소리가 1회만 깔끔하게 울려 영상 시청을 방해하지 않습니다.');
+        showFeatureInfoBanner('🔕', '1회 단일 알림 모드로 변경되었습니다', '알람 시각에 iOS 기본 알림음이 1회만 울립니다. 수면 중 기상용이라면 다시 켜주세요.');
       }
     });
 
