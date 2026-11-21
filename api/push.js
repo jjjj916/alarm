@@ -65,7 +65,9 @@ export default async function handler(req, res) {
         }
       }
       if (nextExactTriggerAt) {
-        const delaySec = Math.max(1, Math.ceil((nextExactTriggerAt - Date.now()) / 1000));
+        // 네트워크 왕복/콜드스타트 시간(약 2초)을 미리 당겨 정각 00초에 푸시가 도착하도록 예약
+        const rawSec = Math.floor((nextExactTriggerAt - Date.now()) / 1000) - 2;
+        const delaySec = Math.max(0, rawSec);
         await scheduleNextQStash(origin, delaySec);
       }
       return res.status(200).json({ ok: true });
@@ -157,7 +159,7 @@ export default async function handler(req, res) {
         if (!alarm.isRepeating && alarm.singleShotAt) {
           const diff = nowMs - Number(alarm.singleShotAt);
           scheduleKey = `oneshot_${alarm.id}_${alarm.singleShotAt}`;
-          if (diff >= -5000 && diff <= 180000) due = true;
+          if (diff >= -3000 && diff <= 180000) due = true;
         } else if (alarm.isRepeating) {
           const localDate = new Date(new Date(nowMs).toLocaleString('en-US', { timeZone: tz }));
           const curHM = `${String(localDate.getHours()).padStart(2, '0')}:${String(localDate.getMinutes()).padStart(2, '0')}`;

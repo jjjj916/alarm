@@ -76,7 +76,7 @@
     <div class="clean-card p-5">
       <div class="flex justify-between items-center mb-3">
         <h2 class="text-sm font-bold text-gray-800">⚡ 빠른 알람</h2>
-        <span class="text-[11px] text-gray-400 font-medium">터치 즉시 등록</span>
+        <span class="text-[11px] text-gray-400 font-medium">정각 00초 맞춤 등록</span>
       </div>
       <div class="grid grid-cols-4 gap-2">
         <button onclick="addQuickTimer(1, '1분 테스트 알람')" class="py-2.5 bg-amber-50 hover:bg-amber-100 rounded-2xl text-xs font-bold text-amber-700">+1분</button>
@@ -266,6 +266,7 @@
     let wakeLock = null, wakeLockRequested = false;
     let lastDismissedStamp = 0;
     let lastTriggeredMinuteKey = '';
+    let exactMinuteTimer = null;
     let silentUrl = null;
     const cachedSoundUrls = {};
     const masterEl = document.getElementById('masterAudioEngine');
@@ -429,7 +430,7 @@
     document.getElementById('bgAudioKeepAliveBtn').addEventListener('click', async () => {
       await ensureBgAudio();
       if (isBgAudioRunning) {
-        showBanner('🎧', '오디오 유지 활성화됨', '백그라운드에서도 푸시 도착 시 동일한 12종 알람음이 재생됩니다.');
+        showBanner('🎧', '오디오 유지 활성화됨', '정각 00초에 맞춰 12종 알람음이 즉시 울립니다.');
       }
     });
 
@@ -475,10 +476,10 @@
       }, 4800);
     });
 
-    // 단축어 '앱 열기'로 포그라운드 전환 시 즉시 현재 시각 알람 검사 및 재생
     function onForegroundActivated() {
       if (wakeLockRequested && !wakeLock) requestScreenWakeLock();
       checkAndFireDueAlarmsNow();
+      scheduleExactNextMinuteBoundary();
       if (isRinging && currentRingingAlarm) {
         playUnifiedRing(currentRingingAlarm.sound ?? 0);
       } else if (isBgAudioRunning) {
@@ -504,7 +505,7 @@
       if (isRinging) {
         setTimeout(() => {
           if (isRinging && masterEl.paused) masterEl.play().catch(() => {});
-        }, 120);
+        }, 100);
       }
     });
 
@@ -601,7 +602,7 @@
     document.getElementById('pushSubscribeBtn').addEventListener('click', async () => {
       await ensureBgAudio();
       const sub = await subscribePush();
-      if (sub) showBanner('🔔', '푸시 알림 등록 완료!', '설정한 12종 사운드 및 알람이 서버에 동기화되었습니다.');
+      if (sub) showBanner('🔔', '푸시 알림 등록 완료!', '정각 00초 기준으로 서버와 동기화되었습니다.');
     });
 
     document.getElementById('testPushBtn').addEventListener('click', async () => {
@@ -621,6 +622,7 @@
     function saveAlarms(clearRinging = false, dismissedAlarmId = null) {
       persistAlarmsToStorage(alarms);
       ensureBgAudio();
+      scheduleExactNextMinuteBoundary();
       syncPush(clearRinging, dismissedAlarmId);
     }
 
@@ -640,7 +642,7 @@
       });
       saveAlarms();
       renderList();
-      showBanner('⏰', `${timeStr} 알람 등록됨`, `${soundNames[sound]} 사운드로 동기화되었습니다.`);
+      showBanner('⏰', `${timeStr}:00 정각 알람 등록됨`, `${soundNames[sound]} 사운드로 정확히 00초에 울립니다.`);
     };
 
     document.querySelectorAll('.day-btn').forEach(btn => {
@@ -747,7 +749,7 @@
       saveAlarms();
       renderList();
       closeEditModal();
-      showBanner('✏️', '알람 설정 수정됨', `${ampm === 'PM' ? '오후' : '오전'} ${String(h).padStart(2,'0')}:${m} 알람이 저장되었습니다.`);
+      showBanner('✏️', '알람 설정 수정됨', `${ampm === 'PM' ? '오후' : '오전'} ${String(h).padStart(2,'0')}:${m}:00 정각 알람이 저장되었습니다.`);
     });
 
     function renderList() {
@@ -872,7 +874,6 @@
       if (target) addQuickTimer(5, `${target.name} (다시 울림)`);
     });
 
-    // 현재 시각과 일치하는 활성 알람 즉시 검사 (초 단위 제한 없이 포그라운드 전환 즉시 작동)
     function checkAndFireDueAlarmsNow() {
       if (isRinging || Date.now() - lastDismissedStamp < 90000) return;
       const now = new Date();
@@ -903,6 +904,17 @@
       }
     }
 
+    // 다음 정각 00초 000ms에 정확히 깨어나는 밀리초 단위 스케줄러
+    function scheduleExactNextMinuteBoundary() {
+      if (exactMinuteTimer) clearTimeout(exactMinuteTimer);
+      const now = new Date();
+      const msUntilExact00 = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+      exactMinuteTimer = setTimeout(() => {
+        checkAndFireDueAlarmsNow();
+        scheduleExactNextMinuteBoundary();
+      }, Math.max(10, msUntilExact00));
+    }
+
     setInterval(() => {
       const now = new Date();
       document.getElementById('clock').innerText = now.toTimeString().slice(0, 8);
@@ -912,18 +924,16 @@
       const enabledCount = alarms.filter(a => a.enabled).length;
       document.getElementById('nextAlarmCountdown').innerText = enabledCount > 0 ? `활성 알람 ${enabledCount}개 대기 중` : '모든 알람이 꺼져 있습니다';
       
-      // iOS 단축어로 앱 전환 직후 오디오 세션이 늦게 풀리는 경우 자동 재생 재시도
       if (isRinging && masterEl.paused) {
         masterEl.play().catch(() => {});
       }
 
       checkAndFireDueAlarmsNow();
-    }, 400);
+    }, 250);
 
     renderList();
-
-    // 앱 최초 실행 즉시(단축어 '앱 열기'로 콜드 스타트된 경우 포함) 현재 시각 알람 검사
     checkAndFireDueAlarmsNow();
+    scheduleExactNextMinuteBoundary();
 
     (function handleShortcutUrlTrigger() {
       const params = new URLSearchParams(window.location.search);
