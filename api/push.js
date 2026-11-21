@@ -84,6 +84,20 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
+    if (action === 'status') {
+      const record = await redis.get(key);
+      if (!record) return res.status(200).json({ registered: false });
+      const next = S.nextOccurrence(record, Date.now());
+      const wakeScheduled = next ? await S.scheduleWakeUp(req, next) : false;
+      return res.status(200).json({
+        registered: true,
+        enabledAlarms: (record.alarms || []).filter((x) => x.enabled).length,
+        nextAlarmAt: next,
+        urgentBurstMode: Boolean(record.urgentBurstMode),
+        wakeScheduled
+      });
+    }
+
     if (action === 'unsubscribe') {
       await redis.srem(S.SUBSCRIPTIONS_SET, id);
       await redis.del(key);

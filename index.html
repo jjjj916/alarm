@@ -56,6 +56,7 @@
       <div class="flex items-center gap-1.5 flex-wrap justify-end">
         <button id="pushSubscribeBtn" class="tool-btn">🔔 푸시 알림: OFF</button>
         <button id="testPushBtn" class="tool-btn">📡 푸시 테스트</button>
+        <button id="diagBtn" class="tool-btn">🩺 알림 점검</button>
         <button id="urgentBurstBtn" class="tool-btn">🚨 반복 알림: OFF</button>
         <button id="bgAudioKeepAliveBtn" class="tool-btn">🎧 오디오 유지: OFF</button>
         <button id="wakeLockBtn" class="tool-btn">💤 화면 켜짐: OFF</button>
@@ -108,6 +109,7 @@
             <li><b>유튜브 등 영상을 보는 중</b>에는 iOS가 웹앱의 소리 재생을 막아서 알람음(미디어 볼륨)은 나오지 않고, 대신 <b>푸시 알림음이 10초마다 반복</b>해서 울려요. 영상 중에도 들리려면 <b>벨소리·알림 볼륨</b>을 올리고 <b>무음 모드를 꺼 두세요</b>.</li>
             <li>설정 → 알림 → 스마트 시계 → <b>소리</b>와 <b>즉시 전송(Time Sensitive)</b>을 켜 두면 영상 시청 중에도 배너와 소리가 바로 와요.</li>
             <li>앱을 한 번이라도 터치해 두면, 알람 시각에 화면이 켜져 있을 때 알람음이 바로 울려요.</li>
+            <li><b>영상 시청 중에도 알람 소리가 꼭 필요하면</b> 위의 <b>‘🍎 영상 볼 때도 울리게’</b>를 켜 주세요. 아이폰 기본 시계 앱 알람이 함께 등록돼요.</li>
           </ul>
         </div>
         <div data-platform="android" class="hidden">
@@ -117,6 +119,8 @@
             <li>설정 → 애플리케이션 → Chrome → 배터리 → <b>제한 없음</b>(또는 ‘최적화 안 함’)으로 바꿔 주세요. 절전 때문에 푸시가 늦어질 수 있어요.</li>
             <li>데이터 절약 모드를 쓴다면 Chrome의 <b>백그라운드 데이터</b>를 허용하세요.</li>
             <li>유튜브 시청 중에는 Chrome 푸시 알림음(알림 볼륨)이 10초마다 반복해서 울려요.</li>
+            <li><b>푸시가 아예 안 오면</b> 위의 <b>🩺 알림 점검</b>을 눌러 어디가 막혔는지 확인하세요.</li>
+            <li>푸시는 오는데 소리가 없으면: 설정 → 애플리케이션 → Chrome → 알림 → <b>사이트</b>(또는 이 사이트 주소) 항목 → <b>‘소리 및 팝업’/‘알림음’</b>을 켜 주세요. 삼성은 ‘무음’으로 들어가 있는 경우가 많아요.</li>
             <li>방해 금지 모드에서는 알림음이 나지 않을 수 있어요.</li>
           </ul>
         </div>
@@ -129,6 +133,29 @@
         </div>
       </div>
     </details>
+
+    <!-- 아이폰: 기본 시계 앱 알람 연동 (영상 시청 중에도 울림) -->
+    <div id="iosClockCard" class="clean-card p-5 text-left space-y-3 hidden">
+      <div class="flex justify-between items-center gap-3">
+        <div>
+          <h2 class="text-sm font-bold text-gray-800">🍎 영상 볼 때도 울리게</h2>
+          <p class="text-[11px] text-gray-500 mt-0.5">알람을 저장하면 아이폰 <b>기본 시계 앱</b>에도 같은 시각 알람을 등록해요. 시계 앱 알람은 유튜브 시청 중에도 울려요.</p>
+        </div>
+        <label class="pill-switch shrink-0"><input type="checkbox" id="iosClockToggle"><span class="pill-slider"></span></label>
+      </div>
+      <details id="iosClockGuide">
+        <summary class="text-[11px] font-bold text-[#0381fe] cursor-pointer">처음 한 번만: 단축어 만들기 (1분)</summary>
+        <ol class="list-decimal pl-5 mt-2 space-y-1 text-[11px] text-gray-700 leading-relaxed">
+          <li><b>단축어</b> 앱 → 오른쪽 위 <b>＋</b> → 이름을 <b id="iosShortcutNameLabel">스마트시계알람</b> 으로 정하기</li>
+          <li>동작 검색에서 <b>‘알람 생성’</b>(시계) 추가</li>
+          <li>알람의 <b>시간</b> 칸을 눌러 변수 <b>‘단축어 입력’</b> 선택 (안 보이면 맨 위에 ‘입력 받기’ 동작을 먼저 추가하고 <b>텍스트</b> 선택)</li>
+          <li>레이블은 <b>스마트 시계</b>로 입력 → 완료</li>
+          <li>아래 <b>테스트</b>를 눌러 시계 앱에 1분 뒤 알람이 생기는지 확인 (처음엔 ‘허용’ 눌러 주기)</li>
+        </ol>
+        <p class="text-[11px] text-gray-500 mt-2">· 시계 앱 알람은 <b>벨소리 볼륨</b>으로 울리고 무음 모드에서도 울려요.<br>· 반복 알람은 다음 한 번만 등록돼요. 매일 울리게 하려면 시계 앱에서 그 알람의 ‘반복’을 한 번 설정해 주세요.<br>· 이 앱에서 알람을 끄거나 지워도 시계 앱 알람은 그대로라 시계 앱에서 직접 꺼 주세요.</p>
+      </details>
+      <button type="button" id="iosClockTestBtn" class="w-full py-2.5 bg-[#f2f4f7] rounded-full text-xs font-bold text-gray-700">⏱ 테스트 (1분 뒤 시계 앱 알람 등록)</button>
+    </div>
 
     <!-- 시계 -->
     <div class="text-center pt-4 pb-2 px-4">
@@ -433,7 +460,7 @@
         el.classList.toggle('hidden', !show);
       });
       if (!lsGet('notice_seen_v2', false)) { $('noticeCard').open = true; lsSet('notice_seen_v2', true); }
-      if (!supportsPush) ['pushSubscribeBtn', 'testPushBtn', 'urgentBurstBtn'].forEach((id) => $(id).classList.add('hidden'));
+      if (!supportsPush) ['pushSubscribeBtn', 'testPushBtn', 'urgentBurstBtn', 'diagBtn'].forEach((id) => $(id).classList.add('hidden'));
       if (isNative) $('bgAudioKeepAliveBtn').classList.add('hidden');
     }
 
@@ -740,6 +767,37 @@
       else showBanner('⚠️', '테스트 알림 실패', '잠시 후 다시 시도하거나 푸시 알림을 껐다 켜 주세요.');
     });
 
+    $('diagBtn').addEventListener('click', async () => {
+      const rows = [];
+      const ok = (b) => (b ? '✅' : '❌');
+      const perm = 'Notification' in window ? Notification.permission : 'unsupported';
+      rows.push(`${ok(perm === 'granted')} 알림 권한: ${perm === 'granted' ? '허용' : perm === 'denied' ? '차단됨 → 사이트 설정에서 알림 허용' : perm === 'default' ? '아직 안 물어봄 → 푸시 알림 버튼 누르기' : '이 브라우저는 푸시 미지원'}`);
+      if (platform === 'ios' && !isStandalone) rows.push('❌ 홈 화면에 추가한 아이콘으로 열어야 푸시가 돼요');
+      let reg = null, sub = null;
+      try { reg = await navigator.serviceWorker.getRegistration(); sub = reg && await reg.pushManager.getSubscription(); } catch {}
+      rows.push(`${ok(reg && reg.active)} 서비스 워커: ${reg && reg.active ? '작동 중' : '없음 → 새로고침'}`);
+      rows.push(`${ok(sub)} 이 기기 푸시 구독: ${sub ? '있음' : '없음 → 🔔 푸시 알림 버튼 누르기'}`);
+      const health = await fetch('/api/health', { cache: 'no-store' }).then((r) => r.json()).catch(() => null);
+      if (!health) rows.push('❌ 서버 응답 없음 (배포 주소/인터넷 확인)');
+      else {
+        rows.push(`${ok(health.storageConfigured)} 서버 저장소(Upstash Redis)`);
+        rows.push(`${ok(health.pushConfigured)} 서버 푸시 키(VAPID)`);
+        rows.push(`${ok(health.exactTimeWakeUp)} 정각 예약(QSTASH_TOKEN)${health.exactTimeWakeUp ? '' : ' → 없으면 늦거나 Apps Script 트리거가 없을 때 아예 안 와요'}`);
+      }
+      if (sub) {
+        await syncPush();
+        const st = await fetch('/api/push?action=status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON() }) })
+          .then((r) => r.json()).catch(() => null);
+        if (st && st.registered) {
+          const next = st.nextAlarmAt ? `${format12(hmOf(st.nextAlarmAt + refDelta())).ampm} ${format12(hmOf(st.nextAlarmAt + refDelta())).t} (${untilText(st.nextAlarmAt)})` : '없음';
+          rows.push(`✅ 서버에 내 알람 ${st.enabledAlarms}개 등록 · 다음 푸시 ${next}`);
+          rows.push(`${ok(st.wakeScheduled || !st.nextAlarmAt)} 다음 알람 정각 예약: ${st.wakeScheduled ? '완료' : st.nextAlarmAt ? '실패 (QSTASH_TOKEN 확인)' : '-'}`);
+        } else rows.push('❌ 서버에 이 기기 알람이 없음 → 🔔 푸시 알림을 껐다 켜기');
+      }
+      if (isAndroid) rows.push('💡 푸시는 오는데 소리가 없으면: 설정 → 애플리케이션 → Chrome → 알림 → 사이트 항목의 소리 켜기');
+      showBanner('🩺', '알림 점검 결과', rows.map(escapeHTML).join('<br>'));
+    });
+
     $('urgentBurstBtn').addEventListener('click', () => {
       urgentBurstMode = !urgentBurstMode;
       localStorage.setItem('urgent_burst_mode', String(urgentBurstMode));
@@ -788,6 +846,34 @@
       } catch {}
       syncNative();
     };
+
+    /* ============ 아이폰 기본 시계 앱 알람 연동 (단축어) ============ */
+    const IOS_SHORTCUT_NAME = '스마트시계알람';
+    let iosClockSync = lsGet('ios_clock_sync', false) === true;
+    function runIOSClockShortcut(timeHM) {
+      if (platform !== 'ios' || !iosClockSync) return;
+      // 버튼 터치 직후에만 다른 앱을 열 수 있어서 저장 버튼에서 바로 호출
+      location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(IOS_SHORTCUT_NAME)}&input=text&text=${encodeURIComponent(timeHM)}`;
+    }
+    (function initIOSClock() {
+      if (platform !== 'ios') return;
+      $('iosClockCard').classList.remove('hidden');
+      $('iosShortcutNameLabel').innerText = IOS_SHORTCUT_NAME;
+      $('iosClockToggle').checked = iosClockSync;
+      if (!lsGet('ios_clock_guide_seen', false)) $('iosClockGuide').open = true;
+      $('iosClockToggle').addEventListener('change', (e) => {
+        iosClockSync = e.target.checked;
+        lsSet('ios_clock_sync', iosClockSync);
+        if (iosClockSync) { $('iosClockGuide').open = true; lsSet('ios_clock_guide_seen', true); }
+      });
+      $('iosClockTestBtn').addEventListener('click', () => {
+        const at = Math.floor((refNow() + 120000) / 60000) * 60000;
+        const prev = iosClockSync; iosClockSync = true;
+        runIOSClockShortcut(hmOf(at));
+        iosClockSync = prev;
+        lsSet('ios_clock_guide_seen', true);
+      });
+    })();
 
     /* ============ 저장 / 목록 ============ */
     function persist() {
@@ -891,6 +977,7 @@
       const n = nextOccurrence(a, trueNow());
       const { ampm, t } = format12(time);
       showBanner('⏰', `${ampm} ${t} 알람 저장됨`, n ? `${untilText(n)}에 울려요.` : '');
+      runIOSClockShortcut(time);
     });
 
     function addAfterMinutes(mins) {
@@ -908,6 +995,7 @@
       $('alarmName').value = '';
       const { ampm, t } = format12(time);
       showBanner('⏰', `${ampm} ${t} 알람 저장됨`, `${untilText(at)}에 울려요.`);
+      runIOSClockShortcut(time);
     }
 
     function openEditModal(id) {
@@ -936,6 +1024,7 @@
       saveAlarms(); renderList(); closeEditModal();
       const { ampm, t } = format12(time);
       showBanner('✏️', '알람 수정됨', `${ampm} ${t} 알람으로 저장했어요.`);
+      runIOSClockShortcut(time);
     });
 
     function toggleAlarm(id) {
