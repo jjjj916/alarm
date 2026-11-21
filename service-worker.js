@@ -39,13 +39,14 @@ async function showAlarmNotification(payload) {
   if (isDismissed(payload)) return;
   const title = payload.title || '⏰ 알람';
   const body = payload.body || '알람 시간이 되었습니다.';
-  const tag = payload.alarmId ? `smart-clock-alarm-${payload.alarmId}` : (payload.tag || 'smart-clock-alarm');
+  const tag = payload.tag || (payload.alarmId ? `smart-clock-alarm-${payload.alarmId}-${Date.now()}` : `smart-clock-alarm-${Date.now()}`);
 
   await self.registration.showNotification(title, {
     body,
     icon: './icon-192.png',
     badge: './icon-192.png',
     tag,
+    silent: false,
     renotify: true,
     requireInteraction: true,
     vibrate: [500, 150, 500, 150, 500],
