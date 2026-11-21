@@ -39,7 +39,7 @@
   <audio id="masterAudioEngine" playsinline webkit-playsinline loop preload="auto"></audio>
 
   <div class="max-w-lg w-full space-y-4 my-1">
-    <!-- 상단 유틸리티 바 (화면 켜짐 버튼 복구 완료) -->
+    <!-- 상단 유틸리티 바 -->
     <div class="flex justify-between items-center px-1 pt-1 gap-1.5 flex-wrap">
       <span id="activeDayDisplay" class="px-3 py-1.5 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">오늘 요일</span>
       <div class="flex items-center gap-1.5 flex-wrap justify-end">
@@ -129,12 +129,57 @@
       <button id="addAlarmBtn" class="w-full py-3 bg-[#0381fe] text-white font-bold rounded-full text-sm shadow-md">저장</button>
     </div>
 
-    <!-- 내 알람 목록 -->
+    <!-- 내 알람 목록 (터치 시 시간/요일/사운드 수정 가능) -->
     <div class="space-y-2.5 pt-1">
       <div class="flex justify-between items-center px-2">
         <h2 class="text-xs font-bold text-gray-500">내 알람 목록</h2>
+        <span class="text-[11px] text-gray-400">카드를 눌러 시간·설정 수정</span>
       </div>
       <div id="alarmList" class="space-y-2.5 pb-8"></div>
+    </div>
+  </div>
+
+  <!-- 알람 시간/설정 수정 모달 -->
+  <div id="editAlarmModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 hidden z-50">
+    <div class="clean-card w-full max-w-lg p-6 space-y-4 text-left shadow-xl">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-extrabold text-gray-900">✏️ 알람 시간 및 설정 수정</h3>
+        <button type="button" onclick="closeEditModal()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 text-xs font-bold">✕</button>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <select id="editAmPm" class="w-full bg-[#f2f4f7] font-bold px-3 py-2.5 rounded-2xl text-sm">
+          <option value="AM">오전</option>
+          <option value="PM">오후</option>
+        </select>
+        <select id="editHour" class="w-full bg-[#f2f4f7] font-bold px-3 py-2.5 rounded-2xl text-sm font-mono"></select>
+        <select id="editMinute" class="w-full bg-[#f2f4f7] font-bold px-3 py-2.5 rounded-2xl text-sm font-mono"></select>
+      </div>
+      <select id="editSound" class="w-full bg-[#f2f4f7] text-xs font-semibold px-3.5 py-2.5 rounded-2xl">
+        <option value="random">🎲 매일 무작위 사운드</option>
+        <option value="0">✨ 1. 스파클 라이징 팝</option>
+        <option value="1">🌅 2. 선라이즈 오케스트라</option>
+        <option value="2">👾 3. 네온 아케이드 8비트</option>
+        <option value="3">🍃 4. 브라이트 윈드 차임</option>
+        <option value="4">🔔 5. 크리스탈 하모닉 벨</option>
+        <option value="5">☕ 6. 릴랙싱 피아노 스케일</option>
+      </select>
+      <div class="flex justify-between items-center px-1" id="editDayPicker">
+        <button type="button" data-day="0" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-rose-500 text-xs font-bold">일</button>
+        <button type="button" data-day="1" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">월</button>
+        <button type="button" data-day="2" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">화</button>
+        <button type="button" data-day="3" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">수</button>
+        <button type="button" data-day="4" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">목</button>
+        <button type="button" data-day="5" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-gray-600 text-xs font-bold">금</button>
+        <button type="button" data-day="6" class="edit-day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-blue-500 text-xs font-bold">토</button>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <input type="text" id="editName" placeholder="알람 이름" class="w-full bg-[#f2f4f7] text-xs p-3 rounded-2xl">
+        <input type="text" id="editGroup" placeholder="그룹 이름" class="w-full bg-[#f2f4f7] text-xs p-3 rounded-2xl">
+      </div>
+      <div class="grid grid-cols-2 gap-2.5 pt-1">
+        <button type="button" onclick="closeEditModal()" class="py-3 bg-gray-100 text-gray-700 font-bold rounded-full text-sm">취소</button>
+        <button type="button" id="saveEditAlarmBtn" class="py-3 bg-[#0381fe] text-white font-bold rounded-full text-sm shadow-md">수정 저장</button>
+      </div>
     </div>
   </div>
 
@@ -158,10 +203,14 @@
     }
 
     (function initSelects() {
-      const hEl = document.getElementById('alarmHour');
-      const mEl = document.getElementById('alarmMinute');
-      for (let h = 1; h <= 12; h++) hEl.innerHTML += `<option value="${h}" ${h===8?'selected':''}>${String(h).padStart(2,'0')}시</option>`;
-      for (let m = 0; m < 60; m++) { const v = String(m).padStart(2,'0'); mEl.innerHTML += `<option value="${v}">${v}분</option>`; }
+      const pairs = [
+        [document.getElementById('alarmHour'), document.getElementById('alarmMinute')],
+        [document.getElementById('editHour'), document.getElementById('editMinute')]
+      ];
+      for (const [hEl, mEl] of pairs) {
+        for (let h = 1; h <= 12; h++) hEl.innerHTML += `<option value="${h}" ${h===8?'selected':''}>${String(h).padStart(2,'0')}시</option>`;
+        for (let m = 0; m < 60; m++) { const v = String(m).padStart(2,'0'); mEl.innerHTML += `<option value="${v}">${v}분</option>`; }
+      }
     })();
 
     function showBanner(icon, title, desc) {
@@ -176,6 +225,7 @@
     try { alarms = JSON.parse(localStorage.getItem('saved_alarms') || '[]'); } catch {}
     let urgentBurstMode = localStorage.getItem('urgent_burst_mode') === 'true';
     let isRinging = false, currentRingingAlarm = null, pushEnabled = false, isBgAudioRunning = false;
+    let editingAlarmIndex = null;
     let wakeLock = null, wakeLockRequested = false;
     let lastDismissedStamp = 0;
     let previewAudioCtx = null, webAudioLoopTimer = null, silentUrl = null;
@@ -183,7 +233,7 @@
     const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
     const soundNames = ['✨ 1. 스파클 라이징 팝', '🌅 2. 선라이즈 오케스트라', '👾 3. 네온 아케이드 8비트', '🍃 4. 브라이트 윈드 차임', '🔔 5. 크리스탈 하모닉 벨', '☕ 6. 릴랙싱 피아노 스케일'];
 
-    // 화면 켜짐 (Wake Lock) 복구
+    // 화면 켜짐 (Wake Lock)
     function updateWakeLockUI(active) {
       const btn = document.getElementById('wakeLockBtn');
       btn.innerText = active ? '☀️ 화면 켜짐: ON' : '💤 화면 켜짐: OFF';
@@ -193,21 +243,13 @@
     }
 
     async function requestScreenWakeLock() {
-      if (!('wakeLock' in navigator)) {
-        showBanner('⚠️', '화면 켜짐 미지원', '현재 브라우저에서는 화면 꺼짐 방지 API를 지원하지 않습니다.');
-        return;
-      }
+      if (!('wakeLock' in navigator)) return;
       try {
         wakeLock = await navigator.wakeLock.request('screen');
         wakeLockRequested = true;
         updateWakeLockUI(true);
-        wakeLock.addEventListener('release', () => {
-          wakeLock = null;
-          updateWakeLockUI(false);
-        });
-      } catch {
-        updateWakeLockUI(false);
-      }
+        wakeLock.addEventListener('release', () => { wakeLock = null; updateWakeLockUI(false); });
+      } catch { updateWakeLockUI(false); }
     }
 
     document.getElementById('wakeLockBtn').addEventListener('click', async () => {
@@ -216,16 +258,8 @@
         await wakeLock.release();
         wakeLock = null;
         updateWakeLockUI(false);
-        showBanner('💤', '화면 켜짐 유지 OFF', '기기 설정 시간에 따라 화면이 자동으로 꺼집니다.');
       } else {
         await requestScreenWakeLock();
-        if (wakeLock) showBanner('☀️', '화면 켜짐 유지 ON', '앱을 열어두는 동안 화면이 자동으로 잠기지 않습니다.');
-      }
-    });
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && wakeLockRequested && !wakeLock) {
-        requestScreenWakeLock();
       }
     });
 
@@ -271,23 +305,41 @@
       if (isBgAudioRunning) showBanner('🎧', '오디오 유지 활성화됨', '백그라운드에서도 푸시 도착 즉시 알람음이 울립니다.');
     });
 
+    // iOS에서 유튜브 재생 중 일시정지된 오디오를 복귀/알람 시 즉시 탈환
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        if (wakeLockRequested && !wakeLock) requestScreenWakeLock();
+        if (isRinging) playRingLoop();
+        else if (isBgAudioRunning) ensureBgAudio();
+      }
+    });
+
+    masterEl.addEventListener('pause', () => {
+      if (isRinging) {
+        masterEl.play().catch(() => {});
+      }
+    });
+
     function playRingLoop() {
       unlockAudio();
-      const ringUrl = encodeWav(22050, 18000, t => Math.sin(2 * Math.PI * (t < 0.4 ? 880 : 1174.66) * t) * 0.85);
+      const ringUrl = encodeWav(22050, 18000, t => Math.sin(2 * Math.PI * (t < 0.4 ? 880 : 1174.66) * t) * 0.9);
       masterEl.src = ringUrl;
       masterEl.volume = 1.0;
       masterEl.loop = true;
       masterEl.play().catch(() => {});
       if (webAudioLoopTimer) clearInterval(webAudioLoopTimer);
       webAudioLoopTimer = setInterval(() => {
-        if (!isRinging || !previewAudioCtx) return;
+        if (!isRinging) return;
+        if (masterEl.paused) masterEl.play().catch(() => {});
+        if (!previewAudioCtx) return;
+        if (previewAudioCtx.state === 'suspended') previewAudioCtx.resume().catch(() => {});
         const osc = previewAudioCtx.createOscillator(), g = previewAudioCtx.createGain();
         osc.frequency.value = 987.77;
-        g.gain.setValueAtTime(0.6, previewAudioCtx.currentTime);
+        g.gain.setValueAtTime(0.7, previewAudioCtx.currentTime);
         g.gain.exponentialRampToValueAtTime(0.001, previewAudioCtx.currentTime + 0.4);
         osc.connect(g); g.connect(previewAudioCtx.destination);
         osc.start(); osc.stop(previewAudioCtx.currentTime + 0.45);
-      }, 700);
+      }, 650);
     }
 
     function updateUrgentUI() {
@@ -418,10 +470,13 @@
       });
       saveAlarms();
       renderList();
-      showBanner('⏰', `${timeStr} 알람 등록됨`, '서버 푸시와 백그라운드 오디오가 동기화되었습니다.');
+      showBanner('⏰', `${timeStr} 알람 등록됨`, '카드를 누르면 시간과 설정을 바로 수정할 수 있습니다.');
     };
 
     document.querySelectorAll('.day-btn').forEach(btn => {
+      btn.addEventListener('click', () => btn.classList.toggle('selected-day'));
+    });
+    document.querySelectorAll('.edit-day-btn').forEach(btn => {
       btn.addEventListener('click', () => btn.classList.toggle('selected-day'));
     });
 
@@ -457,6 +512,75 @@
       renderList();
     });
 
+    // 알람 카드 클릭 시 수정 모달 열기
+    window.openEditModal = function(idx) {
+      const a = alarms[idx];
+      if (!a) return;
+      editingAlarmIndex = idx;
+      const [hStr, mStr] = a.time.split(':');
+      const h24 = parseInt(hStr, 10);
+      document.getElementById('editAmPm').value = h24 >= 12 ? 'PM' : 'AM';
+      document.getElementById('editHour').value = String(h24 % 12 === 0 ? 12 : h24 % 12);
+      document.getElementById('editMinute').value = mStr;
+      document.getElementById('editSound').value = a.isRandomSound ? 'random' : String((Number(a.sound) || 0) % 6);
+      document.getElementById('editName').value = a.name || '';
+      document.getElementById('editGroup').value = a.group || '';
+
+      document.querySelectorAll('.edit-day-btn').forEach(btn => {
+        const d = parseInt(btn.getAttribute('data-day'), 10);
+        if (a.isRepeating && (a.days || []).includes(d)) btn.classList.add('selected-day');
+        else btn.classList.remove('selected-day');
+      });
+
+      document.getElementById('editAlarmModal').classList.remove('hidden');
+    };
+
+    window.closeEditModal = function() {
+      editingAlarmIndex = null;
+      document.getElementById('editAlarmModal').classList.add('hidden');
+    };
+
+    document.getElementById('saveEditAlarmBtn').addEventListener('click', () => {
+      if (editingAlarmIndex === null || !alarms[editingAlarmIndex]) return;
+      const ampm = document.getElementById('editAmPm').value;
+      const h = parseInt(document.getElementById('editHour').value, 10);
+      const m = document.getElementById('editMinute').value;
+      const soundVal = document.getElementById('editSound').value;
+      const sound = soundVal === 'random' ? Math.floor(Math.random() * 6) : parseInt(soundVal, 10);
+
+      let h24 = h % 12;
+      if (ampm === 'PM') h24 += 12;
+      const timeStr = `${String(h24).padStart(2, '0')}:${m}`;
+
+      const target = new Date();
+      target.setHours(h24, parseInt(m, 10), 0, 0);
+      if (target.getTime() <= Date.now()) target.setDate(target.getDate() + 1);
+
+      let selectedDays = [];
+      document.querySelectorAll('.edit-day-btn').forEach(btn => {
+        if (btn.classList.contains('selected-day')) selectedDays.push(parseInt(btn.getAttribute('data-day'), 10));
+      });
+
+      const prev = alarms[editingAlarmIndex];
+      alarms[editingAlarmIndex] = {
+        ...prev,
+        name: document.getElementById('editName').value.trim() || '알람',
+        group: document.getElementById('editGroup').value.trim() || '기본',
+        time: timeStr,
+        sound,
+        isRandomSound: soundVal === 'random',
+        days: selectedDays.length ? selectedDays : [target.getDay()],
+        isRepeating: selectedDays.length > 0,
+        singleShotAt: selectedDays.length ? null : target.getTime(),
+        enabled: true
+      };
+
+      saveAlarms();
+      renderList();
+      closeEditModal();
+      showBanner('✏️', '알람 설정 수정됨', `${ampm === 'PM' ? '오후' : '오전'} ${String(h).padStart(2,'0')}:${m} 알람이 저장되었습니다.`);
+    });
+
     function renderList() {
       const el = document.getElementById('alarmList');
       if (!alarms.length) { el.innerHTML = '<div class="clean-card p-6 text-xs text-gray-400 text-center">알람이 없습니다.</div>'; return; }
@@ -471,7 +595,7 @@
         const soundLabel = soundNames[(Number(a.sound) || 0) % 6];
         
         return `
-          <div class="clean-card p-5 flex justify-between items-center ${a.enabled ? 'opacity-100' : 'opacity-60'}">
+          <div onclick="openEditModal(${i})" class="clean-card p-5 flex justify-between items-center cursor-pointer active:scale-[0.99] transition ${a.enabled ? 'opacity-100' : 'opacity-60'}">
             <div class="text-left flex-1 min-w-0 pr-2">
               <div class="flex items-center gap-1.5 mb-1">
                 <span class="text-[11px] px-2 py-0.5 bg-blue-50 text-[#0381fe] rounded-full font-bold">${escapeHTML(a.group)}</span>
@@ -485,7 +609,7 @@
                 <span class="${a.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${repeatDaysText}</span> · ${soundLabel}
               </div>
             </div>
-            <div class="flex items-center gap-3 shrink-0">
+            <div class="flex items-center gap-3 shrink-0" onclick="event.stopPropagation()">
               <label class="pill-switch">
                 <input type="checkbox" ${a.enabled ? 'checked' : ''} onchange="toggleAlarm(${i})">
                 <span class="pill-slider"></span>
@@ -519,7 +643,6 @@
     };
 
     function triggerAlarm(alarm) {
-      // iOS에서 방금 끄기를 누른 직후(90초 이내) 도착한 지연 푸시는 소리/모달 차단
       if (Date.now() - lastDismissedStamp < 90000) return;
       isRinging = true;
       currentRingingAlarm = alarm;
@@ -541,7 +664,6 @@
       isRinging = false;
       if (webAudioLoopTimer) clearInterval(webAudioLoopTimer);
 
-      // iOS WebKit 백그라운드 미디어 세션까지 완전히 파괴
       masterEl.pause();
       masterEl.currentTime = 0;
       masterEl.removeAttribute('src');

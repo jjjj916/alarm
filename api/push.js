@@ -107,7 +107,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // action === 'check'
     if (body.subscription && body.subscription.endpoint) {
       const subKey = `push_sub:${Buffer.from(body.subscription.endpoint).toString('base64url')}`;
       const record = await redis.get(subKey);

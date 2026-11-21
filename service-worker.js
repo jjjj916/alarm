@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'smart-clock-v20261121-wakelock-ios-fix';
+const CACHE_NAME = 'smart-clock-v20261121-edit-and-ios-yt';
 let dismissedUntil = 0;
 let pendingRepeatTimer = null;
 
@@ -43,14 +43,14 @@ self.addEventListener('push', (event) => {
   event.waitUntil((async () => {
     if (Date.now() < dismissedUntil) return;
     await self.registration.showNotification(payload.title || '⏰ 알람', {
-      body: payload.body || '알람 시간이 되었습니다.',
+      body: payload.body || '알람 시간이 되었습니다. 배너를 터치하면 연속 알람음이 울립니다.',
       icon: './icon-192.png',
       badge: './icon-192.png',
       tag: `smart-clock-${payload.alarmId || 'ring'}-${Date.now()}`,
       silent: false,
       renotify: true,
       requireInteraction: true,
-      vibrate: [600, 150, 600, 150, 600],
+      vibrate: [800, 150, 800, 150, 800],
       data: payload,
       actions: [
         { action: 'dismiss', title: '✕ 알람 끄기' },
