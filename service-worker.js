@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'smart-clock-ios-infinite-v20261121-2';
+const CACHE_NAME = 'smart-clock-apns-v20261121-final';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -8,9 +8,9 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.map((k) => (k !== CACHE_NAME ? caches.delete(k) : Promise.resolve())))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(keys.map((k) => (k !== CACHE_NAME ? caches.delete(k) : Promise.resolve()))))
+      .then(() => self.clients.claim())
   );
 });
 
@@ -19,12 +19,11 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch (e) {
-    data = { title: '⏰ 알람', body: event.data ? event.data.text() : '알람이 울립니다.' };
+    data = { title: '⏰ 스마트 시계 알람', body: event.data ? event.data.text() : '알람이 울립니다.' };
   }
 
   const title = data.title || '⏰ 스마트 시계 알람';
-  // iOS에서 매번 기본 알림음이 울리도록 매회 고유 tag 부여
-  const uniqueTag = data.tag || `smart-clock-ring-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const uniqueTag = data.tag || `smart-clock-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
   const options = {
     body: data.body || '배너를 길게 눌러 [✕ 알람 끄기]를 누를 때까지 계속 울립니다.',

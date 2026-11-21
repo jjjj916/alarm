@@ -6,6 +6,7 @@ const { Redis } = require('@upstash/redis');
 function getRedis() {
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  if (!url || !token) throw new Error('Redis 환경 변수(UPSTASH_REDIS_REST_URL/TOKEN)가 없습니다.');
   return new Redis({ url, token });
 }
 
@@ -14,56 +15,65 @@ module.exports = async function handler(req, res) {
     const pub = process.env.VAPID_PUBLIC_KEY;
     const priv = process.env.VAPID_PRIVATE_KEY;
     const subject = process.env.VAPID_SUBJECT || 'mailto:admin@example.com';
-    const hasQstash = Boolean(process.env.QSTASH_TOKEN);
 
     if (!pub || !priv) {
-      return res.status(500).json({ ok: false, step: 'ENV_CHECK', error: 'VAPID 키 누락' });
+      return res.status(500).json({ ok: false, error: 'Vercel 환경 변수에 VAPID_PUBLIC_KEY 또는 VAPID_PRIVATE_KEY가 없습니다.' });
     }
 
     webpush.setVapidDetails(subject, pub, priv);
     const redis = getRedis();
     const keys = await redis.keys('smart-clock:sub:*');
 
-    if (keys.length === 0) {
+    if (!keys || keys.length === 0) {
       return res.status(200).json({
         ok: false,
-        step: 'REDIS_SUB_CHECK',
-        error: 'Redis에 저장된 기기 푸시 구독이 0개입니다. 앱에서 [🔔 푸시 알림: ON]을 먼저 눌러주세요.',
-        hasQstash
+        subscribedDevices: 0,
+        error: '서버(Redis)에 등록된 기기가 0개입니다. 홈 화면 아이콘으로 실행 후 [🔔 푸시 알림: ON]을 눌러주세요.'
       });
     }
 
     const results = [];
     for (const k of keys) {
       const rec = await redis.get(k);
-      if (!rec || !rec.subscription) continue;
+      if (!rec || !rec.subscription || !rec.subscription.endpoint) continue;
+      const isApple = rec.subscription.endpoint.includes('apple.com');
+
       try {
-        await webpush.sendNotification(
+        const pushRes = await webpush.sendNotification(
           rec.subscription,
           JSON.stringify({
             type: 'alarm',
-            alarmId: 'diag-test',
-            title: '🚨 [iOS 푸시 진단 성공]',
-            body: '이 배너와 알림음이 들리면 APNs 푸시 경로는 정상입니다!',
-            tag: `diag-${Date.now()}`,
-            silent: false,
-            renotify: true
+            alarmId: 'instant-test',
+            title: '⏰ [iOS 푸시 테스트 성공]',
+            body: '이 배너와 알림음이 울리면 유튜브 시청 중에도 알람이 정상 작동합니다!',
+            tag: `test-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`
           }),
-          { TTL: 60, headers: { Urgency: 'high' } }
+          { TTL: 60 }
         );
-        results.push({ key: k.slice(-8), sent: true, urgentBurstMode: Boolean(rec.urgentBurstMode) });
+        results.push({
+          device: isApple ? 'iOS (Apple APNs)' : 'Android/PC',
+          sent: true,
+          statusCode: pushRes.statusCode
+        });
       } catch (e) {
-        results.push({ key: k.slice(-8), sent: false, statusCode: e.statusCode, message: e.message });
+        if (e.statusCode === 404 || e.statusCode === 410) {
+          await redis.del(k);
+        }
+        results.push({
+          device: isApple ? 'iOS (Apple APNs)' : 'Android/PC',
+          sent: false,
+          statusCode: e.statusCode || 500,
+          detail: e.body || e.message
+        });
       }
     }
 
     return res.status(200).json({
-      ok: true,
-      hasQstash,
-      subscribedDevices: keys.length,
+      ok: results.some((r) => r.sent),
+      hasQstashToken: Boolean(process.env.QSTASH_TOKEN),
       results
     });
-  } catch (error) {
-    return res.status(500).json({ ok: false, error: error.message });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
   }
 };

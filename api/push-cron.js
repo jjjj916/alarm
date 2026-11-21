@@ -58,7 +58,6 @@ async function scheduleQStashNextBurst(req, delaySec = 4) {
     });
     return res.ok;
   } catch (e) {
-    console.error('QStash burst chain error:', e && e.message);
     return false;
   }
 }
@@ -71,11 +70,9 @@ module.exports = async function handler(req, res) {
     const subKeys = await redis.keys('smart-clock:sub:*');
 
     let sentCount = 0;
-    let checkedSubs = 0;
     let hasOngoingUrgentBurst = false;
 
     for (const key of subKeys) {
-      checkedSubs++;
       const record = await redis.get(key);
       if (!record || !record.subscription || !record.subscription.endpoint) continue;
 
@@ -86,14 +83,12 @@ module.exports = async function handler(req, res) {
       let dirty = false;
       const payloadsToSend = [];
 
-      // 1. 무한 기본 알림음 연속 발송 (최대 30분간 4초마다 반복, [✕ 알람 끄기] 클릭 시 즉시 중단)
       if (record.activeRinging && isBurstEnabled) {
         const ar = record.activeRinging;
         const startedAt = Number(ar.startedAt) || now;
         const lastSent = Number(ar.lastSentAt) || 0;
-        const elapsedTotal = now - startedAt;
 
-        if (elapsedTotal > 30 * 60 * 1000) {
+        if (now - startedAt > 30 * 60 * 1000) {
           record.activeRinging = null;
           dirty = true;
         } else {
@@ -112,20 +107,15 @@ module.exports = async function handler(req, res) {
               scheduleKey: ar.scheduleKey || '',
               title: `⏰ [${burstSeq}회 울림] ${ar.label || ar.name || '알람'}`,
               body: `${ar.time || zoned.hm} 알람! 배너를 길게 눌러 [✕ 알람 끄기]를 누를 때까지 계속 울립니다.`,
-              tag: `smart-clock-ring-${ar.alarmId || 'all'}-${now}`,
-              silent: false,
-              renotify: true
+              tag: `smart-clock-ring-${ar.alarmId || 'all'}-${now}`
             });
           }
         }
       }
 
-      // 2. 알람 스케줄 검사
       for (const alarm of alarms) {
         if (!alarm || !alarm.enabled) continue;
-        if (alarm.userDismissedAt && now - Number(alarm.userDismissedAt) < 120 * 1000 && !alarm.nextSnoozeAt) {
-          continue;
-        }
+        if (alarm.userDismissedAt && now - Number(alarm.userDismissedAt) < 120 * 1000 && !alarm.nextSnoozeAt) continue;
 
         let shouldTrigger = false;
         let scheduleKey = '';
@@ -187,14 +177,11 @@ module.exports = async function handler(req, res) {
             scheduleKey,
             title: `⏰ [1회 울림] ${label}`,
             body: `${alarm.time} 알람! 배너를 길게 눌러 [✕ 알람 끄기]를 누를 때까지 계속 울립니다.`,
-            tag: `smart-clock-ring-${alarm.id}-${now}`,
-            silent: false,
-            renotify: true
+            tag: `smart-clock-ring-${alarm.id}-${now}`
           });
         }
       }
 
-      // 3. 타이머 종료 검사
       if (record.timer && record.timer.endAt) {
         const diff = now - Number(record.timer.endAt);
         if (diff >= -15000 && diff <= 90000) {
@@ -219,12 +206,9 @@ module.exports = async function handler(req, res) {
             type: 'timer',
             alarmId: 'timer',
             totalMs,
-            label: '카운트다운 타이머 완료',
             title: '⏳ [1회 울림] 타이머 완료',
             body: '설정한 타이머가 종료되었습니다. [✕ 알람 끄기]를 누를 때까지 계속 울립니다.',
-            tag: `smart-clock-timer-${now}`,
-            silent: false,
-            renotify: true
+            tag: `smart-clock-timer-${now}`
           });
         }
       }
@@ -240,7 +224,7 @@ module.exports = async function handler(req, res) {
           await webpush.sendNotification(
             record.subscription,
             JSON.stringify(payload),
-            { TTL: 60, headers: { Urgency: 'high' } }
+            { TTL: 60 }
           );
           sentCount++;
         } catch (pushErr) {
@@ -249,7 +233,6 @@ module.exports = async function handler(req, res) {
             hasOngoingUrgentBurst = false;
             break;
           }
-          console.error('webpush send error:', pushErr && pushErr.message);
         }
       }
     }
@@ -259,16 +242,8 @@ module.exports = async function handler(req, res) {
       nextBurstScheduled = await scheduleQStashNextBurst(req, 4);
     }
 
-    return res.status(200).json({
-      ok: true,
-      checkedSubs,
-      sentCount,
-      hasOngoingUrgentBurst,
-      nextBurstScheduled,
-      timestamp: now
-    });
+    return res.status(200).json({ ok: true, sentCount, hasOngoingUrgentBurst, nextBurstScheduled });
   } catch (error) {
-    console.error('push-cron error:', error);
     return res.status(500).json({ error: error.message || 'Cron execution failed' });
   }
 };
