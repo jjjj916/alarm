@@ -155,10 +155,10 @@
           </div>
 
           <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
-            <span class="font-extrabold text-[#0381fe] shrink-0">3. 상단 2개 버튼 ON</span>
+            <span class="font-extrabold text-[#0381fe] shrink-0">3. 상단 버튼 설정</span>
             <p>
-              • <b>화면 꺼짐 대비:</b> <span class="underline decoration-amber-400 font-bold">[🔔 푸시 알림: ON]</span>을 켜두면 화면이 잠겨도 정각에 서버 푸시와 진동이 울립니다.<br>
-              • <b>유튜브 시청 대비:</b> <span class="underline decoration-amber-400 font-bold">[🎧 오디오 유지: ON]</span> 상태에서 다른 앱으로 이동해야 알람 시각에 사운드 주도권을 가져옵니다.
+              • <b>기본 백그라운드 알림:</b> <span class="underline decoration-amber-400 font-bold">[🔔 푸시 알림: ON]</span>을 켜두면 정각에 상단 배너와 시스템 알림음이 울립니다.<br>
+              • <b>Android 유튜브 시청:</b> <span class="underline decoration-amber-400 font-bold">[🎧 오디오 유지: ON]</span>을 켜면 알람 시각에 브라우저 사운드 주도권을 가져옵니다. (iOS는 유튜브 충돌 방지를 위해 자동 비활성화됩니다.)
             </p>
           </div>
 
@@ -170,14 +170,14 @@
           <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
             <span class="font-extrabold text-purple-700 shrink-0">5. 아이폰/아이패드</span>
             <p>
-              • 반드시 Safari 공유 버튼에서 <b>[홈 화면에 추가]</b>로 설치한 아이콘으로 실행하고 <b>[🔔 푸시 알림: ON]</b> 및 <b>[🎧 오디오 유지: ON]</b>을 함께 켜두세요.<br>
-              • 유튜브 시청 중 알람 시각이 되면 <b>푸시 트리거 + 미디어 세션 독점</b>으로 알람 소리를 전환하며, iOS OS가 백그라운드 오디오를 제한하는 경우에도 <b>상단 푸시 배너와 시스템 알림음</b>이 울립니다. 제어 센터에서 <b>무음 모드 해제</b> 및 <b>알림·미디어 음량</b>을 확인하세요.
+              • 반드시 Safari 공유 버튼에서 <b>[홈 화면에 추가]</b>로 설치한 아이콘으로 실행하고 <b>[🔔 푸시 알림: ON]</b>을 켜두세요.<br>
+              • <b>유튜브 시청 시:</b> 영상 시청을 방해하지 않도록 정각에 <b>상단 배너 + 시스템 알림음 1회</b>로 깔끔하게 알려줍니다. 기상 등 절대 놓치면 안 될 때만 <b>[🚨 무제한 긴급알림: ON]</b>을 켜세요.
             </p>
           </div>
 
           <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
             <span class="font-extrabold text-rose-700 shrink-0">6. 꼭 일어나야 할 때</span>
-            <p>상단의 <span class="underline decoration-amber-400 font-bold">[🚨 무제한 긴급알림: ON]</span>을 켜두면 알림 배너의 <b>[✕ 알람 끄기]</b>를 누르기 전까지 서버 긴급 푸시와 진동이 계속 반복됩니다.</p>
+            <p>상단의 <span class="underline decoration-amber-400 font-bold">[🚨 무제한 긴급알림: ON]</span>을 켜두면 알림 배너의 <b>[✕ 알람 끄기]</b>를 누르기 전까지 서버 긴급 푸시가 5초마다 반복됩니다. (유튜브 시청 중에는 OFF 권장)</p>
           </div>
         </div>
       </div>
@@ -517,6 +517,9 @@
   </div>
 
   <script>
+    const IS_IOS_DEVICE = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     window.toggleEssentialGuide = function() {
       const bodyEl = document.getElementById('essentialGuideBody');
       const btnEl = document.getElementById('toggleGuideBtn');
@@ -613,8 +616,8 @@
     let wakeLockRequested = false;
     let pushEnabled = false;
     let isBgAudioRunning = false;
-    let bgAudioManuallyDisabled = false;
-    let bgAudioManualKeepAlive = localStorage.getItem('bg_audio_manual_keep_alive') === 'true';
+    let bgAudioManuallyDisabled = IS_IOS_DEVICE;
+    let bgAudioManualKeepAlive = !IS_IOS_DEVICE && (localStorage.getItem('bg_audio_manual_keep_alive') === 'true');
     let silentKeepAliveBlobUrl = null;
     const ringBlobCache = new Map();
 
@@ -730,9 +733,9 @@
       syncCurrentPushState();
       if (urgentBurstMode) {
         if ('vibrate' in navigator) navigator.vibrate([400, 100, 400]);
-        showFeatureInfoBanner('🚨', '무제한 긴급 알림 모드가 켜졌습니다', '알림 배너의 <b>[✕ 알람 끄기]</b>를 누르기 전까지 서버 긴급 푸시와 진동이 반복됩니다.');
+        showFeatureInfoBanner('🚨', '무제한 긴급 알림 모드가 켜졌습니다', '배너의 <b>[✕ 알람 끄기]</b>를 누를 때까지 5초마다 푸시가 반복됩니다. (유튜브 시청 시에는 끄는 것을 권장합니다)');
       } else {
-        showFeatureInfoBanner('🚨', '무제한 긴급 알림 모드가 꺼졌습니다', '기본 단일 푸시 알림 방식으로 동작합니다.');
+        showFeatureInfoBanner('🎬', '일반 단일 알림 모드 (유튜브 시청 권장)', '알람 시각에 푸시 알림과 소리가 1회만 깔끔하게 울려 영상 시청을 방해하지 않습니다.');
       }
     });
 
@@ -747,7 +750,9 @@
     }
 
     function initMasterAudioUrls() {
-      getSilentKeepAliveUrl();
+      if (!IS_IOS_DEVICE) {
+        getSilentKeepAliveUrl();
+      }
       getRingBlobUrlForSound(0, 0);
       unlockWebAudioContext();
     }
@@ -838,6 +843,10 @@
 
     function seizeAudioFocusAndPlay(soundIdx = 0, level = 0) {
       if (!isRinging && !isTimerRinging) return;
+      // iOS 백그라운드 상태에서는 유튜브를 강제로 끊지 않도록 포그라운드일 때만 재생
+      if (IS_IOS_DEVICE && document.visibilityState !== 'visible') {
+        return;
+      }
       const ringUrl = getRingBlobUrlForSound(soundIdx, level);
       isStoppingAudio = true;
 
@@ -876,14 +885,21 @@
       updateBgAudioButtonUI();
       isStoppingAudio = false;
 
-      setTimeout(() => {
-        ensureAutoBgKeepAlive();
-      }, 200);
+      if (!IS_IOS_DEVICE) {
+        setTimeout(() => {
+          ensureAutoBgKeepAlive();
+        }, 200);
+      }
     }
 
     function updateBgAudioButtonUI() {
       const btn = document.getElementById('bgAudioKeepAliveBtn');
       if (!btn) return;
+      if (IS_IOS_DEVICE) {
+        btn.innerText = '🎬 iOS 유튜브 보호';
+        btn.className = 'px-2.5 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-full text-[11px] font-bold shadow-sm transition';
+        return;
+      }
       const isActuallyOn = Boolean(isBgAudioRunning && !masterEl.paused && masterEl.src);
       if (isActuallyOn) {
         btn.innerText = '🎧 오디오 유지: ON';
@@ -893,8 +909,15 @@
         btn.className = 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 hover:bg-gray-50 transition';
       }
     }
+    updateBgAudioButtonUI();
 
     async function ensureAutoBgKeepAlive(force = false) {
+      // iOS에서는 유튜브 오디오와 핑퐁 충돌을 일으키므로 무음 오디오 유지를 실행하지 않음
+      if (IS_IOS_DEVICE) {
+        isBgAudioRunning = false;
+        updateBgAudioButtonUI();
+        return false;
+      }
       if (isStoppingAudio || isRinging || isTimerRinging) return false;
       if (bgAudioManuallyDisabled && !force) return false;
       const hasActiveSchedule = alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
@@ -941,7 +964,7 @@
     masterEl.addEventListener('play', () => {
       if (isRinging || isTimerRinging) {
         claimAudioFocusForAlarm(currentRingingAlarm);
-      } else {
+      } else if (!IS_IOS_DEVICE) {
         isBgAudioRunning = true;
         updateBgAudioButtonUI();
       }
@@ -950,16 +973,19 @@
     masterEl.addEventListener('pause', () => {
       if (isStoppingAudio) return;
       if (isRinging || isTimerRinging) {
-        setTimeout(() => {
-          if (!isStoppingAudio && (isRinging || isTimerRinging)) {
-            claimAudioFocusForAlarm(currentRingingAlarm);
-            masterEl.play().catch(() => {});
-          }
-        }, 120);
+        if (!IS_IOS_DEVICE || document.visibilityState === 'visible') {
+          setTimeout(() => {
+            if (!isStoppingAudio && (isRinging || isTimerRinging)) {
+              claimAudioFocusForAlarm(currentRingingAlarm);
+              masterEl.play().catch(() => {});
+            }
+          }, 120);
+        }
       } else {
         isBgAudioRunning = false;
         updateBgAudioButtonUI();
-        if (!bgAudioManuallyDisabled && (bgAudioManualKeepAlive || alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running'))) {
+        // iOS에서는 다른 앱(유튜브)이 오디오를 가져갔을 때 다시 뺏어오지 않음
+        if (!IS_IOS_DEVICE && !bgAudioManuallyDisabled && (bgAudioManualKeepAlive || alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running'))) {
           setTimeout(() => {
             ensureAutoBgKeepAlive();
           }, 350);
@@ -968,6 +994,14 @@
     });
 
     document.getElementById('bgAudioKeepAliveBtn').addEventListener('click', async () => {
+      if (IS_IOS_DEVICE) {
+        showFeatureInfoBanner(
+          '🎬',
+          'iOS 유튜브 충돌 방지 모드 자동 적용 중',
+          '아이폰/아이패드에서는 오디오 유지가 유튜브 재생을 멈칫거리게 하므로 자동 차단됩니다. 대신 <b>[🔔 푸시 알림: ON]</b>을 통해 상단 배너와 시스템 알림음으로 알람이 울립니다.'
+        );
+        return;
+      }
       initMasterAudioUrls();
       const currentlyOn = Boolean(isBgAudioRunning && !masterEl.paused && masterEl.src);
       if (!currentlyOn) {
@@ -976,7 +1010,7 @@
         localStorage.setItem('bg_audio_manual_keep_alive', 'true');
         const started = await ensureAutoBgKeepAlive(true);
         if (started) {
-          showFeatureInfoBanner('🎧', '백그라운드 오디오 세션 유지가 켜졌습니다', '유튜브 등 다른 앱을 보는 동안에도 브라우저 오디오 세션을 준비해 두었다가 알람 시각에 사운드 주도권을 전환합니다. (미디어 볼륨 확인)');
+          showFeatureInfoBanner('🎧', '백그라운드 오디오 세션 유지가 켜졌습니다', '유튜브 등 다른 앱을 보는 동안에도 알람 시각에 브라우저 사운드 주도권을 가져옵니다.');
         } else {
           bgAudioManualKeepAlive = false;
           localStorage.setItem('bg_audio_manual_keep_alive', 'false');
@@ -1165,9 +1199,8 @@
     async function subscribeToPushNotifications(requestPerm = true) {
       if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
         if (requestPerm) {
-          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-          alert(isIOS
-            ? '아이폰/아이패드(iOS)에서는 Safari 공유 버튼 > [홈 화면에 추가]로 설치한 앱에서만 잠금화면 서버 푸시 알람을 받을 수 있습니다.'
+          alert(IS_IOS_DEVICE
+            ? '아이폰/아이패드(iOS)에서는 Safari 공유 버튼 > [홈 화면에 추가]로 설치한 앱에서만 서버 푸시 알람을 받을 수 있습니다.'
             : '이 브라우저에서는 Web Push 알림을 지원하지 않습니다.');
         }
         return null;
@@ -1404,7 +1437,9 @@
     function saveAlarms(clearRinging = false) {
       ensureServerScheduleFields();
       localStorage.setItem('saved_alarms', JSON.stringify(alarms));
-      ensureAutoBgKeepAlive();
+      if (!IS_IOS_DEVICE) {
+        ensureAutoBgKeepAlive();
+      }
       ensureNotificationAndPushSync(clearRinging);
     }
 
@@ -1577,6 +1612,8 @@
     updateClock();
 
     function recoverBackgroundAudioSession() {
+      // iOS에서는 유튜브 재생 방해 방지를 위해 백그라운드 오디오 복구 루프를 돌리지 않음
+      if (IS_IOS_DEVICE) return;
       if (isStoppingAudio) return;
       if (isRinging || isTimerRinging) {
         if (masterEl.paused) {
@@ -1595,28 +1632,30 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         if (wakeLockRequested && !wakeLock) acquireWakeLock();
-        recoverBackgroundAudioSession();
+        if (!IS_IOS_DEVICE) recoverBackgroundAudioSession();
         updateClock();
       } else {
-        recoverBackgroundAudioSession();
+        if (!IS_IOS_DEVICE) recoverBackgroundAudioSession();
       }
     });
     window.addEventListener('focus', () => {
-      recoverBackgroundAudioSession();
+      if (!IS_IOS_DEVICE) recoverBackgroundAudioSession();
       updateClock();
     });
     window.addEventListener('pageshow', () => {
-      recoverBackgroundAudioSession();
+      if (!IS_IOS_DEVICE) recoverBackgroundAudioSession();
       updateClock();
     });
 
-    document.addEventListener('pointerdown', () => {
-      recoverBackgroundAudioSession();
-    }, { passive: true });
+    if (!IS_IOS_DEVICE) {
+      document.addEventListener('pointerdown', () => {
+        recoverBackgroundAudioSession();
+      }, { passive: true });
 
-    setInterval(() => {
-      recoverBackgroundAudioSession();
-    }, 3000);
+      setInterval(() => {
+        recoverBackgroundAudioSession();
+      }, 3000);
+    }
 
     window.addQuickTimer = function(minutesToAdd, label) {
       initMasterAudioUrls();
@@ -2305,7 +2344,7 @@
         timerTotalMs = (h * 3600 + m * 60 + s) * 1000;
         if (timerTotalMs <= 0) return alert('1초 이상의 타이머 시간을 설정해주세요.');
         timerRemainingMs = timerTotalMs; timerState = 'running'; timerEndTimestamp = Date.now() + timerRemainingMs;
-        ensureAutoBgKeepAlive();
+        if (!IS_IOS_DEVICE) ensureAutoBgKeepAlive();
         syncCurrentPushState();
         const endDate = new Date(getSynchronizedNow().getTime() + timerRemainingMs);
         document.getElementById('timerEndTimeLabel').innerText = `🔔 종료 예정 ${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
@@ -2323,7 +2362,9 @@
         timerState = 'paused'; clearInterval(timerInterval); timerRemainingMs = Math.max(0, timerEndTimestamp - Date.now()); syncCurrentPushState();
         btn.innerText = '계속'; btn.className = 'w-32 py-3.5 rounded-full bg-[#0381fe] hover:bg-[#026de0] text-white font-bold text-sm transition shadow-md shadow-blue-500/25';
       } else if (timerState === 'paused') {
-        timerState = 'running'; timerEndTimestamp = Date.now() + timerRemainingMs; ensureAutoBgKeepAlive(); syncCurrentPushState();
+        timerState = 'running'; timerEndTimestamp = Date.now() + timerRemainingMs;
+        if (!IS_IOS_DEVICE) ensureAutoBgKeepAlive();
+        syncCurrentPushState();
         btn.innerText = '일시정지'; btn.className = 'w-32 py-3.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition shadow-md shadow-amber-500/25';
         timerInterval = setInterval(() => {
           timerRemainingMs = timerEndTimestamp - Date.now();
