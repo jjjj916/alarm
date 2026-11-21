@@ -2971,8 +2971,8 @@
             const triggerKey = `${todayKey}_${alarm.time}_${shotAt}`;
             if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey && alarm.dismissedScheduleKey !== triggerKey) {
               alarm.lastTriggeredKey = triggerKey;
-              saveAlarms();
               triggerAlarm(alarm);
+              saveAlarms();
               break;
             }
             continue;
@@ -2996,15 +2996,48 @@
 
           if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey && alarm.dismissedScheduleKey !== triggerKey) {
             alarm.lastTriggeredKey = triggerKey;
-            saveAlarms();
             triggerAlarm(alarm);
+            saveAlarms();
             break;
           }
         }
       }
     }
 
-    setInterval(updateClock, 250);
+    // 정각 정밀 울림: 다음 알람까지 남은 시간을 계산해 그 순간(ms 단위)에 정확히 확인하고,
+    // 20초 전부터 알람음을 미리 만들어 두어 울리는 순간 지연이 없게 함
+    let preciseTimer = null, preciseFor = 0;
+    function nextDueMs(nowMs) {
+      const nowD = getSynchronizedNow();
+      let best = null;
+      for (const a of alarms) {
+        if (!a.enabled) continue;
+        let due = null;
+        if (a.nextSnoozeAt) due = Number(a.nextSnoozeAt);
+        else if (!a.isRepeating) due = Number(a.singleShotAt) || null;
+        else if ((a.days || []).includes(nowD.getDay())) {
+          const [h, m] = String(a.time).split(':').map(Number);
+          const d = new Date(nowD); d.setHours(h, m, 0, 0); due = d.getTime();
+        }
+        if (due && due > nowMs && (best === null || due < best.due)) best = { due, a };
+      }
+      return best;
+    }
+    function schedulePrecise() {
+      const nowMs = getSynchronizedNow().getTime();
+      const nx = nextDueMs(nowMs);
+      if (!nx) return;
+      const left = nx.due - nowMs;
+      if (left <= 20000 && !isRinging) {
+        try { getRingBlobUrlForSound(Number(nx.a.sound) || 0, Number(nx.a.snoozeLevel) || 0); } catch (e) {}
+      }
+      if (left <= 1500 && preciseFor !== nx.due) {
+        preciseFor = nx.due;
+        clearTimeout(preciseTimer);
+        preciseTimer = setTimeout(updateClock, Math.max(0, left));
+      }
+    }
+    setInterval(() => { updateClock(); schedulePrecise(); }, 100);
     updateClock();
 
     function recoverBackgroundAudioSession() {
