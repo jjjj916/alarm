@@ -125,31 +125,52 @@
 
     <!-- 탭 1: 알람 & 서버 시간 동기화 -->
     <div id="tab-alarm" class="space-y-4">
-      <!-- 필수 확인 안내 (기기별로 해당 내용만 표시) -->
-      <div class="clean-card px-4 py-3.5 bg-amber-50/95 border border-amber-200/90 text-left space-y-2.5">
-        <div class="flex items-start gap-2">
-          <span class="text-sm leading-none mt-0.5 shrink-0">🔊</span>
-          <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
-            <strong class="font-extrabold">알람음은 미디어 볼륨으로 울려요.</strong> 벨소리가 아니라 <b>미디어 볼륨</b>을 올려 두세요. 앱이 꺼져 있을 때 오는 <b>푸시 알림음</b>은 <b>벨소리·알림 볼륨</b>을 따라요.
-          </p>
+      <!-- 📌 알람 정상 작동을 위한 필수 수칙 안내문 카드 -->
+      <div class="clean-card p-4 bg-amber-50/95 border border-amber-200/90 text-left">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="text-base leading-none">📌</span>
+            <h2 class="text-xs font-extrabold text-amber-950">알람이 울리지 않을 때 꼭 확인하세요 (필수 수칙)</h2>
+          </div>
+          <button type="button" id="toggleGuideBtn" onclick="toggleEssentialGuide()" class="px-2.5 py-1 bg-amber-200/70 hover:bg-amber-200 text-amber-950 rounded-full text-[10px] font-extrabold transition shrink-0">
+            접기 ▲
+          </button>
         </div>
-        <div data-os="android" class="hidden flex items-start gap-2 pt-2 border-t border-amber-200/60">
-          <span class="text-sm leading-none mt-0.5 shrink-0">🎧</span>
-          <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
-            <strong class="font-extrabold">유튜브 보다가 알람 받기:</strong> 상단 <strong class="font-extrabold underline decoration-amber-400 underline-offset-2">[🎧 오디오 유지: ON]</strong>을 확인하고 <b>홈 버튼으로 나가서</b> 유튜브를 보세요. 알람 시각이 되면 <b>유튜브가 멈추고 알람음</b>이 울려요. 최근 앱 목록에서 Chrome을 지우면 동작하지 않으니 지우지 마세요. 설정 → 애플리케이션 → Chrome → 배터리 → <b>제한 없음</b>을 권장해요.
-          </p>
-        </div>
-        <div data-os="ios" class="hidden flex items-start gap-2 pt-2 border-t border-amber-200/60">
-          <span class="text-sm leading-none mt-0.5 shrink-0">🍎</span>
-          <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
-            <strong class="font-extrabold">아이폰에서 유튜브 보다가 알람 받기:</strong> 유튜브가 재생되면 iOS가 이 웹앱을 멈춰서 웹 알람음은 날 수 없어요. 아래 <b>‘🍎 영상 볼 때도 울리게’</b>를 켜면 아이폰 <b>기본 시계 앱 알람</b>이 함께 등록돼서, 알람 시각에 <b>유튜브가 멈추고 알람 소리와 화면</b>이 앞으로 나와요.
-          </p>
-        </div>
-        <div class="flex items-start gap-2 pt-2 border-t border-amber-200/60">
-          <span class="text-sm leading-none mt-0.5 shrink-0">🔔</span>
-          <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
-            <strong class="font-extrabold">화면이 꺼져 있을 때:</strong> 상단 <strong class="font-extrabold underline decoration-amber-400 underline-offset-2">[🔔 푸시 알림: ON]</strong>을 켜 두면 정각에 서버 푸시와 진동이 와요.<span data-os="ios" class="hidden"> 아이폰은 Safari 공유 → <b>홈 화면에 추가</b>한 아이콘으로 열어야 푸시를 받을 수 있어요.</span>
-          </p>
+
+        <div id="essentialGuideBody" class="mt-3 pt-3 border-t border-amber-200/70 space-y-2.5 text-[11px] text-amber-950 leading-relaxed">
+          <div class="flex items-start gap-2">
+            <span class="font-extrabold text-rose-600 shrink-0">1. 앱 완전 종료 금지</span>
+            <p>최근 앱 목록에서 브라우저(또는 홈 화면 앱)를 <b>위로 밀어 강제 종료하지 마세요.</b> 홈 화면으로 나가거나 다른 앱으로 전환만 해야 백그라운드 알람이 유지됩니다.</p>
+          </div>
+
+          <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
+            <span class="font-extrabold text-[#0381fe] shrink-0">2. 상단 2개 버튼 ON</span>
+            <p>
+              • <b>화면 꺼짐 대비:</b> <span class="underline decoration-amber-400 font-bold">[🔔 푸시 알림: ON]</span>을 켜두면 화면이 잠겨도 정각에 서버 푸시와 진동이 울립니다.<br>
+              <span data-os="android" class="hidden">• <b>유튜브 시청 대비:</b> <span class="underline decoration-amber-400 font-bold">[🎧 오디오 유지: ON]</span> 상태에서 <b>홈 버튼으로 나가</b> 유튜브를 보면, 알람 시각에 <b>유튜브가 일시정지되고 알람음이 소리를 독점</b>합니다. 끄기를 누르면 유튜브를 다시 재생하면 됩니다.</span>
+              <span data-os="ios" class="hidden">• <b>유튜브 시청 대비:</b> 아이폰은 유튜브가 재생되는 동안 iOS가 웹앱 소리를 막습니다. 아래 <b>[🍎 영상 볼 때도 울리게]</b>를 켜면 기본 시계 앱 알람이 함께 등록되어, 알람 시각에 유튜브가 멈추고 알람 소리와 화면이 앞으로 나옵니다.</span>
+            </p>
+          </div>
+
+          <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
+            <span class="font-extrabold text-amber-700 shrink-0">🔊 볼륨</span>
+            <p>앱 알람음은 <b>미디어 볼륨</b>으로 울립니다. 미디어 볼륨을 올려 두세요. 앱이 꺼져 있을 때 오는 <b>푸시 알림음</b>은 <b>벨소리·알림 볼륨</b>을 따릅니다.</p>
+          </div>
+
+          <div data-os="android" class="hidden flex items-start gap-2 pt-2 border-t border-amber-200/50">
+            <span class="font-extrabold text-emerald-700 shrink-0">3. 갤럭시(Android)</span>
+            <p>배터리 절전으로 알람이 밀리지 않도록 <b>[설정 &gt; 애플리케이션 &gt; 사용 중인 브라우저(Chrome/삼성 인터넷) &gt; 배터리 &gt; 제한 없음]</b>으로 설정해주세요.</p>
+          </div>
+
+          <div data-os="ios" class="hidden flex items-start gap-2 pt-2 border-t border-amber-200/50">
+            <span class="font-extrabold text-purple-700 shrink-0">3. 아이폰/아이패드</span>
+            <p>반드시 Safari 공유 버튼에서 <b>[홈 화면에 추가]</b>로 설치한 아이콘으로 실행해야 잠금화면 푸시가 도착합니다. <b>무음 모드</b>나 <b>집중 모드</b>가 켜져 있으면 <b>푸시 알림음</b>이 나지 않으니 확인하세요. (앱 화면의 알람음은 미디어 볼륨으로 울립니다)</p>
+          </div>
+
+          <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
+            <span class="font-extrabold text-rose-700 shrink-0">4. 꼭 일어나야 할 때</span>
+            <p>상단의 <span class="underline decoration-amber-400 font-bold">[🚨 무제한 긴급알림: ON]</span>을 켜두면 알림 배너의 <b>[✕ 알람 끄기]</b>를 누르기 전까지 서버 긴급 푸시와 진동이 계속 반복됩니다.</p>
+          </div>
         </div>
       </div>
 
@@ -158,7 +179,7 @@
         <div class="flex justify-between items-center gap-3">
           <div>
             <h2 class="text-sm font-bold text-gray-800">🍎 영상 볼 때도 울리게</h2>
-            <p class="text-[11px] text-gray-500 mt-0.5">알람을 저장하면 아이폰 <b>기본 시계 앱</b>에도 같은 시각 알람을 등록해요.</p>
+            <p class="text-[11px] text-gray-500 mt-0.5">알람을 저장하면 아이폰 <b>기본 시계 앱</b>에도 같은 시각 알람을 등록해요. 시계 알람은 유튜브를 멈추고 소리와 화면을 독점해요.</p>
           </div>
           <label class="pill-switch shrink-0"><input type="checkbox" id="iosClockToggle"><span class="pill-slider"></span></label>
         </div>
@@ -171,7 +192,7 @@
             <li>레이블은 <b>스마트 시계</b> → 완료</li>
             <li>아래 <b>테스트</b>로 시계 앱에 알람이 생기는지 확인 (처음엔 ‘허용’)</li>
           </ol>
-          <p class="text-[11px] text-gray-500 mt-2">· 시계 앱 알람은 무음 모드에서도 울려요.<br>· 반복 알람은 다음 한 번만 등록돼요. 매일 울리게 하려면 시계 앱에서 ‘반복’을 한 번 설정하세요.<br>· 이 앱에서 끄거나 지워도 시계 앱 알람은 남아 있으니 시계 앱에서 직접 꺼 주세요.</p>
+          <p class="text-[11px] text-gray-500 mt-2">· 반복 알람은 다음 한 번만 등록돼요. 매일 울리게 하려면 시계 앱에서 ‘반복’을 한 번 설정하세요.<br>· 이 앱에서 끄거나 지워도 시계 앱 알람은 남아 있으니 시계 앱에서 직접 꺼 주세요.</p>
         </details>
         <button type="button" id="iosClockTestBtn" class="w-full py-2.5 bg-[#f2f4f7] rounded-full text-xs font-bold text-gray-700">⏱ 테스트 (2분 뒤 시계 앱 알람 등록)</button>
       </div>
@@ -503,6 +524,7 @@
       <p id="modalAlarmTime" class="text-6xl font-light text-gray-900 font-mono tracking-tight my-2">00:00</p>
       <h2 id="modalAlarmName" class="text-xl font-bold text-gray-800 mt-2">기상 알람</h2>
       <p id="modalSoundTitle" class="text-xs text-gray-500 mt-1">알람음 재생 중...</p>
+      <p class="text-[11px] text-gray-400 mt-1">🔊 미디어 볼륨으로 재생 중</p>
       <p id="modalRepeatInfo" class="text-xs text-[#0381fe] font-semibold mt-2">💡 끄기를 누르면 알람 스위치가 OFF로 전환됩니다</p>
       <p id="modalSnoozeInfo" class="text-xs text-gray-400 mt-1">다시 울림 정보</p>
     </div>
@@ -517,6 +539,14 @@
   </div>
 
   <script>
+    window.toggleEssentialGuide = function() {
+      const bodyEl = document.getElementById('essentialGuideBody');
+      const btnEl = document.getElementById('toggleGuideBtn');
+      if (!bodyEl || !btnEl) return;
+      const isHidden = bodyEl.classList.toggle('hidden');
+      btnEl.innerText = isHidden ? '펼치기 ▼' : '접기 ▲';
+    };
+
     function initTimeSelectOptions(hourId, minId, defaultHour = '8', defaultMin = '00') {
       const hourEl = document.getElementById(hourId);
       const minEl = document.getElementById(minId);
@@ -606,6 +636,7 @@
     let pushEnabled = false;
     let isBgAudioRunning = false;
     let bgAudioManuallyDisabled = false;
+    let bgAudioManualKeepAlive = localStorage.getItem('bg_audio_manual_keep_alive') === 'true';
     let silentKeepAliveBlobUrl = null;
     const ringBlobCache = new Map();
 
@@ -662,7 +693,6 @@
 
     function getSilentKeepAliveUrl() {
       if (silentKeepAliveBlobUrl) return silentKeepAliveBlobUrl;
-      // 백그라운드 오디오 포커스 유지를 위한 초저진폭(귀에 들리지 않는 수준) 2초 WAV 스트림
       silentKeepAliveBlobUrl = encodeWavBuffer(8000, 16000, (_i, t) => Math.sin(2 * Math.PI * 30 * t) * 0.0005);
       return silentKeepAliveBlobUrl;
     }
@@ -683,8 +713,12 @@
       const peakAmp = Math.min(0.45 + lv * 0.16, 0.94);
 
       const sampleRate = 22050;
-      const numSamples = Math.round(sampleRate * cycleDur);
-      const url = encodeWavBuffer(sampleRate, numSamples, (_i, t) => {
+      // 크롬(안드로이드)은 5초 미만 오디오를 짧은 효과음으로 취급해 다른 앱 소리를 '줄이기만' 합니다.
+      // 8초 이상 길이로 만들어 오디오 포커스를 완전히 가져와 유튜브 등 다른 앱 재생을 일시정지시킵니다.
+      const repeats = Math.ceil(8 / cycleDur);
+      const numSamples = Math.round(sampleRate * cycleDur) * repeats;
+      const url = encodeWavBuffer(sampleRate, numSamples, (_i, tAll) => {
+        const t = tAll % cycleDur;
         let mix = 0;
         for (let n = 0; n < freqs.length; n++) {
           const start = n * stepDelay;
@@ -818,9 +852,9 @@
       const ringUrl = getRingBlobUrlForSound(soundIdx, level);
       isStoppingAudio = true;
 
-      // 이미 재생 중이던 KeepAlive 세션이 끊기지 않도록 pause() 없이 즉시 src 교체 후 play()
       masterEl.src = ringUrl;
       masterEl.volume = 1.0;
+      masterEl.muted = false;
       masterEl.loop = true;
 
       claimAudioFocusForAlarm(currentRingingAlarm);
@@ -830,7 +864,6 @@
         p.then(() => {
           claimAudioFocusForAlarm(currentRingingAlarm);
         }).catch(() => {
-          // 백그라운드 <audio> 전환이 OS에 의해 제한될 경우 Web Audio API로 즉시 병행 출력
           startWebAudioLoop(soundIdx, level);
         }).finally(() => {
           isStoppingAudio = false;
@@ -838,7 +871,7 @@
       } else {
         isStoppingAudio = false;
       }
-      // 백그라운드에서 다른 앱(유튜브)과 오디오를 다툴 때 20초 동안 계속 재생 재시도
+      // 유튜브 등 다른 앱이 소리를 쥐고 있으면 처음 재생이 밀릴 수 있어 20초 동안 계속 재시도
       if (document.visibilityState === 'hidden') {
         let tries = 0;
         const retry = setInterval(() => {
@@ -860,7 +893,6 @@
       updateBgAudioButtonUI();
       isStoppingAudio = false;
 
-      // 남은 활성 알람이 있으면 백그라운드 오디오 세션 자동 재유지
       setTimeout(() => {
         ensureAutoBgKeepAlive();
       }, 200);
@@ -869,7 +901,8 @@
     function updateBgAudioButtonUI() {
       const btn = document.getElementById('bgAudioKeepAliveBtn');
       if (!btn) return;
-      if (isBgAudioRunning) {
+      const isActuallyOn = Boolean(isBgAudioRunning && !masterEl.paused && masterEl.src);
+      if (isActuallyOn) {
         btn.innerText = '🎧 오디오 유지: ON';
         btn.className = 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
       } else {
@@ -878,11 +911,11 @@
       }
     }
 
-    function ensureAutoBgKeepAlive(force = false) {
-      if (isStoppingAudio || isRinging || isTimerRinging) return;
-      if (bgAudioManuallyDisabled && !force) return;
+    async function ensureAutoBgKeepAlive(force = false) {
+      if (isStoppingAudio || isRinging || isTimerRinging) return false;
+      if (bgAudioManuallyDisabled && !force) return false;
       const hasActiveSchedule = alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
-      if (!hasActiveSchedule) {
+      if (!hasActiveSchedule && !bgAudioManualKeepAlive && !force) {
         if (!masterEl.paused) {
           isStoppingAudio = true;
           masterEl.pause();
@@ -892,7 +925,7 @@
         }
         isBgAudioRunning = false;
         updateBgAudioButtonUI();
-        return;
+        return false;
       }
 
       const upcoming = getUpcomingAlarmForBackground();
@@ -900,29 +933,34 @@
         getRingBlobUrlForSound(getDisplayedAlarmSoundIndex(upcoming), Number(upcoming.snoozeLevel) || 0);
       }
 
-      // 백그라운드(유튜브 시청 등) 전환 시에도 브라우저 오디오 세션을 유지하기 위해 무음 스트림 재생
       if (masterEl.paused || !masterEl.src) {
         masterEl.src = getSilentKeepAliveUrl();
         masterEl.volume = 0.01;
         masterEl.loop = true;
-        const p = masterEl.play();
-        if (p && typeof p.then === 'function') {
-          p.then(() => {
-            isBgAudioRunning = true;
-            updateBgAudioButtonUI();
-          }).catch(() => {
-            isBgAudioRunning = false;
-            updateBgAudioButtonUI();
-          });
+        try {
+          await masterEl.play();
+          isBgAudioRunning = true;
+          updateBgAudioButtonUI();
+          return true;
+        } catch (e) {
+          isBgAudioRunning = false;
+          updateBgAudioButtonUI();
+          return false;
         }
       } else {
         isBgAudioRunning = true;
         updateBgAudioButtonUI();
+        return true;
       }
     }
 
     masterEl.addEventListener('play', () => {
-      if (isRinging || isTimerRinging) claimAudioFocusForAlarm(currentRingingAlarm);
+      if (isRinging || isTimerRinging) {
+        claimAudioFocusForAlarm(currentRingingAlarm);
+      } else {
+        isBgAudioRunning = true;
+        updateBgAudioButtonUI();
+      }
     });
 
     masterEl.addEventListener('pause', () => {
@@ -936,17 +974,33 @@
       } else {
         isBgAudioRunning = false;
         updateBgAudioButtonUI();
+        if (document.visibilityState === 'visible' && !bgAudioManuallyDisabled && (bgAudioManualKeepAlive || alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running'))) {
+          setTimeout(() => {
+            ensureAutoBgKeepAlive();
+          }, 350);
+        }
       }
     });
 
-    document.getElementById('bgAudioKeepAliveBtn').addEventListener('click', () => {
+    document.getElementById('bgAudioKeepAliveBtn').addEventListener('click', async () => {
       initMasterAudioUrls();
-      if (!isBgAudioRunning) {
+      const currentlyOn = Boolean(isBgAudioRunning && !masterEl.paused && masterEl.src);
+      if (!currentlyOn) {
         bgAudioManuallyDisabled = false;
-        ensureAutoBgKeepAlive(true);
-        showFeatureInfoBanner('🎧', '백그라운드 오디오 세션 유지가 켜졌습니다', '유튜브 등 다른 앱을 보는 동안에도 브라우저 오디오 권한이 유지되어 알람 시각이 되면 즉시 알람음이 울립니다.');
+        bgAudioManualKeepAlive = true;
+        localStorage.setItem('bg_audio_manual_keep_alive', 'true');
+        const started = await ensureAutoBgKeepAlive(true);
+        if (started) {
+          showFeatureInfoBanner('🎧', '백그라운드 오디오 세션 유지가 켜졌습니다', '유튜브 등 다른 앱을 보는 동안에도 브라우저 오디오 권한이 유지되어 알람 시각이 되면 즉시 알람음이 울립니다.');
+        } else {
+          bgAudioManualKeepAlive = false;
+          localStorage.setItem('bg_audio_manual_keep_alive', 'false');
+          showFeatureInfoBanner('⚠️', '오디오 권한 활성화 실패', '화면 빈 곳을 한 번 터치한 뒤 다시 버튼을 눌러주세요.');
+        }
       } else {
         bgAudioManuallyDisabled = true;
+        bgAudioManualKeepAlive = false;
+        localStorage.setItem('bg_audio_manual_keep_alive', 'false');
         isBgAudioRunning = false;
         isStoppingAudio = true;
         masterEl.pause();
@@ -979,7 +1033,6 @@
       if (!syncedDomain) timeOffsetMs = selfOffsetMs;
       else timeOffsetMs += selfOffsetMs - prevSelf;
     }
-    // 서버에는 '표준시' 기준 시각으로 보냄
     const toTrueMs = (ms) => (Number(ms) > 0 ? Math.round(Number(ms) - timeOffsetMs + selfOffsetMs) : null);
     let lastFetchTimestamp = 0;
 
@@ -1083,7 +1136,8 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            subscription: subscription.toJSON ? subscription.toJSON() : subscription, alarms: serverAlarms, timeZone: tz, timer: serverTimer, urgentBurstMode, clearRinging,
+            subscription: subscription.toJSON ? subscription.toJSON() : subscription,
+            alarms: serverAlarms, timeZone: tz, timer: serverTimer, urgentBurstMode, clearRinging,
             refDeltaMs: timeOffsetMs - selfOffsetMs
           })
         });
@@ -1311,7 +1365,7 @@
           return;
         }
         await syncStandardTime();
-        timeOffsetMs = selfOffsetMs + Number(data.offsetMs || 0);   // 사이트 시계 = 표준시 + offsetMs
+        timeOffsetMs = selfOffsetMs + Number(data.offsetMs || 0);
         syncedDomain = data.host || new URL(data.targetUrl).hostname;
         recomputeSingleShotsForClock();
         document.getElementById('clock').classList.remove('text-gray-900');
@@ -1583,20 +1637,41 @@
     setInterval(updateClock, 250);
     updateClock();
 
+    function recoverBackgroundAudioSession() {
+      if (isStoppingAudio || isRinging || isTimerRinging || bgAudioManuallyDisabled) return;
+      // 다른 앱(유튜브)이 재생 중일 때 백그라운드에서 다시 켜면 유튜브 소리가 계속 줄어들거나 끊기므로 화면이 보일 때만 복구
+      if (document.visibilityState !== 'visible') return;
+      const shouldKeep = bgAudioManualKeepAlive || alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
+      if (shouldKeep && (masterEl.paused || !masterEl.src || !isBgAudioRunning)) {
+        ensureAutoBgKeepAlive();
+      }
+    }
+
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         if (wakeLockRequested && !wakeLock) acquireWakeLock();
-        ensureAutoBgKeepAlive();
+        recoverBackgroundAudioSession();
         updateClock();
       } else {
-        ensureAutoBgKeepAlive();
+        recoverBackgroundAudioSession();
       }
     });
-    window.addEventListener('focus', updateClock);
+    window.addEventListener('focus', () => {
+      recoverBackgroundAudioSession();
+      updateClock();
+    });
+    window.addEventListener('pageshow', () => {
+      recoverBackgroundAudioSession();
+      updateClock();
+    });
 
     document.addEventListener('pointerdown', () => {
-      ensureAutoBgKeepAlive();
+      recoverBackgroundAudioSession();
     }, { passive: true });
+
+    setInterval(() => {
+      recoverBackgroundAudioSession();
+    }, 3000);
 
     window.addQuickTimer = function(minutesToAdd, label) {
       initMasterAudioUrls();
@@ -2013,7 +2088,7 @@
       document.getElementById('modalAlarmName').innerText = `[${alarm.group || '기본 그룹'}] ${alarm.name || '알람'}`;
       document.getElementById('modalAlarmTime').innerText = alarm.nextSnoozeTime || alarm.time || '00:00';
       document.getElementById('modalSoundTitle').innerText = `알람음: ${alarm.randomDaily ? `매일 랜덤 · ${soundNames[resolvedSoundIdx]}` : soundNames[resolvedSoundIdx]}`;
-      document.getElementById('modalRepeatInfo').innerText = "💡 한 번만 울리는 알람은 끄면 스위치가 OFF로 바뀌고, 반복 알람은 다음 요일에 다시 울려요";
+      document.getElementById('modalRepeatInfo').innerText = "💡 한 번만 울리는 알람은 끄면 OFF, 반복 알람은 다음 요일에 다시 울려요";
       const sCount = Number(alarm.snoozeCount) || 3;
       const rSnooze = Number.isFinite(Number(alarm.remainingSnooze)) ? Number(alarm.remainingSnooze) : sCount;
       const sInt = Number(alarm.snoozeInterval) || 5;
@@ -2440,7 +2515,6 @@
       el.classList.toggle('hidden', !((os === 'ios' && IS_IOS) || (os === 'android' && IS_ANDROID)));
     });
 
-    // 아이폰 기본 시계 앱 알람 연동 (단축어 실행)
     let iosClockSync = localStorage.getItem('ios_clock_sync') === 'true';
     function runIOSClockShortcut(timeHM) {
       if (!IS_IOS || !iosClockSync || !timeHM) return;
@@ -2464,7 +2538,6 @@
         iosClockSync = prev;
       });
     }
-    // 알람 저장 직후(버튼 터치 안)에 시계 앱 알람도 등록
     ['addAlarmBtn', 'saveEditedAlarmBtn'].forEach((id) => document.getElementById(id).addEventListener('click', () => {
       const pre = id === 'addAlarmBtn' ? ['alarmAmPm', 'alarmHour', 'alarmMinute'] : ['editAlarmAmPm', 'editAlarmHour', 'editAlarmMinute'];
       runIOSClockShortcut(get24HourTimeFromSelects(...pre));
