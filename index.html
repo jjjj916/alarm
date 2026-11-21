@@ -186,7 +186,7 @@
         <details id="iosClockGuide">
           <summary class="text-[11px] font-bold text-[#0381fe] cursor-pointer">처음 한 번만: 단축어 만들기 (1분)</summary>
           <ol class="list-decimal pl-5 mt-2 space-y-1 text-[11px] text-gray-700 leading-relaxed">
-            <li><b>단축어</b> 앱 → 오른쪽 위 <b>＋</b> → 이름을 <b>스마트시계알람</b> 으로 정하기</li>
+            <li>아래 <b>[단축어 앱 열기]</b> → 새 단축어 이름을 아래 칸과 <b>글자 하나까지 똑같이</b> 정하기 (띄어쓰기 없이)</li>
             <li>동작 검색에서 <b>‘알람 생성’</b>(시계) 추가</li>
             <li>알람의 <b>시간</b> 칸을 눌러 변수 <b>‘단축어 입력’</b> 선택 (안 보이면 맨 위에 ‘입력 받기’ 동작을 추가하고 <b>텍스트</b> 선택)</li>
             <li>레이블은 <b>스마트 시계</b> → 완료</li>
@@ -194,7 +194,16 @@
           </ol>
           <p class="text-[11px] text-gray-500 mt-2">· 반복 알람은 다음 한 번만 등록돼요. 매일 울리게 하려면 시계 앱에서 ‘반복’을 한 번 설정하세요.<br>· 이 앱에서 끄거나 지워도 시계 앱 알람은 남아 있으니 시계 앱에서 직접 꺼 주세요.</p>
         </details>
-        <button type="button" id="iosClockTestBtn" class="w-full py-2.5 bg-[#f2f4f7] rounded-full text-xs font-bold text-gray-700">⏱ 테스트 (2분 뒤 시계 앱 알람 등록)</button>
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-500 mb-1">내가 만든 단축어 이름 (단축어 앱에 보이는 이름 그대로)</label>
+          <input type="text" id="iosShortcutName" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false"
+                 class="w-full bg-[#f2f4f7] text-gray-900 text-xs font-bold p-3 rounded-2xl border border-transparent focus:border-[#0381fe] focus:bg-white focus:outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="iosOpenShortcutsBtn" class="py-2.5 bg-[#f2f4f7] rounded-full text-xs font-bold text-gray-700">📲 단축어 앱 열기</button>
+          <button type="button" id="iosClockTestBtn" class="py-2.5 bg-[#0381fe] text-white rounded-full text-xs font-bold">⏱ 테스트 (2분 뒤)</button>
+        </div>
+        <p class="text-[11px] text-gray-400">‘단축어를 찾을 수 없습니다’가 뜨면 위 이름과 단축어 앱의 이름이 다른 거예요. (예: 알람 ↔ 알림, 띄어쓰기)</p>
       </div>
 
       <div class="text-center py-5 px-4">
@@ -2516,14 +2525,22 @@
     });
 
     let iosClockSync = localStorage.getItem('ios_clock_sync') === 'true';
+    const getShortcutName = () => (localStorage.getItem('ios_shortcut_name') || '스마트시계알람').trim();
     function runIOSClockShortcut(timeHM) {
       if (!IS_IOS || !iosClockSync || !timeHM) return;
-      location.href = `shortcuts://run-shortcut?name=${encodeURIComponent('스마트시계알람')}&input=text&text=${encodeURIComponent(timeHM)}`;
+      location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(getShortcutName())}&input=text&text=${encodeURIComponent(timeHM)}`;
     }
     if (IS_IOS) {
       document.getElementById('iosClockCard').classList.remove('hidden');
       const tg = document.getElementById('iosClockToggle');
       tg.checked = iosClockSync;
+      const nameEl = document.getElementById('iosShortcutName');
+      nameEl.value = getShortcutName();
+      nameEl.addEventListener('input', () => localStorage.setItem('ios_shortcut_name', nameEl.value.trim()));
+      document.getElementById('iosOpenShortcutsBtn').addEventListener('click', () => {
+        localStorage.setItem('ios_shortcut_name', nameEl.value.trim() || '스마트시계알람');
+        location.href = 'shortcuts://create-shortcut';
+      });
       if (localStorage.getItem('ios_clock_guide_seen') !== 'true') document.getElementById('iosClockGuide').open = true;
       tg.addEventListener('change', () => {
         iosClockSync = tg.checked;
@@ -2532,6 +2549,7 @@
         if (iosClockSync) document.getElementById('iosClockGuide').open = true;
       });
       document.getElementById('iosClockTestBtn').addEventListener('click', () => {
+        localStorage.setItem('ios_shortcut_name', nameEl.value.trim() || '스마트시계알람');
         const d = new Date(getSynchronizedNow().getTime() + 120000);
         const prev = iosClockSync; iosClockSync = true;
         runIOSClockShortcut(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
