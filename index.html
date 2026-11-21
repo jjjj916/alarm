@@ -894,6 +894,11 @@
       } else {
         isBgAudioRunning = false;
         updateBgAudioButtonUI();
+        if (!bgAudioManuallyDisabled && (bgAudioManualKeepAlive || alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running'))) {
+          setTimeout(() => {
+            ensureAutoBgKeepAlive();
+          }, 350);
+        }
       }
     });
 
@@ -1495,20 +1500,39 @@
     setInterval(updateClock, 250);
     updateClock();
 
+    function recoverBackgroundAudioSession() {
+      if (isStoppingAudio || isRinging || isTimerRinging || bgAudioManuallyDisabled) return;
+      const shouldKeep = bgAudioManualKeepAlive || alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
+      if (shouldKeep && (masterEl.paused || !masterEl.src || !isBgAudioRunning)) {
+        ensureAutoBgKeepAlive();
+      }
+    }
+
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         if (wakeLockRequested && !wakeLock) acquireWakeLock();
-        ensureAutoBgKeepAlive();
+        recoverBackgroundAudioSession();
         updateClock();
       } else {
-        ensureAutoBgKeepAlive();
+        recoverBackgroundAudioSession();
       }
     });
-    window.addEventListener('focus', updateClock);
+    window.addEventListener('focus', () => {
+      recoverBackgroundAudioSession();
+      updateClock();
+    });
+    window.addEventListener('pageshow', () => {
+      recoverBackgroundAudioSession();
+      updateClock();
+    });
 
     document.addEventListener('pointerdown', () => {
-      ensureAutoBgKeepAlive();
+      recoverBackgroundAudioSession();
     }, { passive: true });
+
+    setInterval(() => {
+      recoverBackgroundAudioSession();
+    }, 3000);
 
     window.addQuickTimer = function(minutesToAdd, label) {
       initMasterAudioUrls();
