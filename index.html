@@ -131,19 +131,46 @@
         <p id="todayDateLabel" class="text-xs text-gray-500 font-medium mt-1">오늘 날짜 불러오는 중...</p>
       </div>
 
-      <!-- 필수 확인 안내 배너 -->
-      <div class="clean-card px-4 py-3.5 bg-amber-50/95 border border-amber-200/90 text-left space-y-2.5">
-        <div class="flex items-start gap-2">
-          <span class="text-sm leading-none mt-0.5 shrink-0">🎧</span>
-          <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
-            <strong class="font-extrabold">유튜브 시청 중 알람 전환 팁:</strong> 상단의 <strong class="font-extrabold underline decoration-amber-400 underline-offset-2">[🎧 오디오 유지: ON]</strong>이 켜진 상태로 유튜브로 넘어가면, 백그라운드 오디오 권한이 유지되어 정각에 알람 소리가 즉시 재생됩니다.
-          </p>
+      <!-- 📌 알람 정상 작동을 위한 필수 수칙 안내문 카드 -->
+      <div class="clean-card p-4 bg-amber-50/95 border border-amber-200/90 text-left">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="text-base leading-none">📌</span>
+            <h2 class="text-xs font-extrabold text-amber-950">알람이 울리지 않을 때 꼭 확인하세요 (필수 수칙)</h2>
+          </div>
+          <button type="button" id="toggleGuideBtn" onclick="toggleEssentialGuide()" class="px-2.5 py-1 bg-amber-200/70 hover:bg-amber-200 text-amber-950 rounded-full text-[10px] font-extrabold transition shrink-0">
+            접기 ▲
+          </button>
         </div>
-        <div class="flex items-start gap-2 pt-2 border-t border-amber-200/60">
-          <span class="text-sm leading-none mt-0.5 shrink-0">🔔</span>
-          <p class="text-[11px] text-amber-950 font-medium leading-relaxed">
-            <strong class="font-extrabold">화면 꺼짐 상태 푸시 수신:</strong> 상단의 <strong class="font-extrabold underline decoration-amber-400 underline-offset-2">[🔔 푸시 알림: ON]</strong>을 켜두면 화면이 꺼져도 설정한 시각 정각에 서버 푸시와 진동이 발송됩니다.
-          </p>
+
+        <div id="essentialGuideBody" class="mt-3 pt-3 border-t border-amber-200/70 space-y-2.5 text-[11px] text-amber-950 leading-relaxed">
+          <div class="flex items-start gap-2">
+            <span class="font-extrabold text-rose-600 shrink-0">1. 앱 완전 종료 금지</span>
+            <p>최근 앱 목록에서 브라우저(또는 홈 화면 앱)를 <b>위로 밀어 강제 종료하지 마세요.</b> 홈 화면으로 나가거나 다른 앱으로 전환만 해야 백그라운드 알람이 유지됩니다.</p>
+          </div>
+
+          <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
+            <span class="font-extrabold text-[#0381fe] shrink-0">2. 상단 2개 버튼 ON</span>
+            <p>
+              • <b>화면 꺼짐 대비:</b> <span class="underline decoration-amber-400 font-bold">[🔔 푸시 알림: ON]</span>을 켜두면 화면이 잠겨도 정각에 서버 푸시와 진동이 울립니다.<br>
+              • <b>유튜브 시청 대비:</b> <span class="underline decoration-amber-400 font-bold">[🎧 오디오 유지: ON]</span> 상태에서 다른 앱으로 이동해야 알람 소리가 차단되지 않습니다.
+            </p>
+          </div>
+
+          <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
+            <span class="font-extrabold text-emerald-700 shrink-0">3. 갤럭시(Android)</span>
+            <p>배터리 절전으로 알람이 밀리지 않도록 <b>[설정 &gt; 애플리케이션 &gt; 사용 중인 브라우저(Chrome/삼성 인터넷) &gt; 배터리 &gt; 제한 없음]</b>으로 설정해주세요.</p>
+          </div>
+
+          <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
+            <span class="font-extrabold text-purple-700 shrink-0">4. 아이폰/아이패드</span>
+            <p>반드시 Safari 공유 버튼에서 <b>[홈 화면에 추가]</b>로 설치한 아이콘으로 실행해야 잠금화면 푸시가 도착합니다. 또한 측면 <b>무음 모드(진동 모드)</b>가 켜져 있으면 알람음이 작아지거나 무음 처리될 수 있으니 벨소리 모드를 확인하세요.</p>
+          </div>
+
+          <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
+            <span class="font-extrabold text-rose-700 shrink-0">5. 꼭 일어나야 할 때</span>
+            <p>상단의 <span class="underline decoration-amber-400 font-bold">[🚨 무제한 긴급알림: ON]</span>을 켜두면 알림 배너의 <b>[✕ 알람 끄기]</b>를 누르기 전까지 서버 긴급 푸시와 진동이 계속 반복됩니다.</p>
+          </div>
         </div>
       </div>
 
@@ -482,6 +509,14 @@
   </div>
 
   <script>
+    window.toggleEssentialGuide = function() {
+      const bodyEl = document.getElementById('essentialGuideBody');
+      const btnEl = document.getElementById('toggleGuideBtn');
+      if (!bodyEl || !btnEl) return;
+      const isHidden = bodyEl.classList.toggle('hidden');
+      btnEl.innerText = isHidden ? '펼치기 ▼' : '접기 ▲';
+    };
+
     function initTimeSelectOptions(hourId, minId, defaultHour = '8', defaultMin = '00') {
       const hourEl = document.getElementById(hourId);
       const minEl = document.getElementById(minId);
@@ -571,6 +606,7 @@
     let pushEnabled = false;
     let isBgAudioRunning = false;
     let bgAudioManuallyDisabled = false;
+    let bgAudioManualKeepAlive = localStorage.getItem('bg_audio_manual_keep_alive') === 'true';
     let silentKeepAliveBlobUrl = null;
     const ringBlobCache = new Map();
 
@@ -627,7 +663,6 @@
 
     function getSilentKeepAliveUrl() {
       if (silentKeepAliveBlobUrl) return silentKeepAliveBlobUrl;
-      // 백그라운드 오디오 포커스 유지를 위한 초저진폭(귀에 들리지 않는 수준) 2초 WAV 스트림
       silentKeepAliveBlobUrl = encodeWavBuffer(8000, 16000, (_i, t) => Math.sin(2 * Math.PI * 30 * t) * 0.0005);
       return silentKeepAliveBlobUrl;
     }
@@ -783,7 +818,6 @@
       const ringUrl = getRingBlobUrlForSound(soundIdx, level);
       isStoppingAudio = true;
 
-      // 이미 재생 중이던 KeepAlive 세션이 끊기지 않도록 pause() 없이 즉시 src 교체 후 play()
       masterEl.src = ringUrl;
       masterEl.volume = 1.0;
       masterEl.loop = true;
@@ -795,7 +829,6 @@
         p.then(() => {
           claimAudioFocusForAlarm(currentRingingAlarm);
         }).catch(() => {
-          // 백그라운드 <audio> 전환이 OS에 의해 제한될 경우 Web Audio API로 즉시 병행 출력
           startWebAudioLoop(soundIdx, level);
         }).finally(() => {
           isStoppingAudio = false;
@@ -818,7 +851,6 @@
       updateBgAudioButtonUI();
       isStoppingAudio = false;
 
-      // 남은 활성 알람이 있으면 백그라운드 오디오 세션 자동 재유지
       setTimeout(() => {
         ensureAutoBgKeepAlive();
       }, 200);
@@ -827,7 +859,8 @@
     function updateBgAudioButtonUI() {
       const btn = document.getElementById('bgAudioKeepAliveBtn');
       if (!btn) return;
-      if (isBgAudioRunning) {
+      const isActuallyOn = Boolean(isBgAudioRunning && !masterEl.paused && masterEl.src);
+      if (isActuallyOn) {
         btn.innerText = '🎧 오디오 유지: ON';
         btn.className = 'px-2.5 py-1.5 bg-blue-50 text-[#0381fe] border border-blue-200 rounded-full text-[11px] font-bold shadow-sm transition';
       } else {
@@ -836,11 +869,11 @@
       }
     }
 
-    function ensureAutoBgKeepAlive(force = false) {
-      if (isStoppingAudio || isRinging || isTimerRinging) return;
-      if (bgAudioManuallyDisabled && !force) return;
+    async function ensureAutoBgKeepAlive(force = false) {
+      if (isStoppingAudio || isRinging || isTimerRinging) return false;
+      if (bgAudioManuallyDisabled && !force) return false;
       const hasActiveSchedule = alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
-      if (!hasActiveSchedule) {
+      if (!hasActiveSchedule && !bgAudioManualKeepAlive && !force) {
         if (!masterEl.paused) {
           isStoppingAudio = true;
           masterEl.pause();
@@ -850,7 +883,7 @@
         }
         isBgAudioRunning = false;
         updateBgAudioButtonUI();
-        return;
+        return false;
       }
 
       const upcoming = getUpcomingAlarmForBackground();
@@ -858,29 +891,34 @@
         getRingBlobUrlForSound(getDisplayedAlarmSoundIndex(upcoming), Number(upcoming.snoozeLevel) || 0);
       }
 
-      // 백그라운드(유튜브 시청 등) 전환 시에도 브라우저 오디오 세션을 유지하기 위해 무음 스트림 재생
       if (masterEl.paused || !masterEl.src) {
         masterEl.src = getSilentKeepAliveUrl();
         masterEl.volume = 0.01;
         masterEl.loop = true;
-        const p = masterEl.play();
-        if (p && typeof p.then === 'function') {
-          p.then(() => {
-            isBgAudioRunning = true;
-            updateBgAudioButtonUI();
-          }).catch(() => {
-            isBgAudioRunning = false;
-            updateBgAudioButtonUI();
-          });
+        try {
+          await masterEl.play();
+          isBgAudioRunning = true;
+          updateBgAudioButtonUI();
+          return true;
+        } catch (e) {
+          isBgAudioRunning = false;
+          updateBgAudioButtonUI();
+          return false;
         }
       } else {
         isBgAudioRunning = true;
         updateBgAudioButtonUI();
+        return true;
       }
     }
 
     masterEl.addEventListener('play', () => {
-      if (isRinging || isTimerRinging) claimAudioFocusForAlarm(currentRingingAlarm);
+      if (isRinging || isTimerRinging) {
+        claimAudioFocusForAlarm(currentRingingAlarm);
+      } else {
+        isBgAudioRunning = true;
+        updateBgAudioButtonUI();
+      }
     });
 
     masterEl.addEventListener('pause', () => {
@@ -902,14 +940,25 @@
       }
     });
 
-    document.getElementById('bgAudioKeepAliveBtn').addEventListener('click', () => {
+    document.getElementById('bgAudioKeepAliveBtn').addEventListener('click', async () => {
       initMasterAudioUrls();
-      if (!isBgAudioRunning) {
+      const currentlyOn = Boolean(isBgAudioRunning && !masterEl.paused && masterEl.src);
+      if (!currentlyOn) {
         bgAudioManuallyDisabled = false;
-        ensureAutoBgKeepAlive(true);
-        showFeatureInfoBanner('🎧', '백그라운드 오디오 세션 유지가 켜졌습니다', '유튜브 등 다른 앱을 보는 동안에도 브라우저 오디오 권한이 유지되어 알람 시각이 되면 즉시 알람음이 울립니다.');
+        bgAudioManualKeepAlive = true;
+        localStorage.setItem('bg_audio_manual_keep_alive', 'true');
+        const started = await ensureAutoBgKeepAlive(true);
+        if (started) {
+          showFeatureInfoBanner('🎧', '백그라운드 오디오 세션 유지가 켜졌습니다', '유튜브 등 다른 앱을 보는 동안에도 브라우저 오디오 권한이 유지되어 알람 시각이 되면 즉시 알람음이 울립니다.');
+        } else {
+          bgAudioManualKeepAlive = false;
+          localStorage.setItem('bg_audio_manual_keep_alive', 'false');
+          showFeatureInfoBanner('⚠️', '오디오 권한 활성화 실패', '화면 빈 곳을 한 번 터치한 뒤 다시 버튼을 눌러주세요.');
+        }
       } else {
         bgAudioManuallyDisabled = true;
+        bgAudioManualKeepAlive = false;
+        localStorage.setItem('bg_audio_manual_keep_alive', 'false');
         isBgAudioRunning = false;
         isStoppingAudio = true;
         masterEl.pause();
