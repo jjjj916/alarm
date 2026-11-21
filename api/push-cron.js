@@ -42,6 +42,34 @@ function getZonedParts(date, timeZone) {
   };
 }
 
+async function scheduleQStashNextBurst(req, delaySec = 5) {
+  const qstashToken = process.env.QSTASH_TOKEN;
+  if (!qstashToken) return false;
+
+  const qstashUrl = (process.env.QSTASH_URL || 'https://qstash.upstash.io').replace(/\/$/, '');
+  const host = req.headers['x-forwarded-host'] || req.headers.host || process.env.VERCEL_URL;
+  if (!host) return false;
+  const proto = String(host).includes('localhost') ? 'http' : 'https';
+  const targetUrl = `${proto}://${host}/api/push-cron`;
+
+  try {
+    const res = await fetch(`${qstashUrl}/v2/publish/${encodeURIComponent(targetUrl)}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${qstashToken}`,
+        'Content-Type': 'application/json',
+        'Upstash-Delay': `${Math.max(1, Math.round(delaySec))}s`,
+        'Upstash-Deduplication-Id': `burst-${Math.floor(Date.now() / 4000)}`
+      },
+      body: JSON.stringify({ source: 'urgent-burst-chain', scheduledAt: Date.now() })
+    });
+    return res.ok;
+  } catch (e) {
+    console.error('QStash burst chain error:', e && e.message);
+    return false;
+  }
+}
+
 module.exports = async function handler(req, res) {
   try {
     initWebPush();
@@ -51,6 +79,7 @@ module.exports = async function handler(req, res) {
 
     let sentCount = 0;
     let checkedSubs = 0;
+    let hasOngoingUrgentBurst = false;
 
     for (const key of subKeys) {
       checkedSubs++;
@@ -63,29 +92,41 @@ module.exports = async function handler(req, res) {
       let dirty = false;
       const payloadsToSend = [];
 
-      // 1. 무제한 긴급알림(activeRinging) 재발송 처리
+      // 1. 무제한 긴급알림(activeRinging) 5초 단위 연속 재발송 처리
       if (record.activeRinging && record.urgentBurstMode) {
         const ar = record.activeRinging;
+        const startedAt = Number(ar.startedAt) || now;
         const lastSent = Number(ar.lastSentAt) || 0;
-        if (now - lastSent >= 12000 && now - (Number(ar.startedAt) || now) <= 10 * 60 * 1000) {
-          ar.lastSentAt = now;
+        const elapsedTotal = now - startedAt;
+
+        if (elapsedTotal > 10 * 60 * 1000) {
+          // 10분 경과 시 자동 종료
+          record.activeRinging = null;
           dirty = true;
-          payloadsToSend.push({
-            type: 'alarm',
-            alarmId: String(ar.alarmId || ''),
-            name: ar.name || '긴급 알람',
-            group: ar.group || '기본 그룹',
-            time: ar.time || zoned.hm,
-            sound: Number(ar.sound) || 0,
-            isRepeating: Boolean(ar.isRepeating),
-            snoozeLevel: Number(ar.snoozeLevel) || 2,
-            scheduleKey: ar.scheduleKey || '',
-            title: `🚨 [긴급 반복] ${ar.label || ar.name || '알람'}`,
-            body: `${ar.time || zoned.hm} 알람이 울리고 있습니다 · [✕ 알람 끄기]를 눌러 종료하세요.`,
-            tag: `smart-clock-urgent-${ar.alarmId || 'all'}-${now}`,
-            silent: false,
-            renotify: true
-          });
+        } else {
+          hasOngoingUrgentBurst = true;
+          if (now - lastSent >= 4500) {
+            const burstSeq = (Number(ar.burstSeq) || 1) + 1;
+            ar.lastSentAt = now;
+            ar.burstSeq = burstSeq;
+            dirty = true;
+            payloadsToSend.push({
+              type: 'alarm',
+              alarmId: String(ar.alarmId || ''),
+              name: ar.name || '긴급 알람',
+              group: ar.group || '기본 그룹',
+              time: ar.time || zoned.hm,
+              sound: Number(ar.sound) || 0,
+              isRepeating: Boolean(ar.isRepeating),
+              snoozeLevel: Number(ar.snoozeLevel) || 2,
+              scheduleKey: ar.scheduleKey || '',
+              title: `🚨 [긴급 ${burstSeq}회차] ${ar.label || ar.name || '알람'}`,
+              body: `${ar.time || zoned.hm} 알람! 배너를 길게 눌러 [✕ 알람 끄기]를 누를 때까지 계속 울립니다.`,
+              tag: `smart-clock-urgent-${ar.alarmId || 'all'}-${now}`,
+              silent: false,
+              renotify: true
+            });
+          }
         }
       }
 
@@ -133,6 +174,7 @@ module.exports = async function handler(req, res) {
           dirty = true;
           const label = `[${alarm.group || '기본 그룹'}] ${alarm.name || '알람'}`;
           if (record.urgentBurstMode) {
+            hasOngoingUrgentBurst = true;
             record.activeRinging = {
               alarmId: String(alarm.id),
               name: alarm.name || '알람',
@@ -144,7 +186,8 @@ module.exports = async function handler(req, res) {
               snoozeLevel: Number(alarm.snoozeLevel) || 0,
               scheduleKey,
               startedAt: now,
-              lastSentAt: now
+              lastSentAt: now,
+              burstSeq: 1
             };
           }
           payloadsToSend.push({
@@ -161,8 +204,10 @@ module.exports = async function handler(req, res) {
             remainingSnooze: Number(alarm.remainingSnooze) || 3,
             snoozeLevel: Number(alarm.snoozeLevel) || 0,
             scheduleKey,
-            title: `⏰ ${label}`,
-            body: `${alarm.time} 알람입니다 · 눌러서 확인하거나 [✕ 알람 끄기]를 누르세요.`,
+            title: record.urgentBurstMode ? `🚨 [긴급 1회차] ${label}` : `⏰ ${label}`,
+            body: record.urgentBurstMode
+              ? `${alarm.time} 알람! [✕ 알람 끄기]를 누를 때까지 5초마다 반복 알림이 울립니다.`
+              : `${alarm.time} 알람입니다 · 눌러서 확인하거나 [✕ 알람 끄기]를 누르세요.`,
             tag: `smart-clock-alarm-${alarm.id}-${now}`,
             silent: false,
             renotify: true
@@ -213,6 +258,7 @@ module.exports = async function handler(req, res) {
         } catch (pushErr) {
           if (pushErr && (pushErr.statusCode === 404 || pushErr.statusCode === 410)) {
             await redis.del(key);
+            hasOngoingUrgentBurst = false;
             break;
           }
           console.error('webpush send error:', pushErr && pushErr.message);
@@ -220,7 +266,20 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ ok: true, checkedSubs, sentCount, timestamp: now });
+    // 무제한 긴급알림이 활성 상태라면 5초 뒤 QStash로 다음 푸시 체인 예약
+    let nextBurstScheduled = false;
+    if (hasOngoingUrgentBurst) {
+      nextBurstScheduled = await scheduleQStashNextBurst(req, 5);
+    }
+
+    return res.status(200).json({
+      ok: true,
+      checkedSubs,
+      sentCount,
+      hasOngoingUrgentBurst,
+      nextBurstScheduled,
+      timestamp: now
+    });
   } catch (error) {
     console.error('push-cron error:', error);
     return res.status(500).json({ error: error.message || 'Cron execution failed' });
