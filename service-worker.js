@@ -1,11 +1,16 @@
 'use strict';
 
-const CACHE_NAME = 'smart-clock-v20261121-direct-api';
+const CACHE_NAME = 'smart-clock-v20261121-ios-stop-fix';
 const dismissedTokens = new Set();
+let pendingRepeatTimer = null;
 
 function rememberDismissed(alarmId, scheduleKey) {
   if (alarmId) dismissedTokens.add(`id:${alarmId}`);
   if (scheduleKey) dismissedTokens.add(`key:${scheduleKey}`);
+  if (pendingRepeatTimer) {
+    clearTimeout(pendingRepeatTimer);
+    pendingRepeatTimer = null;
+  }
 }
 
 function isDismissed(payload) {
@@ -33,29 +38,6 @@ self.addEventListener('message', (event) => {
   }
 });
 
-async function showAlarmNotification(payload) {
-  if (isDismissed(payload)) return;
-  const title = payload.title || '⏰ 알람';
-  const body = payload.body || '알람 시간이 되었습니다. 배너를 누르면 알람음이 울립니다.';
-  const tag = `smart-clock-${payload.alarmId || 'ring'}-${Date.now()}`;
-
-  await self.registration.showNotification(title, {
-    body,
-    icon: './icon-192.png',
-    badge: './icon-192.png',
-    tag,
-    silent: false,
-    renotify: true,
-    requireInteraction: true,
-    vibrate: [600, 150, 600, 150, 600],
-    data: payload,
-    actions: [
-      { action: 'dismiss', title: '✕ 알람 끄기' },
-      { action: 'ring', title: '🔊 알람음 켜기' }
-    ]
-  });
-}
-
 self.addEventListener('push', (event) => {
   let payload = {};
   try {
@@ -67,7 +49,23 @@ self.addEventListener('push', (event) => {
   if (isDismissed(payload)) return;
 
   event.waitUntil((async () => {
-    await showAlarmNotification(payload);
+    const title = payload.title || '⏰ 알람';
+    const body = payload.body || '알람 시간이 되었습니다.';
+    await self.registration.showNotification(title, {
+      body,
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      tag: `smart-clock-${payload.alarmId || 'ring'}-${Date.now()}`,
+      silent: false,
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [600, 150, 600, 150, 600],
+      data: payload,
+      actions: [
+        { action: 'dismiss', title: '✕ 알람 끄기' },
+        { action: 'ring', title: '🔊 알람음 켜기' }
+      ]
+    });
 
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of allClients) {
@@ -75,8 +73,10 @@ self.addEventListener('push', (event) => {
     }
 
     if (payload.urgentBurstMode && !isDismissed(payload)) {
-      await new Promise((r) => setTimeout(r, 15000));
-      if (!isDismissed(payload)) {
+      if (pendingRepeatTimer) clearTimeout(pendingRepeatTimer);
+      pendingRepeatTimer = setTimeout(async () => {
+        pendingRepeatTimer = null;
+        if (isDismissed(payload)) return;
         const sub = await self.registration.pushManager.getSubscription();
         if (sub) {
           await fetch('/api/push?action=check', {
@@ -89,7 +89,7 @@ self.addEventListener('push', (event) => {
             })
           }).catch(() => {});
         }
-      }
+      }, 15000);
     }
   })());
 });
@@ -113,7 +113,7 @@ async function dismissAlarmFromWorker(payload) {
       await fetch('/api/push?action=dismiss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub.toJSON(), alarmId, scheduleKey })
+        body: JSON.stringify({ subscription: sub.toJSON(), alarmId, scheduleKey, stopAllUrgent: true })
       });
     }
   } catch {}
@@ -129,16 +129,6 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   event.waitUntil((async () => {
-    const params = new URLSearchParams({
-      triggerAlarm: '1',
-      alarmId: payload.alarmId || '',
-      name: payload.name || '알람',
-      group: payload.group || '푸시 알람',
-      time: payload.time || '',
-      sound: payload.sound !== undefined ? String(payload.sound) : '0',
-      scheduleKey: payload.scheduleKey || ''
-    });
-    const targetUrl = `/?${params.toString()}`;
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of allClients) {
       client.postMessage({ type: 'PUSH_ALARM_TRIGGER', payload });
@@ -148,7 +138,7 @@ self.addEventListener('notificationclick', (event) => {
       }
     }
     if (self.clients.openWindow) {
-      await self.clients.openWindow(targetUrl);
+      await self.clients.openWindow('/');
     }
   })());
 });

@@ -32,10 +32,6 @@ export default async function handler(req, res) {
   const body = req.body || {};
 
   try {
-    if (action === 'time') {
-      return res.status(200).json({ serverTimeMs: Date.now() });
-    }
-
     if (action === 'config') {
       return res.status(200).json({
         enabled: Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
@@ -55,7 +51,8 @@ export default async function handler(req, res) {
         alarms,
         timeZone,
         urgentBurstMode: Boolean(urgentBurstMode),
-        dismissedKeys: clearRinging ? [] : (existing.dismissedKeys || []),
+        dismissedKeys: clearRinging ? ['STOP_ALL'] : (existing.dismissedKeys || []),
+        dismissedUntil: clearRinging ? Date.now() + 65000 : (existing.dismissedUntil || 0),
         updatedAt: Date.now()
       };
       await redis.set(subKey, record);
@@ -68,19 +65,9 @@ export default async function handler(req, res) {
           }
         }
       }
-      let qstashScheduled = false;
       if (nextExactTriggerAt) {
         const delaySec = Math.max(1, Math.ceil((nextExactTriggerAt - Date.now()) / 1000));
-        qstashScheduled = await scheduleNextQStash(origin, delaySec);
-      }
-      return res.status(200).json({ ok: true, qstashScheduled, nextExactTriggerAt });
-    }
-
-    if (action === 'unsubscribe') {
-      const { subscription } = body;
-      if (subscription && subscription.endpoint) {
-        const subKey = `push_sub:${Buffer.from(subscription.endpoint).toString('base64url')}`;
-        await redis.del(subKey);
+        await scheduleNextQStash(origin, delaySec);
       }
       return res.status(200).json({ ok: true });
     }
@@ -93,7 +80,9 @@ export default async function handler(req, res) {
       if (record) {
         const dismissed = new Set(Array.isArray(record.dismissedKeys) ? record.dismissedKeys : []);
         if (scheduleKey) dismissed.add(scheduleKey);
+        if (alarmId) dismissed.add(`id:${alarmId}`);
         record.dismissedKeys = [...dismissed].slice(-50);
+        record.dismissedUntil = Date.now() + 65000;
         if (Array.isArray(record.alarms)) {
           record.alarms = record.alarms.map((a) => (!alarmId || String(a.id) === String(alarmId))
             ? { ...a, enabled: a.isRepeating ? a.enabled : false }
@@ -123,17 +112,21 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // action === 'check' (정각 체크 + 무제한 긴급알림 15초 체인 재발송)
+    // action === 'check'
     if (body.subscription && body.subscription.endpoint) {
       const subKey = `push_sub:${Buffer.from(body.subscription.endpoint).toString('base64url')}`;
       const record = await redis.get(subKey);
       if (!record || !record.urgentBurstMode) return res.status(200).json({ ok: true, stopped: true });
+      if (record.dismissedUntil && Date.now() < Number(record.dismissedUntil)) {
+        return res.status(200).json({ ok: true, stoppedByDismiss: true });
+      }
       const dismissedList = Array.isArray(record.dismissedKeys) ? record.dismissedKeys : [];
-      if (body.scheduleKey && dismissedList.includes(body.scheduleKey)) return res.status(200).json({ ok: true, dismissed: true });
+      if ((body.scheduleKey && dismissedList.includes(body.scheduleKey)) || (body.repeatAlarmId && dismissedList.includes(`id:${body.repeatAlarmId}`))) {
+        return res.status(200).json({ ok: true, dismissed: true });
+      }
 
-      const targetAlarm = (record.alarms || []).find(a => String(a.id) === String(body.repeatAlarmId)) || {
-        id: body.repeatAlarmId || 'urgent', name: '긴급 반복 알람', group: '긴급 알람', sound: 2
-      };
+      const targetAlarm = (record.alarms || []).find(a => String(a.id) === String(body.repeatAlarmId));
+      if (!targetAlarm || !targetAlarm.enabled) return res.status(200).json({ ok: true, disabled: true });
 
       await webpush.sendNotification(
         record.subscription,
@@ -161,6 +154,8 @@ export default async function handler(req, res) {
     for (const key of keys) {
       const record = await redis.get(key);
       if (!record || !record.subscription || !Array.isArray(record.alarms)) continue;
+      if (record.dismissedUntil && nowMs < Number(record.dismissedUntil)) continue;
+
       const tz = record.timeZone || 'Asia/Seoul';
       const urgentBurstMode = Boolean(record.urgentBurstMode);
       const dismissedKeys = Array.isArray(record.dismissedKeys) ? record.dismissedKeys : [];
@@ -168,6 +163,8 @@ export default async function handler(req, res) {
 
       for (const alarm of record.alarms) {
         if (!alarm.enabled) continue;
+        if (dismissedKeys.includes(`id:${alarm.id}`)) continue;
+
         let due = false;
         let scheduleKey = '';
 

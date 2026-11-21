@@ -10,6 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="스마트 시계">
   <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
@@ -30,22 +31,26 @@
     .pill-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .25s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
     input:checked + .pill-slider { background-color: #0381fe; }
     input:checked + .pill-slider:before { transform: translateX(20px); }
+    .selected-day { background-color: #0381fe !important; color: white !important; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center px-4">
+
   <audio id="masterAudioEngine" playsinline webkit-playsinline loop preload="auto"></audio>
 
   <div class="max-w-lg w-full space-y-4 my-1">
+    <!-- 상단 유틸리티 바 -->
     <div class="flex justify-between items-center px-1 pt-1 gap-1.5 flex-wrap">
       <span id="activeDayDisplay" class="px-3 py-1.5 bg-blue-50 text-[#0381fe] rounded-full text-xs font-bold">오늘 요일</span>
       <div class="flex items-center gap-1.5 flex-wrap justify-end">
-        <button id="pushSubscribeBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80">🔔 푸시 알림: OFF</button>
-        <button id="testPushBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80">📡 푸시 테스트</button>
-        <button id="urgentBurstBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80">🚨 무제한 긴급알림: OFF</button>
-        <button id="bgAudioKeepAliveBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80">🎧 오디오 유지: OFF</button>
+        <button id="pushSubscribeBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">🔔 푸시 알림: OFF</button>
+        <button id="testPushBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">📡 푸시 테스트</button>
+        <button id="urgentBurstBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">🚨 무제한 긴급알림: OFF</button>
+        <button id="bgAudioKeepAliveBtn" class="px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80 transition">🎧 오디오 유지: OFF</button>
       </div>
     </div>
 
+    <!-- 안내 배너 -->
     <div id="featureInfoBanner" class="clean-card px-4 py-3.5 bg-blue-50/90 border border-blue-200/80 text-left hidden">
       <div class="flex items-start justify-between gap-2.5">
         <div class="flex items-start gap-2.5">
@@ -59,12 +64,14 @@
       </div>
     </div>
 
+    <!-- 시계 -->
     <div class="text-center py-5 px-4">
       <p id="nextAlarmCountdown" class="text-lg font-bold text-gray-800 tracking-tight mb-1">모든 알람이 꺼져 있습니다</p>
       <div id="clock" class="text-5xl font-light text-gray-900 tracking-tight font-mono my-1">00:00:00</div>
       <p id="todayDateLabel" class="text-xs text-gray-500 font-medium mt-1">오늘 날짜 불러오는 중...</p>
     </div>
 
+    <!-- ⚡ 빠른 알람 -->
     <div class="clean-card p-5">
       <div class="flex justify-between items-center mb-3">
         <h2 class="text-sm font-bold text-gray-800">⚡ 빠른 알람</h2>
@@ -82,6 +89,7 @@
       </div>
     </div>
 
+    <!-- ➕ 새 알람 추가 -->
     <div class="clean-card p-5 text-left space-y-4">
       <div class="flex justify-between items-center">
         <h2 class="text-sm font-bold text-gray-800">➕ 새 알람 추가</h2>
@@ -100,6 +108,9 @@
         <option value="0">✨ 1. 스파클 라이징 팝</option>
         <option value="1">🌅 2. 선라이즈 오케스트라</option>
         <option value="2">👾 3. 네온 아케이드 8비트</option>
+        <option value="3">🍃 4. 브라이트 윈드 차임</option>
+        <option value="4">🔔 5. 크리스탈 하모닉 벨</option>
+        <option value="5">☕ 6. 릴랙싱 피아노 스케일</option>
       </select>
       <div class="flex justify-between items-center px-1" id="dayPicker">
         <button type="button" data-day="0" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-rose-500 text-xs font-bold">일</button>
@@ -111,29 +122,40 @@
         <button type="button" data-day="6" class="day-btn w-9 h-9 rounded-full bg-[#f2f4f7] text-blue-500 text-xs font-bold">토</button>
       </div>
       <div class="grid grid-cols-2 gap-3">
-        <input type="text" id="alarmName" placeholder="알람 이름" class="w-full bg-[#f2f4f7] text-xs p-3 rounded-2xl">
-        <input type="text" id="alarmGroup" placeholder="그룹 이름" class="w-full bg-[#f2f4f7] text-xs p-3 rounded-2xl">
+        <input type="text" id="alarmName" placeholder="알람 이름 (예: 기상)" class="w-full bg-[#f2f4f7] text-xs p-3 rounded-2xl">
+        <input type="text" id="alarmGroup" placeholder="그룹 이름 (예: 출근)" class="w-full bg-[#f2f4f7] text-xs p-3 rounded-2xl">
       </div>
-      <button id="addAlarmBtn" class="w-full py-3 bg-[#0381fe] text-white font-bold rounded-full text-sm">저장</button>
+      <button id="addAlarmBtn" class="w-full py-3 bg-[#0381fe] text-white font-bold rounded-full text-sm shadow-md">저장</button>
     </div>
 
-    <div id="alarmList" class="space-y-2.5 pb-8"></div>
+    <!-- 내 알람 목록 (원래 카드 레이아웃 복구) -->
+    <div class="space-y-2.5 pt-1">
+      <div class="flex justify-between items-center px-2">
+        <h2 class="text-xs font-bold text-gray-500">내 알람 목록</h2>
+      </div>
+      <div id="alarmList" class="space-y-2.5 pb-8"></div>
+    </div>
   </div>
 
+  <!-- 알람 작동 풀스크린 모달 -->
   <div id="alarmModal" class="fixed inset-0 bg-[#f6f7f9]/95 backdrop-blur-lg flex flex-col items-center justify-between p-8 hidden z-50">
     <div class="mt-12 text-center">
       <p class="text-[11px] font-extrabold tracking-widest text-[#0381fe] mb-2">NOW RINGING · 현재 울리는 알람</p>
       <p id="modalAlarmTime" class="text-6xl font-light text-gray-900 font-mono my-2">00:00</p>
-      <h2 id="modalAlarmName" class="text-xl font-bold text-gray-800 mt-2">기상 알람</h2>
+      <h2 id="modalAlarmName" class="text-xl font-bold text-gray-800 mt-2">알람</h2>
       <p id="modalSoundTitle" class="text-xs text-gray-500 mt-1">알람음 재생 중...</p>
     </div>
     <div class="w-full max-w-xs space-y-3 mb-10">
-      <button id="snoozeAlarmBtn" type="button" class="w-full py-4 bg-white text-gray-800 font-bold rounded-full text-sm border">😴 5분 뒤 다시 울림</button>
+      <button id="snoozeAlarmBtn" type="button" class="w-full py-4 bg-white text-gray-800 font-bold rounded-full text-sm border shadow-md">😴 5분 뒤 다시 울림</button>
       <button id="stopAlarmBtn" type="button" class="w-full py-4 bg-[#0381fe] text-white font-extrabold rounded-full text-base">✕ 끄기</button>
     </div>
   </div>
 
   <script>
+    function escapeHTML(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     (function initSelects() {
       const hEl = document.getElementById('alarmHour');
       const mEl = document.getElementById('alarmMinute');
@@ -153,9 +175,11 @@
     try { alarms = JSON.parse(localStorage.getItem('saved_alarms') || '[]'); } catch {}
     let urgentBurstMode = localStorage.getItem('urgent_burst_mode') === 'true';
     let isRinging = false, currentRingingAlarm = null, pushEnabled = false, isBgAudioRunning = false;
-    let previewAudioCtx = null, webAudioLoopTimer = null, vibeInterval = null, silentUrl = null;
+    let lastDismissedId = null, lastDismissedAt = 0;
+    let previewAudioCtx = null, webAudioLoopTimer = null, silentUrl = null;
     const masterEl = document.getElementById('masterAudioEngine');
     const daysMap = ['일', '월', '화', '수', '목', '금', '토'];
+    const soundNames = ['✨ 1. 스파클 라이징 팝', '🌅 2. 선라이즈 오케스트라', '👾 3. 네온 아케이드 8비트', '🍃 4. 브라이트 윈드 차임', '🔔 5. 크리스탈 하모닉 벨', '☕ 6. 릴랙싱 피아노 스케일'];
 
     function encodeWav(sampleRate, numSamples, fn) {
       const bytes = numSamples * 2, buf = new ArrayBuffer(44 + bytes), v = new DataView(buf);
@@ -251,15 +275,29 @@
         : 'px-2.5 py-1.5 bg-white text-gray-600 rounded-full text-[11px] font-bold shadow-sm border border-gray-200/80';
     }
 
-    async function syncPush(clearRinging = false) {
+    async function syncPush(clearRinging = false, dismissedAlarmId = null) {
       if (!('serviceWorker' in navigator)) return false;
       try {
         const reg = await navigator.serviceWorker.ready;
+        if (clearRinging && reg.active) {
+          reg.active.postMessage({ type: 'STOP_INFINITE_PUSH', alarmId: dismissedAlarmId });
+        }
         const sub = await reg.pushManager.getSubscription();
         if (!sub) return false;
+
+        if (clearRinging) {
+          await fetch('/api/push?action=dismiss', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            keepalive: true,
+            body: JSON.stringify({ subscription: sub.toJSON(), alarmId: dismissedAlarmId, stopAllUrgent: true })
+          }).catch(() => {});
+        }
+
         const res = await fetch('/api/push?action=subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
           body: JSON.stringify({
             subscription: sub.toJSON(),
             alarms,
@@ -275,26 +313,13 @@
     }
 
     async function subscribePush() {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        showBanner('⚠️', '푸시 미지원 환경', 'iOS에서는 Safari 공유 버튼 > [홈 화면에 추가]로 연 앱에서만 푸시가 지원됩니다.');
-        return null;
-      }
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
       let perm = Notification.permission;
       if (perm === 'default') perm = await Notification.requestPermission();
-      if (perm !== 'granted') {
-        showBanner('⚠️', '알림 권한 차단됨', '브라우저/기기 설정에서 알림 권한을 허용해주세요.');
-        return null;
-      }
+      if (perm !== 'granted') return null;
       const cfgRes = await fetch('/api/push?action=config');
-      if (!cfgRes.ok) {
-        showBanner('⚠️', '서버 응답 오류', `/api/push?action=config 응답 코드: ${cfgRes.status}`);
-        return null;
-      }
+      if (!cfgRes.ok) return null;
       const cfg = await cfgRes.json();
-      if (!cfg.enabled || !cfg.vapidPublicKey) {
-        showBanner('⚠️', 'VAPID 키 누락', 'Vercel 환경변수에 VAPID_PUBLIC_KEY가 설정되어 있는지 확인해주세요.');
-        return null;
-      }
       const reg = await navigator.serviceWorker.ready;
       let sub = await reg.pushManager.getSubscription();
       if (!sub) {
@@ -323,20 +348,22 @@
         body: JSON.stringify({ subscription: sub.toJSON() })
       });
       if (res.ok) showBanner('📡', '테스트 푸시 발송됨', '잠시 후 푸시 배너와 알람음이 울립니다.');
-      else showBanner('⚠️', '테스트 실패', `응답 코드: ${res.status}`);
     });
 
-    function saveAlarms(clearRinging = false) {
+    function saveAlarms(clearRinging = false, dismissedAlarmId = null) {
       localStorage.setItem('saved_alarms', JSON.stringify(alarms));
       ensureBgAudio();
-      syncPush(clearRinging);
+      syncPush(clearRinging, dismissedAlarmId);
     }
 
     window.addQuickTimer = function(mins, label) {
       const now = new Date();
       now.setMinutes(now.getMinutes() + mins);
       now.setSeconds(0, 0);
-      const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      const hour24 = String(now.getHours()).padStart(2,'0');
+      const minute = String(now.getMinutes()).padStart(2,'0');
+      const timeStr = `${hour24}:${minute}`;
+      
       alarms.push({
         id: Date.now(), name: label, group: '빠른 알람', time: timeStr, sound: 0,
         days: [now.getDay()], isRepeating: false, singleShotAt: now.getTime(), enabled: true
@@ -347,25 +374,36 @@
     };
 
     document.querySelectorAll('.day-btn').forEach(btn => {
-      btn.addEventListener('click', () => btn.classList.toggle('bg-[#0381fe]'));
+      btn.addEventListener('click', () => btn.classList.toggle('selected-day'));
     });
 
     document.getElementById('addAlarmBtn').addEventListener('click', () => {
       const ampm = document.getElementById('alarmAmPm').value;
-      let h = parseInt(document.getElementById('alarmHour').value, 10) % 12;
-      if (ampm === 'PM') h += 12;
+      const h = parseInt(document.getElementById('alarmHour').value, 10);
       const m = document.getElementById('alarmMinute').value;
-      const timeStr = `${String(h).padStart(2,'0')}:${m}`;
+      const soundVal = document.getElementById('alarmSound').value;
+      const sound = soundVal === 'random' ? Math.floor(Math.random() * 6) : parseInt(soundVal, 10);
+      
+      let h24 = h % 12;
+      if (ampm === 'PM') h24 += 12;
+      const timeStr = `${String(h24).padStart(2,'0')}:${m}`;
+      
       const target = new Date();
-      target.setHours(h, parseInt(m, 10), 0, 0);
+      target.setHours(h24, parseInt(m, 10), 0, 0);
       if (target.getTime() <= Date.now()) target.setDate(target.getDate() + 1);
+
+      let selectedDays = [];
+      document.querySelectorAll('.day-btn').forEach(btn => {
+        if (btn.classList.contains('selected-day')) selectedDays.push(parseInt(btn.getAttribute('data-day'), 10));
+      });
 
       alarms.push({
         id: Date.now(),
         name: document.getElementById('alarmName').value.trim() || '알람',
         group: document.getElementById('alarmGroup').value.trim() || '기본',
-        time: timeStr, sound: 0, days: [target.getDay()],
-        isRepeating: false, singleShotAt: target.getTime(), enabled: true
+        time: timeStr, sound, isRandomSound: soundVal === 'random',
+        days: selectedDays.length ? selectedDays : [target.getDay()],
+        isRepeating: selectedDays.length > 0, singleShotAt: selectedDays.length ? null : target.getTime(), enabled: true
       });
       saveAlarms();
       renderList();
@@ -374,37 +412,107 @@
     function renderList() {
       const el = document.getElementById('alarmList');
       if (!alarms.length) { el.innerHTML = '<div class="clean-card p-6 text-xs text-gray-400 text-center">알람이 없습니다.</div>'; return; }
-      el.innerHTML = alarms.map((a, i) => `
-        <div class="clean-card p-4 flex justify-between items-center">
-          <div>
-            <div class="text-xs font-bold text-[#0381fe]">[${a.group}] ${a.name}</div>
-            <div class="text-2xl font-mono text-gray-900">${a.time}</div>
+      
+      el.innerHTML = alarms.map((a, i) => {
+        const [hStr, mStr] = a.time.split(':');
+        const h24 = parseInt(hStr, 10);
+        const ampm = h24 >= 12 ? '오후' : '오전';
+        const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+        const time12 = `${String(h12).padStart(2, '0')}:${mStr}`;
+        const repeatDaysText = a.isRepeating ? a.days.map(d => daysMap[d]).join(' ') : '한 번만 울림';
+        const soundLabel = soundNames[(Number(a.sound) || 0) % 6];
+        
+        return `
+          <div class="clean-card p-5 flex justify-between items-center ${a.enabled ? 'opacity-100' : 'opacity-60'}">
+            <div class="text-left flex-1 min-w-0 pr-2">
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="text-[11px] px-2 py-0.5 bg-blue-50 text-[#0381fe] rounded-full font-bold">${escapeHTML(a.group)}</span>
+                <span class="text-xs text-gray-600 font-semibold truncate">${escapeHTML(a.name)}</span>
+              </div>
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-sm font-bold text-gray-700">${ampm}</span>
+                <span class="text-3xl font-light font-mono text-gray-900">${time12}</span>
+              </div>
+              <div class="text-[11px] text-gray-400 mt-1 font-medium truncate">
+                <span class="${a.isRepeating ? 'text-[#0381fe] font-bold' : ''}">${repeatDaysText}</span> · ${soundLabel}
+              </div>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+              <label class="pill-switch">
+                <input type="checkbox" ${a.enabled ? 'checked' : ''} onchange="toggleAlarm(${i})">
+                <span class="pill-slider"></span>
+              </label>
+              <button onclick="deleteAlarm(${i})" class="w-8 h-8 rounded-full bg-gray-100 text-gray-400 hover:text-rose-500 text-xs font-bold transition">✕</button>
+            </div>
           </div>
-          <button onclick="alarms.splice(${i},1);saveAlarms(true);renderList();" class="w-8 h-8 rounded-full bg-gray-100 text-xs font-bold">✕</button>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
+    window.toggleAlarm = function(idx) {
+      alarms[idx].enabled = !alarms[idx].enabled;
+      if (alarms[idx].enabled && !alarms[idx].isRepeating) {
+        const [h, m] = alarms[idx].time.split(':').map(Number);
+        const now = new Date();
+        const target = new Date();
+        target.setHours(h, m, 0, 0);
+        if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1);
+        alarms[idx].singleShotAt = target.getTime();
+      }
+      saveAlarms(!alarms[idx].enabled, alarms[idx].id);
+      renderList();
+    };
+
+    window.deleteAlarm = function(idx) {
+      const removed = alarms[idx];
+      alarms.splice(idx, 1);
+      saveAlarms(true, removed ? removed.id : null);
+      renderList();
+    };
+
     function triggerAlarm(alarm) {
+      if (alarm && alarm.id && String(alarm.id) === String(lastDismissedId) && Date.now() - lastDismissedAt < 65000) {
+        return;
+      }
       isRinging = true;
       currentRingingAlarm = alarm;
-      document.getElementById('modalAlarmName').innerText = `[${alarm.group}] ${alarm.name}`;
-      document.getElementById('modalAlarmTime').innerText = alarm.time;
+      const timeVal = alarm.time || new Date().toTimeString().slice(0, 5);
+      const [hStr, mStr] = timeVal.split(':');
+      const h24 = parseInt(hStr, 10);
+      const ampm = h24 >= 12 ? '오후' : '오전';
+      const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+
+      document.getElementById('modalAlarmName').innerText = `[${alarm.group || '알람'}] ${alarm.name || '알람'}`;
+      document.getElementById('modalAlarmTime').innerText = `${ampm} ${String(h12).padStart(2, '0')}:${mStr}`;
       document.getElementById('alarmModal').classList.remove('hidden');
       playRingLoop();
     }
 
-    document.getElementById('stopAlarmBtn').addEventListener('click', () => {
+    function stopEverything(explicitId = null) {
+      const targetId = explicitId || (currentRingingAlarm && currentRingingAlarm.id) || null;
+      if (targetId) {
+        lastDismissedId = targetId;
+        lastDismissedAt = Date.now();
+      }
       isRinging = false;
       if (webAudioLoopTimer) clearInterval(webAudioLoopTimer);
       masterEl.pause();
       document.getElementById('alarmModal').classList.add('hidden');
-      if (currentRingingAlarm) {
-        alarms = alarms.map(a => a.id === currentRingingAlarm.id ? { ...a, enabled: false } : a);
-      }
-      saveAlarms(true);
+      alarms = alarms.map(a => (!targetId || String(a.id) === String(targetId))
+        ? { ...a, enabled: a.isRepeating ? a.enabled : false }
+        : a
+      );
+      currentRingingAlarm = null;
+      saveAlarms(true, targetId);
       renderList();
       ensureBgAudio();
+    }
+
+    document.getElementById('stopAlarmBtn').addEventListener('click', () => stopEverything());
+    document.getElementById('snoozeAlarmBtn').addEventListener('click', () => {
+      const target = currentRingingAlarm;
+      stopEverything();
+      if (target) addQuickTimer(5, `${target.name} (다시 울림)`);
     });
 
     setInterval(() => {
@@ -412,15 +520,28 @@
       document.getElementById('clock').innerText = now.toTimeString().slice(0, 8);
       document.getElementById('activeDayDisplay').innerText = `📅 ${daysMap[now.getDay()]}요일`;
       document.getElementById('todayDateLabel').innerText = `${now.getMonth()+1}월 ${now.getDate()}일`;
-      document.getElementById('nextAlarmCountdown').innerText = alarms.some(a => a.enabled) ? '활성 알람 대기 중' : '모든 알람이 꺼져 있습니다';
+      
+      const enabledCount = alarms.filter(a => a.enabled).length;
+      document.getElementById('nextAlarmCountdown').innerText = enabledCount > 0 ? `활성 알람 ${enabledCount}개 대기 중` : '모든 알람이 꺼져 있습니다';
+      
       if (isRinging) return;
+      const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      
       for (const a of alarms) {
-        if (a.enabled && a.singleShotAt && now.getTime() >= a.singleShotAt && now.getTime() - a.singleShotAt < 60000) {
-          a.enabled = false;
-          saveAlarms();
-          renderList();
-          triggerAlarm(a);
-          break;
+        if (!a.enabled) continue;
+        if (!a.isRepeating && a.singleShotAt) {
+          if (now.getTime() >= a.singleShotAt && now.getTime() - a.singleShotAt < 60000 && a.time === currentHM) {
+            a.enabled = false;
+            saveAlarms();
+            renderList();
+            triggerAlarm(a);
+            break;
+          }
+        } else if (a.isRepeating && a.days.includes(now.getDay())) {
+          if (a.time === currentHM && now.getSeconds() === 0) {
+            triggerAlarm(a);
+            break;
+          }
         }
       }
     }, 500);
@@ -430,6 +551,7 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', e => {
         if (e.data && e.data.type === 'PUSH_ALARM_TRIGGER') triggerAlarm(e.data.payload);
+        if (e.data && e.data.type === 'ALARM_DISMISSED_FROM_PUSH') stopEverything(e.data.alarmId || null);
       });
       navigator.serviceWorker.register('./service-worker.js').then(async reg => {
         if (Notification.permission === 'granted') {
