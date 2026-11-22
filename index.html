@@ -1493,7 +1493,7 @@
         <div id="essentialGuideBody" class="mt-3 pt-3 border-t border-amber-200/70 space-y-2.5 text-[11px] text-amber-950 leading-relaxed">
           <div class="flex items-start gap-2">
             <span class="font-extrabold text-rose-600 shrink-0">1. 앱 완전 종료 금지</span>
-            <p>최근 앱 목록에서 브라우저(또는 홈 화면 앱)를 <b>위로 밀어 강제 종료하지 마세요.</b> 홈 화면으로 나가거나 다른 앱으로 전환만 해야 백그라운드 알람이 유지됩니다.</p>
+            <p>최근 앱 목록에서 브라우저(또는 홈 화면 앱)를 <b>위로 밀어 강제 종료하지 마세요.</b> 홈 화면으로 나가거나 다른 앱으로 전환만 해야 백그라운드 알람이 유지됩니다.<span data-os="android" class="hidden"><br>• <b class="text-rose-600">뒤로가기 버튼을 두 번 눌러 나가지 마세요.</b> 앱이 완전히 종료되어 알람 시각에 <b>푸시 알림만 뜨고 알람음은 울리지 않아요.</b> 나갈 때는 꼭 <b>홈 버튼</b>을 눌러 주세요.</span><br>• 앱을 다시 열었다면 <b>화면을 한 번 터치</b>한 뒤 나가 주세요. 터치 전에는 브라우저가 소리 재생을 막아서, 백그라운드에서 알람음이 울리지 않아요.</p>
           </div>
 
           <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
@@ -4057,6 +4057,59 @@
         }
       });
     }
+    /* ── 터치 전 알람 준비 화면 + 안드로이드 뒤로가기 종료 경고 ── */
+    (function () {
+      const activated = () => !!(navigator.userActivation && navigator.userActivation.hasBeenActive);
+      const hasSchedule = () => alarms.some(a => a.enabled) || (typeof timerState !== 'undefined' && timerState === 'running');
+
+      const ov = document.createElement('div');
+      ov.id = 'tapToArmOverlay';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9998;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.78);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);padding:24px;';
+      ov.innerHTML = '<div style="background:#fff;border-radius:24px;padding:28px 24px;max-width:340px;width:100%;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.25)">'
+        + '<div style="font-size:44px;line-height:1">👆</div>'
+        + '<div style="font-size:18px;font-weight:800;color:#111827;margin-top:12px">화면을 한 번 탭해 주세요</div>'
+        + '<div style="font-size:13px;color:#4b5563;margin-top:8px;line-height:1.6">터치 전에는 브라우저가 소리를 막아서<br>홈으로 나가면 <b>알람음이 울리지 않아요.</b><br>탭하면 백그라운드에서도 울리도록 준비돼요.</div>'
+        + '<button type="button" style="margin-top:18px;width:100%;padding:14px;border-radius:14px;background:#0381fe;color:#fff;font-weight:800;font-size:15px;border:none">탭해서 알람 준비하기</button>'
+        + (IS_ANDROID ? '<div style="font-size:12px;color:#e11d48;margin-top:12px;font-weight:700">나갈 땐 뒤로가기 말고 홈 버튼을 눌러 주세요</div>' : '')
+        + '</div>';
+      document.body.appendChild(ov);
+
+      function arm() {
+        ov.style.display = 'none';
+        try { initMasterAudioUrls(); } catch (e) {}
+        try { ensureAutoBgKeepAlive(); } catch (e) {}
+        try { syncCurrentPushState(); } catch (e) {}
+      }
+      ov.addEventListener('pointerdown', arm, { once: false });
+      ov.addEventListener('click', arm);
+
+      function maybeShow() {
+        if (activated() || !hasSchedule() || isRinging || isTimerRinging) return;
+        if (new URLSearchParams(location.search).get('triggerAlarm') === '1') return;
+        ov.style.display = 'flex';
+      }
+      setTimeout(maybeShow, 600);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') setTimeout(maybeShow, 300);
+      });
+
+      if (!IS_ANDROID) return;
+      const toast = document.createElement('div');
+      toast.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:9999;display:none;max-width:320px;width:calc(100% - 40px);background:#111827;color:#fff;border-radius:16px;padding:14px 16px;font-size:13px;line-height:1.55;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.3)';
+      toast.innerHTML = '⚠️ <b>한 번 더 누르면 앱이 종료돼요.</b><br>종료하면 알람 시각에 푸시만 오고 <b>알람음은 안 울려요.</b><br>나갈 땐 <b>홈 버튼</b>을 눌러 주세요.';
+      document.body.appendChild(toast);
+      let warnedAt = 0, toastTimer = null;
+      try { history.pushState({ backGuard: 1 }, '', location.href); } catch (e) {}
+      window.addEventListener('popstate', () => {
+        const now = Date.now();
+        if (now - warnedAt < 2500) { history.back(); return; } // 2.5초 안에 한 번 더: 원래대로 종료
+        warnedAt = now;
+        try { history.pushState({ backGuard: 1 }, '', location.href); } catch (e) {}
+        toast.style.display = 'block';
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 2500);
+      });
+    })();
   </script>
 </body>
 </html>
