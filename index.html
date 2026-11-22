@@ -1570,11 +1570,11 @@
         <div class="flex justify-between items-center gap-3">
           <div>
             <h2 class="text-sm font-bold text-gray-800">🤖 밤새 둬도 확실히 울리게 (이중 알람)</h2>
-            <p class="text-[11px] text-gray-500 mt-0.5">알람을 저장하면 휴대폰 <b>기본 시계 앱</b>의 알람 등록 화면이 열려요. <b>[저장]</b>만 누르면 끝! 기본 시계 알람은 휴대폰이 깊이 잠들어도 <b>무조건 울려요.</b></p>
+            <p class="text-[11px] text-gray-500 mt-0.5">알람을 저장하면 휴대폰 <b>기본 시계 앱</b>에도 같은 시각 알람이 <b>자동으로 추가</b>돼요. 기본 시계 알람은 휴대폰이 깊이 잠들어도 <b>무조건 울려요.</b></p>
           </div>
           <label class="pill-switch shrink-0"><input type="checkbox" id="androidClockToggle"><span class="pill-slider"></span></label>
         </div>
-        <p class="text-[11px] text-gray-500 leading-relaxed">· 반복 요일은 열리는 시계 앱 화면에서 직접 골라 주세요.<br>· 이 앱에서 끄거나 지워도 시계 앱 알람은 남아 있으니 시계 앱에서 직접 꺼 주세요.<br>· 시계 앱이 안 열리는 기종이면 같은 시각을 직접 추가하라는 안내가 떠요.</p>
+        <p class="text-[11px] text-gray-500 leading-relaxed">· 반복 요일은 자동으로 넘길 수 없어 <b>다음 한 번</b>만 등록돼요. 매일 울리게 하려면 시계 앱에서 반복을 한 번 설정하세요.<br>· 이 앱에서 끄거나 지워도 시계 앱 알람은 남아 있으니 시계 앱에서 직접 꺼 주세요.<br>· 시계 앱이 안 열리는 기종이면 같은 시각을 직접 추가하라는 안내가 떠요.</p>
         <button type="button" id="androidClockTestBtn" class="w-full py-2.5 bg-[#0381fe] text-white rounded-full text-xs font-bold">⏱ 연동 테스트 (2분 뒤 알람)</button>
       </div>
 
@@ -4076,7 +4076,7 @@
       if (!IS_ANDROID || !androidClockSync || !/^\d{2}:\d{2}$/.test(String(timeHM || ''))) return;
       const [h, m] = timeHM.split(':').map(Number);
       const msg = encodeURIComponent(String(label || '스마트 시계').slice(0, 30));
-      const url = `intent:#Intent;action=android.intent.action.SET_ALARM;i.android.intent.extra.alarm.HOUR=${h};i.android.intent.extra.alarm.MINUTES=${m};S.android.intent.extra.alarm.MESSAGE=${msg};B.android.intent.extra.alarm.SKIP_UI=false;end`;
+      const url = `intent:#Intent;action=android.intent.action.SET_ALARM;i.android.intent.extra.alarm.HOUR=${h};i.android.intent.extra.alarm.MINUTES=${m};S.android.intent.extra.alarm.MESSAGE=${msg};B.android.intent.extra.alarm.SKIP_UI=true;end`;
       // 시계 앱으로 넘어가기 전에 서버(푸시) 등록을 먼저 끝냄 (최대 1.5초)
       localStorage.setItem('push_resync_pending', '1');
       let left = false;
