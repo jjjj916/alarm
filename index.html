@@ -1493,7 +1493,7 @@
         <div id="essentialGuideBody" class="mt-3 pt-3 border-t border-amber-200/70 space-y-2.5 text-[11px] text-amber-950 leading-relaxed">
           <div class="flex items-start gap-2">
             <span class="font-extrabold text-rose-600 shrink-0">1. 앱 완전 종료 금지</span>
-            <p>최근 앱 목록에서 브라우저(또는 홈 화면 앱)를 <b>위로 밀어 강제 종료하지 마세요.</b> 홈 화면으로 나가거나 다른 앱으로 전환만 해야 백그라운드 알람이 유지됩니다.<span data-os="android" class="hidden"><br>• <b>밤새 두는 알람</b>은 휴대폰이 깊이 잠들면서 브라우저를 멈출 수 있어요. 아래 <b>🤖 이중 알람</b>을 켜거나, <b>충전기를 꽂고 💡 화면 켜짐을 ON</b>으로 한 채 앱 화면을 띄워 두면 가장 확실해요.<br>• <b class="text-rose-600">뒤로가기 버튼을 두 번 눌러 나가지 마세요.</b> 앱이 완전히 종료되어 알람 시각에 <b>푸시 알림만 뜨고 알람음은 울리지 않아요.</b> 나갈 때는 꼭 <b>홈 버튼</b>을 눌러 주세요.</span><br>• 앱을 다시 열었다면 <b>화면을 한 번 터치</b>한 뒤 나가 주세요. 터치 전에는 브라우저가 소리 재생을 막아서, 백그라운드에서 알람음이 울리지 않아요.</p>
+            <p>최근 앱 목록에서 브라우저(또는 홈 화면 앱)를 <b>위로 밀어 강제 종료하지 마세요.</b> 홈 화면으로 나가거나 다른 앱으로 전환만 해야 백그라운드 알람이 유지됩니다.<span data-os="android" class="hidden"><br>• <b>밤새 두는 알람</b>은 휴대폰이 깊이 잠들면서 브라우저를 멈출 수 있어요. 아래 <b>🔁 삼성 루틴</b>(푸시가 오면 앱 자동 실행)을 넣어 두거나, <b>충전기를 꽂고 💡 화면 켜짐을 ON</b>으로 한 채 앱 화면을 띄워 두면 가장 확실해요.<br>• <b class="text-rose-600">뒤로가기 버튼을 두 번 눌러 나가지 마세요.</b> 앱이 완전히 종료되어 알람 시각에 <b>푸시 알림만 뜨고 알람음은 울리지 않아요.</b> 나갈 때는 꼭 <b>홈 버튼</b>을 눌러 주세요.</span><br>• 앱을 다시 열었다면 <b>화면을 한 번 터치</b>한 뒤 나가 주세요. 터치 전에는 브라우저가 소리 재생을 막아서, 백그라운드에서 알람음이 울리지 않아요.</p>
           </div>
 
           <div class="flex items-start gap-2 pt-2 border-t border-amber-200/50">
@@ -1566,16 +1566,22 @@
         <p class="text-[11px] text-gray-400">‘단축어를 찾을 수 없습니다’가 뜨면 위 이름과 단축어 앱의 이름이 다른 거예요. (예: 알람 ↔ 알림, 띄어쓰기)</p>
       </div>
 
-      <div id="androidClockCard" class="clean-card p-5 text-left space-y-3 hidden">
-        <div class="flex justify-between items-center gap-3">
-          <div>
-            <h2 class="text-sm font-bold text-gray-800">🤖 밤새 둬도 확실히 울리게 (이중 알람)</h2>
-            <p class="text-[11px] text-gray-500 mt-0.5">알람을 저장하면 휴대폰 <b>기본 시계 앱</b>에도 같은 시각 알람이 <b>자동으로 추가</b>돼요. 기본 시계 알람은 휴대폰이 깊이 잠들어도 <b>무조건 울려요.</b></p>
-          </div>
-          <label class="pill-switch shrink-0"><input type="checkbox" id="androidClockToggle"><span class="pill-slider"></span></label>
-        </div>
-        <p class="text-[11px] text-gray-500 leading-relaxed">· 반복 요일은 자동으로 넘길 수 없어 <b>다음 한 번</b>만 등록돼요. 매일 울리게 하려면 시계 앱에서 반복을 한 번 설정하세요.<br>· 이 앱에서 끄거나 지워도 시계 앱 알람은 남아 있으니 시계 앱에서 직접 꺼 주세요.<br>· 시계 앱이 안 열리는 기종이면 같은 시각을 직접 추가하라는 안내가 떠요.</p>
-        <button type="button" id="androidClockTestBtn" class="w-full py-2.5 bg-[#0381fe] text-white rounded-full text-xs font-bold">⏱ 연동 테스트 (2분 뒤 알람)</button>
+      <div id="samsungRoutineCard" data-os="android" class="clean-card p-5 text-left space-y-3 hidden">
+        <h2 class="text-sm font-bold text-gray-800">🔁 푸시가 오면 앱이 저절로 열리게 (삼성 모드 및 루틴)</h2>
+        <p class="text-[11px] text-gray-500 leading-relaxed">휴대폰이 오래 잠들면 브라우저가 이 앱을 재워서 <b>푸시만 오고 알람음은 안 울려요.</b> 삼성 <b>모드 및 루틴</b>에 루틴을 하나 넣어 두면, 알람 푸시가 오는 순간 루틴이 <b>스마트 시계 앱을 강제로 열고</b> → 앱이 열리자마자 알람이 울려요. 한 번만 설정하면 <b>모든 알람</b>에 적용돼요.</p>
+        <a href="/routine/smart-clock-routine.rtn" download="smart-clock-routine.rtn" class="block w-full py-3 bg-[#0381fe] text-white rounded-full text-sm font-extrabold text-center shadow-md">⚡ 루틴 파일 받기</a>
+        <p class="text-[11px] text-gray-500 leading-relaxed">받은 파일을 눌러 <b>모드 및 루틴</b>으로 열고 [추가]를 누르세요. 가져온 뒤 루틴의 <b>‘앱 열기’</b> 동작이 비어 있거나 다른 앱이면 <b>스마트 시계</b>로 다시 골라 주세요.</p>
+        <details>
+          <summary class="text-[11px] font-bold text-[#0381fe] cursor-pointer">직접 만들기 (파일이 안 열릴 때)</summary>
+          <ol class="list-decimal pl-5 mt-2 space-y-1 text-[11px] text-gray-700 leading-relaxed">
+            <li>설정 › <b>모드 및 루틴</b> › 루틴 › <b>＋</b></li>
+            <li>조건: <b>알림을 받으면</b> › 앱 <b>스마트 시계</b>(홈 화면에 설치 안 했으면 <b>Chrome</b>) › 포함 단어 <b>스마트 시계 알람</b></li>
+            <li>동작: <b>미디어 볼륨</b> 원하는 크기 → <b>앱 열기</b> › 스마트 시계</li>
+            <li>저장 후 위 <b>⏱ 연동 테스트</b>나 2분 뒤 알람으로 화면을 끈 채 시험</li>
+          </ol>
+        </details>
+        <p class="text-[11px] text-gray-400">· 삼성 휴대폰에서만 돼요. · 앱이 열린 뒤 알람이 울리면 앱에서 [끄기]를 눌러 주세요.</p>
+        <p class="text-[11px] text-gray-600 bg-amber-50 rounded-xl px-3 py-2">💡 푸시는 인터넷이 있어야 와요. 시험·면접처럼 <b>꼭 일어나야 하는 날</b>은 휴대폰 <b>기본 시계에도 알람을 하나 더</b> 맞춰 두세요.</p>
       </div>
 
       <div class="text-center py-5 px-4">
@@ -4054,65 +4060,10 @@
         iosClockSync = prev;
       });
     }
-    /* ── 안드로이드 이중 알람: 기본 시계 앱에도 같은 시각 알람 등록 (SET_ALARM) ── */
-    let androidClockSync = localStorage.getItem('android_clock_sync') === 'true';
-    function showAndroidClockFallback(timeHM) {
-      let box = document.getElementById('androidClockFallback');
-      if (!box) {
-        box = document.createElement('div');
-        box.id = 'androidClockFallback';
-        box.style.cssText = 'position:fixed;inset:0;z-index:9997;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.6);padding:24px;';
-        document.body.appendChild(box);
-      }
-      box.innerHTML = '<div style="background:#fff;border-radius:22px;padding:24px;max-width:340px;width:100%;text-align:center">'
-        + '<div style="font-size:38px">⏰</div>'
-        + '<div style="font-size:17px;font-weight:800;color:#111827;margin-top:8px">기본 시계 앱에 직접 추가해 주세요</div>'
-        + '<div style="font-size:13px;color:#4b5563;margin-top:8px;line-height:1.6">이 휴대폰은 브라우저에서 시계 앱을 바로 열 수 없어요.<br>시계 앱을 열고 <b style="color:#0381fe;font-size:18px">' + timeHM + '</b> 알람을 하나 더 만들어 두면<br>휴대폰이 깊이 잠들어도 확실히 울려요.</div>'
-        + '<button type="button" style="margin-top:16px;width:100%;padding:12px;border-radius:14px;background:#0381fe;color:#fff;font-weight:800;border:none">확인</button></div>';
-      box.style.display = 'flex';
-      box.querySelector('button').onclick = () => { box.style.display = 'none'; };
-    }
-    function runAndroidClockAlarm(timeHM, label) {
-      if (!IS_ANDROID || !androidClockSync || !/^\d{2}:\d{2}$/.test(String(timeHM || ''))) return;
-      const [h, m] = timeHM.split(':').map(Number);
-      const msg = encodeURIComponent(String(label || '스마트 시계').slice(0, 30));
-      const url = `intent:#Intent;action=android.intent.action.SET_ALARM;i.android.intent.extra.alarm.HOUR=${h};i.android.intent.extra.alarm.MINUTES=${m};S.android.intent.extra.alarm.MESSAGE=${msg};B.android.intent.extra.alarm.SKIP_UI=true;end`;
-      // 시계 앱으로 넘어가기 전에 서버(푸시) 등록을 먼저 끝냄 (최대 1.5초)
-      localStorage.setItem('push_resync_pending', '1');
-      let left = false;
-      const onHide = () => { if (document.visibilityState === 'hidden') left = true; };
-      document.addEventListener('visibilitychange', onHide);
-      window.addEventListener('blur', () => { left = true; }, { once: true });
-      Promise.race([
-        syncCurrentPushState().then((ok) => { if (ok) localStorage.removeItem('push_resync_pending'); }),
-        new Promise((r) => setTimeout(r, 1500))
-      ]).finally(() => {
-        try { location.href = url; } catch (e) {}
-        setTimeout(() => {
-          document.removeEventListener('visibilitychange', onHide);
-          if (!left && document.visibilityState === 'visible') showAndroidClockFallback(timeHM);
-        }, 2200);
-      });
-    }
-    if (IS_ANDROID) {
-      document.getElementById('androidClockCard').classList.remove('hidden');
-      const atg = document.getElementById('androidClockToggle');
-      atg.checked = androidClockSync;
-      atg.addEventListener('change', () => {
-        androidClockSync = atg.checked;
-        localStorage.setItem('android_clock_sync', String(androidClockSync));
-      });
-      document.getElementById('androidClockTestBtn').addEventListener('click', () => {
-        const prev = androidClockSync; androidClockSync = true;
-        window.addQuickTimer(2, '연동 테스트');
-        androidClockSync = prev;
-      });
-    }
     ['addAlarmBtn', 'saveEditedAlarmBtn'].forEach((id) => document.getElementById(id).addEventListener('click', () => {
       const pre = id === 'addAlarmBtn' ? ['alarmAmPm', 'alarmHour', 'alarmMinute'] : ['editAlarmAmPm', 'editAlarmHour', 'editAlarmMinute'];
       const hm = get24HourTimeFromSelects(...pre);
       runIOSClockShortcut(hm);
-      runAndroidClockAlarm(hm, '스마트 시계');
     }));
     const _origQuick = window.addQuickTimer;
     window.addQuickTimer = function(m, label) {
@@ -4120,7 +4071,6 @@
       const d = new Date(getSynchronizedNow().getTime() + m * 60000);
       const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
       runIOSClockShortcut(hm);
-      runAndroidClockAlarm(hm, label || '스마트 시계');
     };
 
     syncStandardTime().then(() => { updateClock(); });
