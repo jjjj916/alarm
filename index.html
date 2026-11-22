@@ -2854,6 +2854,7 @@
     }
 
     function saveAlarms(clearRinging = false) {
+      setTimeout(() => { try { armScheduledRing(); } catch (e) {} }, 100);
       ensureServerScheduleFields();
       localStorage.setItem('saved_alarms', JSON.stringify(alarms));
       ensureAutoBgKeepAlive();
@@ -3510,6 +3511,8 @@
         saveAlarms();
       }
       isRinging = true;
+      // 앱 화면이 보이면 앱 알람이 소리를 맡으므로 예약 알람음은 정리 (백그라운드면 두 소리 모두 유지해 확실히 깨움)
+      if (document.visibilityState === 'visible') { try { cancelScheduledRing(); } catch (e) {} }
       isTimerRinging = false;
       currentRingingAlarm = alarm;
       const level = Number(alarm.snoozeLevel) || 0;
@@ -3577,6 +3580,7 @@
 
     function stopAllRingingState(explicitAlarmId = null, explicitScheduleKey = null) {
       lastStoppedAlarmStamp = Date.now();
+      try { cancelScheduledRing(); setTimeout(armScheduledRing, 1500); } catch (e) {}
       isRinging = false;
       isTimerRinging = false;
 
@@ -4078,6 +4082,109 @@
         }
       });
     }
+    /* ── 예약 알람음: 알람 시각에 JS가 멈춰 있어도 오디오 엔진이 직접 울림 ──
+       탭할 때 만든 오디오 엔진(AudioContext)에 '몇 시간 뒤 이 소리를 재생'을 미리 예약해 둡니다.
+       예약된 소리는 브라우저 오디오 스레드가 시각에 맞춰 재생하므로,
+       백그라운드에서 타이머가 느려지거나 멈춰도 알람 시각이 되면 소리가 납니다. */
+    let schedCtx = null, schedSrc = null, schedFor = 0, schedAlarm = null, schedHum = null;
+    const schedBufCache = new Map();
+    const SCHED_RING_MAX_SEC = 30 * 60; // 끄지 않으면 최대 30분 반복
+
+    function ensureSchedCtx() {
+      try {
+        if (!schedCtx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return null;
+          schedCtx = new AC();
+          // 귀에 안 들리는 30Hz 저음(-56dB): 크롬이 이 오디오 엔진을 '재생 중'으로 보게 해 백그라운드에서 멈추지 않게 함
+          const osc = schedCtx.createOscillator(); const g = schedCtx.createGain();
+          osc.frequency.value = 30; g.gain.value = 0.0015;
+          osc.connect(g).connect(schedCtx.destination); osc.start();
+          schedHum = osc;
+        }
+        if (schedCtx.state === 'suspended') schedCtx.resume().catch(() => {});
+        return schedCtx;
+      } catch (e) { return null; }
+    }
+
+    function nextAbsoluteDue() {
+      const nowD = getSynchronizedNow(); const nowMs = nowD.getTime();
+      let best = null;
+      for (const a of alarms) {
+        if (!a.enabled) continue;
+        let due = null;
+        if (a.nextSnoozeAt && Number(a.nextSnoozeAt) > nowMs) due = Number(a.nextSnoozeAt);
+        else if (!a.isRepeating) due = Number(a.singleShotAt) || null;
+        else {
+          const [h, m] = String(a.time || '').split(':').map(Number);
+          if (!Number.isFinite(h)) continue;
+          for (let k = 0; k <= 7; k++) {
+            const d = new Date(nowD); d.setDate(d.getDate() + k); d.setHours(h, m || 0, 0, 0);
+            if ((a.days || []).includes(d.getDay()) && d.getTime() > nowMs) { due = d.getTime(); break; }
+          }
+        }
+        if (due && due > nowMs && (best === null || due < best.due)) best = { due, a };
+      }
+      return best;
+    }
+
+    function scheduledRingIsSounding() {
+      const nowMs = getSynchronizedNow().getTime();
+      return Boolean(schedSrc && schedFor && nowMs >= schedFor && nowMs < schedFor + SCHED_RING_MAX_SEC * 1000);
+    }
+
+    function cancelScheduledRing() {
+      if (schedSrc) { try { schedSrc.stop(); } catch (e) {} try { schedSrc.disconnect(); } catch (e) {} }
+      schedSrc = null; schedFor = 0; schedAlarm = null;
+    }
+
+    async function getSchedBuffer(soundIdx, level) {
+      const url = getRingBlobUrlForSound(soundIdx, level);
+      if (schedBufCache.has(url)) return schedBufCache.get(url);
+      const ab = await (await fetch(url)).arrayBuffer();
+      const buf = await new Promise((res, rej) => schedCtx.decodeAudioData(ab, res, rej));
+      schedBufCache.set(url, buf);
+      return buf;
+    }
+
+    let schedBusy = false;
+    async function armScheduledRing() {
+      if (schedBusy || !schedCtx || isRinging || isTimerRinging) return;
+      if (scheduledRingIsSounding()) return; // 지금 울리는 중이면 건드리지 않음 (끄기 전까지)
+      schedBusy = true;
+      try {
+        if (schedCtx.state === 'suspended') await schedCtx.resume().catch(() => {});
+        const nx = nextAbsoluteDue();
+        if (!nx) { cancelScheduledRing(); return; }
+        const buf = await getSchedBuffer(getDisplayedAlarmSoundIndex(nx.a), Number(nx.a.snoozeLevel) || 0);
+        const delaySec = (nx.due - getSynchronizedNow().getTime()) / 1000;
+        if (delaySec <= 0.05) return;
+        cancelScheduledRing();
+        const src = schedCtx.createBufferSource();
+        src.buffer = buf; src.loop = true;
+        const g = schedCtx.createGain(); g.gain.value = 1.0;
+        src.connect(g).connect(schedCtx.destination);
+        const startAt = schedCtx.currentTime + delaySec;
+        src.start(startAt);
+        src.stop(startAt + SCHED_RING_MAX_SEC);
+        schedSrc = src; schedFor = nx.due; schedAlarm = nx.a;
+      } catch (e) {
+        console.warn('예약 알람음 준비 실패', e);
+      } finally { schedBusy = false; }
+    }
+
+    document.addEventListener('pointerdown', () => { if (ensureSchedCtx()) armScheduledRing(); }, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && scheduledRingIsSounding() && !isRinging && schedAlarm) {
+        // 백그라운드에서 예약 알람음이 울리던 중 앱으로 돌아오면 → 정식 알람 화면(끄기·다시 울림)으로 넘김
+        const a = schedAlarm; cancelScheduledRing();
+        try { triggerAlarm(a); } catch (e) {}
+        return;
+      }
+      armScheduledRing();
+    });
+    setInterval(armScheduledRing, 30000); // 시계 오차 보정 겸 주기적 재예약
+
     /* ── 터치 전 알람 준비 화면 + 안드로이드 뒤로가기 종료 경고 ── */
     (function () {
       const activated = () => !!(navigator.userActivation && navigator.userActivation.hasBeenActive);
@@ -4100,6 +4207,7 @@
         try { initMasterAudioUrls(); } catch (e) {}
         try { ensureAutoBgKeepAlive(); } catch (e) {}
         try { syncCurrentPushState(); } catch (e) {}
+        try { if (ensureSchedCtx()) armScheduledRing(); } catch (e) {}
       }
       ov.addEventListener('pointerdown', arm, { once: false });
       ov.addEventListener('click', arm);
