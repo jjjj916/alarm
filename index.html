@@ -2257,7 +2257,8 @@
         p.then(() => {
           claimAudioFocusForAlarm(currentRingingAlarm);
         }).catch(() => {
-          startWebAudioLoop(soundIdx, level);
+          // 아이폰·아이패드 백그라운드에서는 대체 재생(웹 오디오 반복)이 띄엄띄엄 돌아 소리가 뚝뚝 끊김 → 하지 않음
+          if (!(IS_IOS && document.visibilityState === 'hidden')) startWebAudioLoop(soundIdx, level);
         }).finally(() => {
           isStoppingAudio = false;
         });
@@ -2265,7 +2266,8 @@
         isStoppingAudio = false;
       }
       // 유튜브 등 다른 앱이 소리를 쥐고 있으면 처음 재생이 밀릴 수 있어 20초 동안 계속 재시도
-      if (document.visibilityState === 'hidden') {
+      // (아이폰·아이패드는 백그라운드 재생을 iOS가 계속 멈춰서, 재시도하면 재생↔멈춤이 반복되며 소리가 끊김 → 안드로이드만)
+      if (document.visibilityState === 'hidden' && !IS_IOS) {
         let tries = 0;
         const retry = setInterval(() => {
           if ((!isRinging && !isTimerRinging) || ++tries > 50) return clearInterval(retry);
