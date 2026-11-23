@@ -1929,6 +1929,17 @@
   </div>
 
   <script>
+    // ── 먼저 선언해 두는 값들 ──
+    // (알람 시각이 지난 뒤 앱이 열리면 페이지를 읽는 도중에 알람이 바로 울리는데, 이 값들이 아래쪽에 있으면
+    //  '선언 전에 사용' 오류로 알람음이 안 났음 → 맨 위로 옮김)
+    const UA = navigator.userAgent || '';
+    const IS_IOS = /iPad|iPhone|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const IS_ANDROID = /Android/i.test(UA);
+    let iosPendingRing = null;
+    let schedCtx = null, schedSrc = null, schedGain = null, schedFor = 0, schedAlarm = null, schedHum = null;
+    const schedBufCache = new Map();
+    const SCHED_RING_MAX_SEC = 30 * 60; // 예약 알람음: 끄지 않으면 최대 30분 반복
+    let schedBusy = false;
     window.toggleEssentialGuide = function() {
       const bodyEl = document.getElementById('essentialGuideBody');
       const btnEl = document.getElementById('toggleGuideBtn');
@@ -2260,7 +2271,6 @@
       }
     }
 
-    let iosPendingRing = null;
     function startSingleAlarmAudio(soundIdx = 0, level = 0) {
       if (!isRinging && !isTimerRinging) return;
       // 아이폰·아이패드: 백그라운드에서는 iOS가 소리를 끊어 먹어서 뚝뚝 끊기기만 함
@@ -3039,6 +3049,11 @@
       countdownEl.innerText = `${prefixLabel}다음 알람까지 ${parts.join(' ')} 남음`;
     }
 
+    function dismissedAfter(alarm, occAt) {
+      const d = Number(alarm.userDismissedAt) || 0;
+      return d > 0 && occAt > 0 && d >= occAt - 30 * 1000;
+    }
+
     function updateClock() {
       const now = getSynchronizedNow();
       const hours = String(now.getHours()).padStart(2, '0');
@@ -3069,6 +3084,7 @@
             if (!shotAt) continue;
             const diffMs = now.getTime() - shotAt;
             const triggerKey = `${todayKey}_${alarm.time}_${shotAt}`;
+            if (dismissedAfter(alarm, shotAt)) continue;
             if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey && alarm.dismissedScheduleKey !== triggerKey) {
               alarm.lastTriggeredKey = triggerKey;
               triggerAlarm(alarm);
@@ -3082,17 +3098,23 @@
 
           let diffMs = -1;
           let triggerKey = '';
+          let occAt = 0;
 
           if (alarm.nextSnoozeAt) {
-            diffMs = now.getTime() - Number(alarm.nextSnoozeAt);
+            occAt = Number(alarm.nextSnoozeAt);
+            diffMs = now.getTime() - occAt;
             triggerKey = `${todayKey}_snooze_${alarm.nextSnoozeAt}`;
           } else {
             const [th, tm] = alarm.time.split(':').map(Number);
             const targetDate = new Date(now);
             targetDate.setHours(th, tm, 0, 0);
-            diffMs = now.getTime() - targetDate.getTime();
+            occAt = targetDate.getTime();
+            diffMs = now.getTime() - occAt;
             triggerKey = `${todayKey}_${alarm.time}`;
           }
+          // 푸시로 울린 알람은 기억하는 키가 서버 형식(srv_…)이라 위 키와 달라서, 끈 뒤 2분이 지나면 같은 회차가 다시 울렸음
+          // → 이 회차 시각 이후에 '끄기'를 눌렀다면 키와 상관없이 이미 끝난 회차로 봄
+          if (dismissedAfter(alarm, occAt)) continue;
 
           if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey && alarm.dismissedScheduleKey !== triggerKey) {
             alarm.lastTriggeredKey = triggerKey;
@@ -4047,9 +4069,6 @@
       }, currentHM));
     }
 
-    const UA = navigator.userAgent || '';
-    const IS_IOS = /iPad|iPhone|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const IS_ANDROID = /Android/i.test(UA);
     document.querySelectorAll('[data-os]').forEach((el) => {
       const os = el.getAttribute('data-os');
       el.classList.toggle('hidden', !((os === 'ios' && IS_IOS) || (os === 'android' && IS_ANDROID)));
@@ -4166,9 +4185,6 @@
        탭할 때 만든 오디오 엔진(AudioContext)에 '몇 시간 뒤 이 소리를 재생'을 미리 예약해 둡니다.
        예약된 소리는 브라우저 오디오 스레드가 시각에 맞춰 재생하므로,
        백그라운드에서 타이머가 느려지거나 멈춰도 알람 시각이 되면 소리가 납니다. */
-    let schedCtx = null, schedSrc = null, schedGain = null, schedFor = 0, schedAlarm = null, schedHum = null;
-    const schedBufCache = new Map();
-    const SCHED_RING_MAX_SEC = 30 * 60; // 끄지 않으면 최대 30분 반복
 
     function ensureSchedCtx() {
       // 아이폰·아이패드는 백그라운드에서 웹 오디오를 띄엄띄엄 돌려서 알람음이 뚝뚝 끊기고,
@@ -4233,7 +4249,6 @@
       return buf;
     }
 
-    let schedBusy = false;
     async function armScheduledRing() {
       if (schedBusy || !schedCtx || isRinging || isTimerRinging) return;
       if (scheduledRingIsSounding()) return; // 지금 울리는 중이면 건드리지 않음 (끄기 전까지)
