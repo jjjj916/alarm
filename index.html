@@ -1518,6 +1518,19 @@
               <span class="text-[10px] opacity-80">목록에 ‘스마트 시계’가 없으면 브라우저만 설정하면 돼요. 휴대폰 [디바이스 케어 &gt; 배터리 &gt; 사용하지 않는 앱 절전/잠자는 앱] 목록에도 두 앱이 들어가 있지 않은지 확인하세요.</span></p>
           </div>
 
+          <div data-os="android" class="hidden flex items-start gap-2 pt-2 border-t border-amber-200/50">
+            <span class="font-extrabold text-sky-700 shrink-0">📳 알림 진동</span>
+            <div><p>갤럭시는 웹 앱이 알림 진동을 정할 수 없어 <b>알림 카테고리 설정</b>을 따라요. ‘알림 허용’만 켜져 있으면 진동 없이 올 수 있어요.<br>
+              • [설정 &gt; 애플리케이션 &gt; <b>스마트 시계</b>(설치 안 했으면 Chrome) &gt; 알림 &gt; <b>알림 카테고리</b>] → 카테고리 <b>이름을 눌러</b> 들어가서 <b>소리</b> 선택 · <b>진동 켜기</b><br>
+              • 휴대폰 소리 모드가 <b>무음</b>이면 진동도 없어요.</p>
+              <div class="grid grid-cols-2 gap-2 mt-2">
+                <button type="button" id="vibeTestAppBtn" class="py-1.5 bg-white border border-sky-200 rounded-full font-bold text-sky-700">📳 앱 진동 테스트</button>
+                <button type="button" id="vibeTestNotiBtn" class="py-1.5 bg-white border border-sky-200 rounded-full font-bold text-sky-700">🔔 알림 진동 테스트</button>
+              </div>
+              <p id="vibeTestResult" class="mt-1 text-[10px] text-gray-500"></p>
+            </div>
+          </div>
+
           <div data-os="ios" class="hidden flex items-start gap-2 pt-2 border-t border-amber-200/50">
             <span class="font-extrabold text-purple-700 shrink-0">3. 아이폰/아이패드</span>
             <p>반드시 Safari 공유 버튼에서 <b>[홈 화면에 추가]</b>로 설치한 아이콘으로 실행해야 잠금화면 푸시가 도착합니다. <b>무음 모드</b>나 <b>집중 모드</b>가 켜져 있으면 <b>푸시 알림음</b>이 나지 않으니 확인하세요. (앱 화면의 알람음은 미디어 볼륨으로 울립니다)</p>
@@ -1583,18 +1596,6 @@
             <li>저장 후 위 <b>⏱ 연동 테스트</b>나 2분 뒤 알람으로 화면을 끈 채 시험</li>
           </ol>
         </details>
-        <div class="text-[11px] text-gray-700 leading-relaxed bg-sky-50 rounded-xl px-3 py-2">
-          <b class="text-sky-700">📳 알림이 와도 진동이 없다면</b> — 안드로이드는 웹 앱이 진동을 정할 수 없고 <b>휴대폰 설정</b>을 따라요.<br>
-          ① 설정 › 애플리케이션 › <b>스마트 시계</b>(설치 안 했으면 Chrome) › 알림 › 알림 카테고리에서 <b>소리·진동 켜기</b><br>
-          ② 설정 › 소리 및 진동 › 소리 모드가 <b>무음</b>이 아닌지, <b>진동 세기 › 알림</b>이 0이 아닌지 확인<br>
-          ③ 설정 › 소리 및 진동 › <b>‘소리 모드일 때 진동’(진동 함께 울림)</b>이 켜져 있는지 확인 — 꺼져 있으면 소리 모드에선 알림이 진동 없이 소리만 나요.<br>
-          ④ 루틴에 <b>소리 모드 및 음량 › 소리(진동 함께)</b> 동작을 넣으면 무음 상태여도 알람 때 진동이 켜져요.
-          <div class="grid grid-cols-2 gap-2 mt-2">
-            <button type="button" id="vibeTestAppBtn" class="py-2 bg-white border border-sky-200 rounded-full font-bold text-sky-700">📳 앱 진동 테스트</button>
-            <button type="button" id="vibeTestNotiBtn" class="py-2 bg-white border border-sky-200 rounded-full font-bold text-sky-700">🔔 알림 진동 테스트</button>
-          </div>
-          <p id="vibeTestResult" class="mt-1 text-[11px] text-gray-500"></p>
-        </div>
         <p class="text-[11px] text-gray-400">· 삼성 휴대폰에서만 돼요. · 앱이 열린 뒤 알람이 울리면 앱에서 [끄기]를 눌러 주세요.</p>
         <p class="text-[11px] text-gray-600 bg-amber-50 rounded-xl px-3 py-2">💡 푸시는 인터넷이 있어야 와요. 시험·면접처럼 <b>꼭 일어나야 하는 날</b>은 휴대폰 <b>기본 시계에도 알람을 하나 더</b> 맞춰 두세요.</p>
       </div>
@@ -3061,6 +3062,41 @@
       countdownEl.innerText = `${prefixLabel}다음 알람까지 ${parts.join(' ')} 남음`;
     }
 
+    // 알람 시각 뒤 늦게 앱이 열려도(잠금 상태라 루틴이 늦게 연 경우 등) 끄기 전이면 1시간까지는 울림
+    const CATCHUP_MS = 60 * 60 * 1000;
+    const firedThisPage = new Set();   // 이 페이지가 살아 있는 동안 울린 회차 (페이지가 새로 열리면 비어 있음)
+    let swDismissSynced = false;       // 알림의 '알람 끄기'로 끈 기록을 읽었는지
+
+    async function applySwDismissRecords() {
+      try {
+        if (!('caches' in window)) { swDismissSynced = true; return; }
+        const c = await caches.open('alarm-state');
+        const res = await c.match('/__dismissed');
+        if (res) {
+          const list = await res.json().catch(() => []);
+          let changed = false;
+          (Array.isArray(list) ? list : []).forEach((rec) => {
+            const at = Number(rec && rec.at) || 0;
+            if (!at) return;
+            alarms.forEach((a) => {
+              if (rec.alarmId && String(a.id) !== String(rec.alarmId)) return;
+              if (!a.userDismissedAt || Number(a.userDismissedAt) < at) {
+                a.userDismissedAt = at;
+                if (!a.isRepeating && !a.nextSnoozeAt) a.enabled = false;
+                changed = true;
+              }
+            });
+          });
+          if (changed) { saveAlarms(true); renderAlarmList(); }
+        }
+      } catch (e) {}
+      swDismissSynced = true;
+    }
+    applySwDismissRecords();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') applySwDismissRecords();
+    });
+
     function dismissedAfter(alarm, occAt) {
       const d = Number(alarm.userDismissedAt) || 0;
       return d > 0 && occAt > 0 && d >= occAt - 30 * 1000;
@@ -3082,7 +3118,8 @@
 
       if (Date.now() - lastStoppedAlarmStamp < 3000) return;
 
-      const windowMs = 180 * 1000;
+      // 끈 기록을 읽기 전에는 예전처럼 3분, 읽은 뒤에는 끄기 전인 알람을 1시간까지 울림
+      const windowMs = swDismissSynced ? CATCHUP_MS : 180 * 1000;
 
       if (!isRinging) {
         for (const alarm of alarms) {
@@ -3097,8 +3134,10 @@
             const diffMs = now.getTime() - shotAt;
             const triggerKey = `${todayKey}_${alarm.time}_${shotAt}`;
             if (dismissedAfter(alarm, shotAt)) continue;
-            if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey && alarm.dismissedScheduleKey !== triggerKey) {
+            // 지난번 페이지에서 울렸지만 끄지 않은 채 페이지가 사라졌다면(화면 꺼짐·정리) 다시 울림
+            if (diffMs >= 0 && diffMs <= windowMs && (alarm.lastTriggeredKey !== triggerKey || !firedThisPage.has(triggerKey)) && alarm.dismissedScheduleKey !== triggerKey) {
               alarm.lastTriggeredKey = triggerKey;
+              firedThisPage.add(triggerKey);
               triggerAlarm(alarm);
               saveAlarms();
               break;
@@ -3128,8 +3167,9 @@
           // → 이 회차 시각 이후에 '끄기'를 눌렀다면 키와 상관없이 이미 끝난 회차로 봄
           if (dismissedAfter(alarm, occAt)) continue;
 
-          if (diffMs >= 0 && diffMs <= windowMs && alarm.lastTriggeredKey !== triggerKey && alarm.dismissedScheduleKey !== triggerKey) {
+          if (diffMs >= 0 && diffMs <= windowMs && (alarm.lastTriggeredKey !== triggerKey || !firedThisPage.has(triggerKey)) && alarm.dismissedScheduleKey !== triggerKey) {
             alarm.lastTriggeredKey = triggerKey;
+            firedThisPage.add(triggerKey);
             triggerAlarm(alarm);
             saveAlarms();
             break;

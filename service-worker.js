@@ -13,7 +13,7 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME && k !== 'alarm-state').map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -81,6 +81,19 @@ self.addEventListener('push', (event) => {
   })());
 });
 
+// 앱이 닫힌 채 알림에서 끈 경우, 나중에 앱이 열렸을 때 다시 울리지 않도록 기록
+async function recordDismiss(alarmId) {
+  try {
+    const c = await caches.open('alarm-state');
+    const old = await c.match('/__dismissed');
+    let list = old ? await old.json().catch(() => []) : [];
+    if (!Array.isArray(list)) list = [];
+    list.push({ alarmId: alarmId || '', at: Date.now() });
+    list = list.filter((x) => Date.now() - Number(x.at || 0) < 6 * 60 * 60 * 1000).slice(-20);
+    await c.put('/__dismissed', new Response(JSON.stringify(list), { headers: { 'Content-Type': 'application/json' } }));
+  } catch (e) {}
+}
+
 async function sendDismiss(alarmId) {
   const sub = await self.registration.pushManager.getSubscription();
   if (!sub) return;
@@ -101,6 +114,7 @@ self.addEventListener('notificationclick', (event) => {
       list.forEach((n) => { if (!n.data || String(n.data.alarmId) === String(payload.alarmId)) n.close(); });
       const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of allClients) client.postMessage({ type: 'ALARM_DISMISSED_FROM_PUSH', alarmId: payload.alarmId || '' });
+      await recordDismiss(payload.alarmId);
       await sendDismiss(payload.alarmId);
     })());
     return;
