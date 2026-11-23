@@ -16,6 +16,23 @@
   },
   "headers": [
     {
+      "source": "/smart-clock-routine.rtn",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/octet-stream"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=\"smart-clock-routine.rtn\""
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
       "source": "/service-worker.js",
       "headers": [
         {
