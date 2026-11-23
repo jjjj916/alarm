@@ -2360,6 +2360,12 @@
     });
 
     // 알림창 재생 카드: '알람 대기 중'과 다음 알람 시각 표시
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && (isRinging || isTimerRinging) && masterEl.paused && !isStoppingAudio) {
+        masterEl.play().catch(() => {});
+      }
+    });
+
     function showKeepAliveMediaCard() {
       if (!('mediaSession' in navigator) || isRinging || isTimerRinging) return;
       const next = getUpcomingAlarmForBackground();
@@ -2379,6 +2385,9 @@
     masterEl.addEventListener('pause', () => {
       if (isStoppingAudio) return;
       if (isRinging || isTimerRinging) {
+        // 아이폰·아이패드: 백그라운드(잠금 화면)에서는 iOS가 재생을 계속 멈추는데, 여기서 0.12초 만에 다시 틀면
+        // 재생↔멈춤이 반복되며 소리가 뚝뚝 끊김 → 백그라운드에서는 다시 틀지 않고, 앱 화면으로 돌아오면 이어서 울림
+        if (IS_IOS && document.visibilityState === 'hidden') return;
         setTimeout(() => {
           if (!isStoppingAudio && (isRinging || isTimerRinging)) {
             masterEl.play().catch(() => {});
