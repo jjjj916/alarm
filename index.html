@@ -2219,6 +2219,24 @@
     }
 
     const masterEl = document.getElementById('masterAudioEngine');
+    // 아이폰·아이패드 백그라운드: iOS가 소리를 멈추면 앱의 여러 곳(재시도·오디오 유지·반복 푸시)이 다시 틀면서
+    // 재생↔멈춤이 반복되고 소리가 뚝뚝 끊김 → 백그라운드에서는 어떤 경로로도 다시 틀지 못하게 한 곳에서 막음
+    (function guardIosBackgroundPlay() {
+      const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (!isIOSDevice || !masterEl) return;
+      const origPlay = masterEl.play.bind(masterEl);
+      masterEl.play = function () {
+        if (document.visibilityState === 'hidden') return Promise.reject(new DOMException('iOS background play blocked', 'NotAllowedError'));
+        return origPlay();
+      };
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden' && !masterEl.paused) {
+          isStoppingAudio = true;
+          try { masterEl.pause(); } catch (e) {}
+          isStoppingAudio = false;
+        }
+      });
+    })();
 
     function startWebAudioLoop(soundIdx = 0, level = 0) {
       stopWebAudioLoop();
@@ -2229,6 +2247,8 @@
           stopWebAudioLoop();
           return;
         }
+        // 아이폰·아이패드 백그라운드에서는 이 반복이 띄엄띄엄 실행돼 소리가 뚝뚝 끊김 → 앱 화면일 때만 재생
+        if (IS_IOS && document.visibilityState === 'hidden') return;
         playPreviewSoundWebAudio(soundIdx, Math.min(0.45 + level * 0.15, 0.95));
       }, cycleMs);
     }
@@ -2240,8 +2260,16 @@
       }
     }
 
+    let iosPendingRing = null;
     function startSingleAlarmAudio(soundIdx = 0, level = 0) {
       if (!isRinging && !isTimerRinging) return;
+      // 아이폰·아이패드: 백그라운드에서는 iOS가 소리를 끊어 먹어서 뚝뚝 끊기기만 함
+      // → 백그라운드에서는 알람음을 틀지 않고(푸시 알림 + 기본 시계 알람이 깨움), 앱 화면으로 돌아오면 그때 울림
+      if (IS_IOS && document.visibilityState === 'hidden') {
+        iosPendingRing = { soundIdx, level };
+        return;
+      }
+      iosPendingRing = null;
       const ringUrl = getRingBlobUrlForSound(soundIdx, level);
       isStoppingAudio = true;
 
@@ -2369,8 +2397,18 @@
     });
 
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && (isRinging || isTimerRinging) && masterEl.paused && !isStoppingAudio) {
-        masterEl.play().catch(() => {});
+      if (!(isRinging || isTimerRinging)) return;
+      if (IS_IOS && document.visibilityState === 'hidden') {
+        // 울리는 중에 홈으로 나가면 iOS와 다투지 않도록 조용히 멈춰 둠 (앱으로 돌아오면 이어서 울림)
+        isStoppingAudio = true;
+        try { stopWebAudioLoop(); masterEl.pause(); } catch (e) {}
+        isStoppingAudio = false;
+        iosPendingRing = iosPendingRing || { soundIdx: getDisplayedAlarmSoundIndex(currentRingingAlarm || {}), level: Number((currentRingingAlarm || {}).snoozeLevel) || 0 };
+        return;
+      }
+      if (document.visibilityState === 'visible' && !isStoppingAudio) {
+        if (iosPendingRing) { const r = iosPendingRing; startSingleAlarmAudio(r.soundIdx, r.level); }
+        else if (masterEl.paused) masterEl.play().catch(() => {});
       }
     });
 
