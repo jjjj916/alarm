@@ -52,6 +52,7 @@ module.exports = async function handler(req, res) {
         refDeltaMs: Math.max(-600000, Math.min(600000, Number(body.refDeltaMs) || 0)),
         urgentBurstMode: Boolean(body.urgentBurstMode),
         activeRinging: existing.activeRinging || null,
+        dismissedAt: Number(existing.dismissedAt || 0),
         skipUntil: existing.skipUntil || {},
         timer: body.timer && Number(body.timer.endAt) > Date.now() - 60000
           ? { endAt: Number(body.timer.endAt), totalMs: Number(body.timer.totalMs) || 0 } : null,
@@ -59,6 +60,8 @@ module.exports = async function handler(req, res) {
       };
       if (!record.urgentBurstMode) record.activeRinging = null;
       // 삭제된 알람이거나 앱에서 이미 끈 경우 반복 발송 즉시 중단
+      if (body.clearRinging) record.dismissedAt = Date.now();
+      if (record.activeRinging && Number(record.dismissedAt || 0) >= Number(record.activeRinging.startedAt || 0)) record.activeRinging = null;
       if (body.clearRinging || (record.activeRinging &&
           !alarms.some((a) => String(a.id) === String(record.activeRinging.alarmId)))) {
         record.activeRinging = null;
@@ -80,6 +83,7 @@ module.exports = async function handler(req, res) {
         const now = Date.now();
         const alarmId = body.alarmId ? String(body.alarmId) : null;
         record.activeRinging = null;
+        record.dismissedAt = now;
         record.skipUntil = record.skipUntil || {};
         for (const a of record.alarms || []) {
           if (alarmId && String(a.id) !== alarmId) continue;

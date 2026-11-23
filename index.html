@@ -4109,11 +4109,14 @@
        탭할 때 만든 오디오 엔진(AudioContext)에 '몇 시간 뒤 이 소리를 재생'을 미리 예약해 둡니다.
        예약된 소리는 브라우저 오디오 스레드가 시각에 맞춰 재생하므로,
        백그라운드에서 타이머가 느려지거나 멈춰도 알람 시각이 되면 소리가 납니다. */
-    let schedCtx = null, schedSrc = null, schedFor = 0, schedAlarm = null, schedHum = null;
+    let schedCtx = null, schedSrc = null, schedGain = null, schedFor = 0, schedAlarm = null, schedHum = null;
     const schedBufCache = new Map();
     const SCHED_RING_MAX_SEC = 30 * 60; // 끄지 않으면 최대 30분 반복
 
     function ensureSchedCtx() {
+      // 아이폰·아이패드는 백그라운드에서 웹 오디오를 띄엄띄엄 돌려서 알람음이 뚝뚝 끊기고,
+      // 앱 밖에서는 끌 방법도 없어 계속 남음 → iOS는 예약 알람음을 쓰지 않음 (기본 시계 연동 + 푸시로 깨움)
+      if (IS_IOS) return null;
       try {
         if (!schedCtx) {
           const AC = window.AudioContext || window.webkitAudioContext;
@@ -4157,8 +4160,11 @@
     }
 
     function cancelScheduledRing() {
-      if (schedSrc) { try { schedSrc.stop(); } catch (e) {} try { schedSrc.disconnect(); } catch (e) {} }
-      schedSrc = null; schedFor = 0; schedAlarm = null;
+      // 아이폰 사파리는 이미 종료 시각이 예약된 소리에 stop()을 또 부르면 오류가 나서 소리가 안 멈출 수 있음
+      // → 볼륨을 0으로 내리고 연결을 끊은 뒤 stop() (어느 단계가 실패해도 소리는 꺼짐)
+      if (schedGain) { try { schedGain.gain.value = 0; } catch (e) {} try { schedGain.disconnect(); } catch (e) {} }
+      if (schedSrc) { try { schedSrc.disconnect(); } catch (e) {} try { schedSrc.stop(0); } catch (e) {} }
+      schedSrc = null; schedGain = null; schedFor = 0; schedAlarm = null;
     }
 
     async function getSchedBuffer(soundIdx, level) {
@@ -4190,7 +4196,7 @@
         const startAt = schedCtx.currentTime + delaySec;
         src.start(startAt);
         src.stop(startAt + SCHED_RING_MAX_SEC);
-        schedSrc = src; schedFor = nx.due; schedAlarm = nx.a;
+        schedSrc = src; schedGain = g; schedFor = nx.due; schedAlarm = nx.a;
       } catch (e) {
         console.warn('예약 알람음 준비 실패', e);
       } finally { schedBusy = false; }
