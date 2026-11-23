@@ -106,6 +106,15 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
+  if (payload.type === 'test') {
+    event.waitUntil((async () => {
+      const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      if (allClients.length) { try { await allClients[0].focus(); } catch (e) {} }
+      else await self.clients.openWindow('/');
+    })());
+    return;
+  }
+
   event.waitUntil((async () => {
     let targetUrl;
     if (payload.type === 'timer') {
