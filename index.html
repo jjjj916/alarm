@@ -4157,7 +4157,7 @@
     /* ⚡ 원터치 설치용 iCloud 단축어 링크 (운영자가 한 번만 넣으면 모든 사용자가 '단축어 추가' 한 번으로 설치)
        만드는 법: 아이폰 단축어 앱에서 '스마트시계알람' 단축어를 길게 누르기 → 공유 → 'iCloud 링크 복사' → 아래 따옴표 안에 붙여넣기
        예: 'https://www.icloud.com/shortcuts/0123456789abcdef' */
-    const SHORTCUT_ICLOUD_URL = '';
+    const SHORTCUT_ICLOUD_URL = 'https://www.icloud.com/shortcuts/3966196379f045c98d5169e49d1d3273';
     const SHORTCUT_OFFICIAL_NAME = '스마트시계알람';
     const getShortcutName = () => (localStorage.getItem('ios_shortcut_name') || SHORTCUT_OFFICIAL_NAME).trim();
     function runIOSClockShortcut(timeHM) {
@@ -4419,6 +4419,263 @@
         toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 2500);
       });
     })();
+    /* ══════════ 쉬운 설정 & 한계 보완 ══════════
+       ① 알람 준비 점검표: 앱이 스스로 확인할 수 있는 건 묻지 않고, 안 된 것만 버튼 하나로 안내
+       ② 1분 알람 점검: 실제로 울리는지 시험하고 결과에 맞춰 할 일만 알려 줌
+       ③ 놓친 알람 알림: 앱에서 못 울린 알람이 있으면 그때만 루틴/기본 시계 연동을 권함
+       ④ 인터넷·서버 상태 표시, ⑤ 알람 백업·복원(기기에만 저장되는 한계 보완) */
+    (function easySetup() {
+      const ua = navigator.userAgent || '';
+      const IN_APP = /KAKAOTALK|NAVER\(inapp|NAVER|Instagram|FBAN|FBAV|Line\/|everytimeApp|DaumApps|wv\)/i.test(ua);
+      const isStandalone = () => (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+      const LS = {
+        get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+        set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }
+      };
+      const TEST_NAME = '🔔 알람 점검';
+      let deferredInstall = null;
+      let serverOk = null;
+      let pushOk = null;
+
+      window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; render(); });
+      window.addEventListener('appinstalled', () => { deferredInstall = null; render(); });
+
+      // 울린 기록: 놓친 알람·점검 결과 판단용
+      const _origTrigger = triggerAlarm;
+      triggerAlarm = function (alarm) {
+        try {
+          const now = getSynchronizedNow();
+          const rang = JSON.parse(LS.get('rang_log') || '{}');
+          rang[`${formatDateKey(now)}_${alarm && alarm.id}`] = Date.now();
+          Object.keys(rang).forEach((k) => { if (Date.now() - rang[k] > 3 * 86400000) delete rang[k]; });
+          LS.set('rang_log', JSON.stringify(rang));
+          if (alarm && alarm.name === TEST_NAME) {
+            LS.set('test_result', JSON.stringify({ at: Date.now(), ok: true, hidden: document.visibilityState !== 'visible' }));
+          }
+        } catch (e) {}
+        return _origTrigger.apply(this, arguments);
+      };
+
+      // ── 카드 만들기 ──
+      const card = document.createElement('div');
+      card.id = 'easySetupCard';
+      card.className = 'clean-card p-4 text-left space-y-2.5';
+      const tab = document.getElementById('tab-alarm');
+      if (tab) tab.prepend(card);
+
+      const banner = document.createElement('div');
+      banner.id = 'easyBanner';
+      banner.className = 'hidden clean-card p-3 text-left text-[12px] leading-relaxed';
+      if (tab) tab.prepend(banner);
+
+      function row(ok, title, desc, actionHtml, optional) {
+        const dot = ok ? '✅' : (optional ? '⭐' : '⚠️');
+        return `<div class="flex items-start gap-2 py-1.5 border-t border-gray-100 first:border-0">
+          <span class="shrink-0 text-sm leading-5">${dot}</span>
+          <div class="flex-1 min-w-0"><p class="text-[12px] font-extrabold text-gray-900">${title}</p>
+          ${ok ? '' : `<p class="text-[11px] text-gray-500 leading-relaxed">${desc}</p>`}</div>
+          ${ok || !actionHtml ? '' : `<div class="shrink-0">${actionHtml}</div>`}
+        </div>`;
+      }
+      const btn = (id, label, color) => `<button type="button" id="${id}" class="px-3 py-1.5 ${color || 'bg-[#0381fe] text-white'} rounded-full text-[11px] font-extrabold whitespace-nowrap">${label}</button>`;
+
+      function testState() {
+        const pending = Number(LS.get('test_pending_at') || 0);
+        const res = JSON.parse(LS.get('test_result') || 'null');
+        if (res && res.at >= pending - 5000) return { done: true, ok: true, hidden: res.hidden, at: res.at };
+        if (pending && Date.now() > pending + 3 * 60 * 1000) return { done: true, ok: false };
+        if (pending && Date.now() <= pending + 3 * 60 * 1000) return { running: true, at: pending };
+        return { done: false };
+      }
+
+      function render() {
+        const perm = ('Notification' in window) ? Notification.permission : 'unsupported';
+        const installed = isStandalone();
+        const routineDone = LS.get('routine_done') === 'true';
+        const iosSync = LS.get('ios_clock_sync') === 'true';
+        const t = testState();
+        const rows = [];
+
+        if (IN_APP) {
+          rows.push(row(false, '크롬·사파리로 열기',
+            IS_IOS ? '카톡·네이버 앱 안에서는 알림이 안 와요. 오른쪽 아래 <b>⋯ › 사파리로 열기</b>를 눌러 주세요.'
+                   : '카톡·네이버 앱 안에서는 알림이 안 와요. 버튼을 누르면 크롬으로 열려요.',
+            IS_IOS ? btn('esCopyLink', '주소 복사', 'bg-gray-100 text-gray-800') : btn('esOpenChrome', '크롬으로 열기')));
+        }
+        rows.push(row(installed, '홈 화면에 설치',
+          IS_IOS ? '사파리 아래 <b>공유(□↑) › 홈 화면에 추가</b>를 눌러 주세요.' : (deferredInstall ? '버튼 한 번이면 설치돼요.' : '크롬 메뉴 <b>⋮ › 홈 화면에 추가</b>를 눌러 주세요.'),
+          (!IS_IOS && deferredInstall) ? btn('esInstall', '설치') : ''));
+        rows.push(row(perm === 'granted' && pushOk !== false, '알림 허용',
+          perm === 'denied' ? '알림이 막혀 있어요. 브라우저 주소창 왼쪽 🔒 › 권한 › 알림을 <b>허용</b>으로 바꿔 주세요.' : '앱을 닫아도 알람을 받으려면 꼭 필요해요.',
+          perm === 'denied' ? '' : btn('esPush', '허용하기')));
+        rows.push(row(serverOk !== false, '알람 서버 연결',
+          navigator.onLine === false ? '인터넷이 끊겨 있어요. 앱을 열어 두면 울리지만, 닫으면 울리지 않아요.' : '서버에 연결하지 못했어요. 잠시 뒤 다시 확인해 주세요.',
+          btn('esRecheck', '다시 확인', 'bg-gray-100 text-gray-800')));
+
+        if (IS_ANDROID) {
+          rows.push(row(routineDone, '(선택) 밤새 둬도 확실히 깨우기',
+            '삼성 루틴을 넣으면 푸시가 올 때 앱이 저절로 열려 알람음이 울려요. 안 해도 알림은 10초마다 계속 와요.',
+            btn('esRoutine', '1분 설정', 'bg-amber-100 text-amber-900'), true));
+        } else if (IS_IOS) {
+          rows.push(row(iosSync, '(선택) 영상 볼 때도 확실히 깨우기',
+            '버튼을 누르고 [단축어 추가]만 누르면 끝! 영상을 보거나 방해금지여도 기본 시계가 대신 울려요.',
+            btn('esIosClock', '한 번에 추가', 'bg-amber-100 text-amber-900'), true));
+        }
+
+        let testDesc = '1분 뒤 테스트 알람이 울려요. 화면을 끄고 기다려 보세요.';
+        if (t.running) testDesc = `${new Date(t.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}에 울릴 예정이에요. 화면을 끄고 기다려 보세요.`;
+        if (t.done && !t.ok) testDesc = IS_IOS
+          ? '앱에서 울리지 않았어요. 아이폰은 알림을 눌러야 앱 알람이 울려요 — 위의 <b>기본 시계 연동</b>을 켜 두면 확실해요.'
+          : (routineDone ? '앱에서 울리지 않았어요. 루틴에 <b>‘스마트 시계 열기’</b> 동작이 들어 있는지 확인해 주세요.'
+                         : '화면이 꺼진 동안 앱이 열리지 않았어요. 위의 <b>밤새 둬도 확실히 깨우기</b>를 설정하면 해결돼요.');
+        rows.push(row(t.done && t.ok, t.done && t.ok ? `알람 점검 통과 (${new Date(t.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})` : '1분 알람 점검',
+          testDesc, t.running ? '' : btn('esTest', t.done ? '다시 점검' : '점검 시작')));
+
+        const required = [!IN_APP, installed, perm === 'granted' && pushOk !== false, serverOk !== false];
+        const allOk = required.every(Boolean);
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-sm font-extrabold text-gray-900">${allOk ? '✅ 알람 준비 완료' : '🛠️ 알람 준비 점검'}</h2>
+            <span class="text-[11px] font-bold ${allOk ? 'text-emerald-600' : 'text-amber-600'}">${required.filter(Boolean).length}/${required.length}</span>
+          </div>
+          <div>${rows.join('')}</div>
+          <div class="flex gap-2 pt-1">
+            ${btn('esExport', '💾 알람 백업', 'bg-gray-100 text-gray-800')}
+            ${btn('esImport', '📂 백업 불러오기', 'bg-gray-100 text-gray-800')}
+            <input type="file" id="esImportFile" accept="application/json,.json" class="hidden">
+          </div>`;
+        bind();
+        // 다 됐으면 긴 필수 수칙은 접어 둠
+        const guide = document.getElementById('essentialGuideBody');
+        if (allOk && guide && !guide.classList.contains('hidden') && LS.get('guide_auto_folded') !== 'true' && typeof window.toggleEssentialGuide === 'function') {
+          window.toggleEssentialGuide(); LS.set('guide_auto_folded', 'true');
+        }
+      }
+
+      function on(id, fn) { const el = document.getElementById(id); if (el) el.onclick = fn; }
+      function bind() {
+        on('esOpenChrome', () => {
+          const u = location.href.replace(/^https?:\/\//, '');
+          location.href = `intent://${u}#Intent;scheme=https;package=com.android.chrome;end`;
+        });
+        on('esCopyLink', async () => { try { await navigator.clipboard.writeText(location.href); alert('주소를 복사했어요. 사파리에 붙여 넣어 주세요.'); } catch (e) { prompt('이 주소를 복사해 사파리에 붙여 넣어 주세요', location.href); } });
+        on('esInstall', async () => { if (!deferredInstall) return; deferredInstall.prompt(); try { await deferredInstall.userChoice; } catch (e) {} deferredInstall = null; render(); });
+        on('esPush', async () => { try { await subscribeToPushNotifications(true); } catch (e) {} await checkPush(); render(); });
+        on('esRecheck', async () => { await checkServer(); await checkPush(); render(); });
+        on('esRoutine', () => {
+          const c = document.getElementById('samsungRoutineCard');
+          if (c) { c.classList.remove('hidden'); c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+          if (confirm('루틴을 가져오고 ‘스마트 시계 열기’까지 넣으셨나요?\n완료했으면 [확인], 아직이면 [취소]를 눌러 주세요.')) { LS.set('routine_done', 'true'); render(); }
+        });
+        on('esIosClock', () => {
+          const one = document.getElementById('iosOneTapInstallBtn');
+          if (one && !document.getElementById('iosOneTapBox').classList.contains('hidden')) { one.click(); return; }
+          const g = document.getElementById('iosClockGuide');
+          if (g) { g.open = true; g.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        });
+        on('esTest', () => {
+          alarms = alarms.filter((a) => a.name !== TEST_NAME);
+          window.addQuickTimer(1, TEST_NAME);
+          const t = alarms.find((a) => a.name === TEST_NAME);
+          LS.set('test_pending_at', String(t ? t.singleShotAt : Date.now() + 60000));
+          LS.set('test_result', 'null');
+          render();
+        });
+        on('esExport', () => {
+          const data = { app: 'smart-clock', version: 1, exportedAt: new Date().toISOString(),
+            alarms: alarms.filter((a) => a.name !== TEST_NAME),
+            settings: { ios_shortcut_name: LS.get('ios_shortcut_name'), ios_clock_sync: LS.get('ios_clock_sync'), routine_done: LS.get('routine_done') } };
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `스마트시계_알람백업_${formatDateKey(new Date())}.json`;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        });
+        on('esImport', () => document.getElementById('esImportFile').click());
+        const f = document.getElementById('esImportFile');
+        if (f) f.onchange = async () => {
+          const file = f.files && f.files[0]; if (!file) return;
+          try {
+            const data = JSON.parse(await file.text());
+            const list = Array.isArray(data) ? data : data.alarms;
+            if (!Array.isArray(list)) throw new Error('형식 오류');
+            if (!confirm(`백업에 알람 ${list.length}개가 있어요. 지금 알람을 이걸로 바꿀까요?`)) return;
+            alarms = list.map((a) => Object.assign({}, a, { lastTriggeredKey: null, dismissedScheduleKey: null, userDismissedAt: null, nextSnoozeAt: null, nextSnoozeTime: null }));
+            if (data.settings) Object.entries(data.settings).forEach(([k, v]) => { if (v !== null && v !== undefined) LS.set(k, v); });
+            saveAlarms(); renderAlarmList(); updateClock();
+            alert('알람을 불러왔어요.');
+          } catch (e) { alert('백업 파일을 읽지 못했어요.'); }
+          f.value = '';
+        };
+      }
+
+      async function checkServer() {
+        if (navigator.onLine === false) { serverOk = false; return; }
+        try {
+          const r = await fetch('/api/health', { cache: 'no-store' });
+          const j = await r.json().catch(() => ({}));
+          serverOk = Boolean(r.ok && j.ok !== false);
+        } catch (e) { serverOk = false; }
+      }
+      async function checkPush() {
+        try {
+          if (!('serviceWorker' in navigator) || !('PushManager' in window)) { pushOk = false; return; }
+          const reg = await navigator.serviceWorker.ready;
+          pushOk = Boolean(await reg.pushManager.getSubscription());
+        } catch (e) { pushOk = false; }
+      }
+
+      // ── 놓친 알람: 앱에서 못 울린 알람이 있으면 그때만 알려 주고 해결책을 권함 ──
+      function checkMissed() {
+        try {
+          const now = getSynchronizedNow();
+          const todayKey = formatDateKey(now);
+          const rang = JSON.parse(LS.get('rang_log') || '{}');
+          const seenKey = `missed_seen_${todayKey}`;
+          const missed = alarms.filter((a) => {
+            if (a.name === TEST_NAME) return false;
+            if (a.isRepeating && !a.enabled) return false;
+            let occ = 0;
+            if (!a.isRepeating && a.singleShotAt) occ = Number(a.singleShotAt);
+            else if (a.isRepeating && Array.isArray(a.days) && a.days.includes(now.getDay())) {
+              const [h, m] = String(a.time).split(':').map(Number);
+              const d = new Date(now); d.setHours(h, m, 0, 0); occ = d.getTime();
+            }
+            if (!occ) return false;
+            const late = now.getTime() - occ;
+            if (late < 60 * 60 * 1000 || late > 12 * 60 * 60 * 1000) return false;   // 1시간 안은 앱이 바로 울림
+            if (Number(a.id) > occ) return false;                                     // 그 뒤에 만든 알람
+            if (rang[`${todayKey}_${a.id}`]) return false;
+            if (Number(a.userDismissedAt) >= occ - 30000) return false;               // 알림에서 끈 경우
+            return true;
+          });
+          if (!missed.length || LS.get(seenKey) === 'true') { banner.classList.add('hidden'); return; }
+          const times = missed.map((a) => a.time).join(', ');
+          const fix = IS_IOS
+            ? (LS.get('ios_clock_sync') === 'true' ? '기본 시계 알람은 울렸을 거예요.' : '<b>기본 시계 연동</b>을 켜 두면 다음부터는 기본 시계가 대신 깨워요.')
+            : (LS.get('routine_done') === 'true' ? '루틴의 <b>‘스마트 시계 열기’</b>와 배터리 설정(크롬 <b>제한 없음</b>)을 확인해 주세요.' : '<b>삼성 루틴</b>을 설정하면 다음부터 앱이 저절로 열려 울려요.');
+          banner.className = 'clean-card p-3 text-left text-[12px] leading-relaxed bg-rose-50 border border-rose-200';
+          banner.innerHTML = `<div class="flex items-start gap-2"><span>⏰</span><div class="flex-1">
+            <p class="font-extrabold text-rose-700">오늘 ${times} 알람이 앱에서 울리지 못했어요</p>
+            <p class="text-gray-700">알림만 왔을 수 있어요. ${fix}</p>
+            <div class="flex gap-2 mt-2">${btn('esMissedFix', '지금 설정', 'bg-rose-600 text-white')}${btn('esMissedClose', '닫기', 'bg-white text-gray-700 border border-gray-200')}</div>
+          </div></div>`;
+          on('esMissedFix', () => { LS.set(seenKey, 'true'); banner.classList.add('hidden'); (document.getElementById(IS_IOS ? 'esIosClock' : 'esRoutine') || {}).click && document.getElementById(IS_IOS ? 'esIosClock' : 'esRoutine').click(); });
+          on('esMissedClose', () => { LS.set(seenKey, 'true'); banner.classList.add('hidden'); });
+        } catch (e) {}
+      }
+
+      window.addEventListener('online', async () => { await checkServer(); render(); });
+      window.addEventListener('offline', () => { serverOk = false; render(); });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { render(); checkMissed(); } });
+      setInterval(() => { if (testState().running || testState().done) render(); }, 20000);
+
+      render();
+      checkMissed();
+      Promise.all([checkServer(), checkPush()]).then(render);
+    })();
+
   </script>
 </body>
 </html>
